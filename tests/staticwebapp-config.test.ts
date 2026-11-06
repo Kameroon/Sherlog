@@ -160,3 +160,45 @@ describe('static public pages', () => {
     expect(page).not.toMatch(inlineCode);
   });
 });
+
+// Only /login/* is reachable before signing in: a stylesheet served from anywhere else (the application bundle,
+// for instance) would be answered with a redirect to the login page and leave the page unstyled.
+describe('stylesheets of the pages shown before sign-in', () => {
+  const pages = {
+    login: readFileSync(resolve(publicDirectory, 'login/index.html'), 'utf8'),
+    forbidden: readFileSync(resolve(publicDirectory, 'forbidden/index.html'), 'utf8'),
+  };
+
+  function stylesheetsOf(page: string): string[] {
+    return [...page.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map((match) => match[1] ?? '');
+  }
+
+  it.each(Object.entries(pages))('should load only existing stylesheets under /login/ on the %s page', (_name, page) => {
+    // Arrange
+    const stylesheets = stylesheetsOf(page);
+
+    // Act & Assert
+    expect(stylesheets.length).toBeGreaterThan(0);
+    for (const stylesheet of stylesheets) {
+      expect(stylesheet.startsWith('/login/')).toBe(true);
+      expect(() => statSync(resolve(publicDirectory, stylesheet.slice(1)))).not.toThrow();
+    }
+  });
+
+  it('should let the application load the shared design tokens from the public path', () => {
+    // Arrange
+    const applicationPage = readFileSync(resolve(import.meta.dirname, '../index.html'), 'utf8');
+
+    // Act & Assert
+    expect(stylesheetsOf(applicationPage)).toContain('/login/base.css');
+  });
+
+  it.each([
+    ['login', pages.login],
+    ['forbidden', pages.forbidden],
+    ['application', readFileSync(resolve(import.meta.dirname, '../index.html'), 'utf8')],
+  ])('should declare light and dark colour schemes on the %s page', (_name, page) => {
+    // Arrange & Act & Assert
+    expect(page).toContain('<meta name="color-scheme" content="light dark" />');
+  });
+});
