@@ -10,6 +10,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-006** Contrôle d'accès par l'authentification intégrée de Static Web Apps (GitHub/Microsoft) et rôle `invited`, avec la menace visée (testeurs acharnés) et le repli public si les invitations ne sont pas viables sur Free.
 - **ADR-007** Hébergement Azure Static Web Apps : dérogation assumée à la règle globale Hetzner ; staging = prévisualisation par pull request, puis production.
 - **ADR-008** Journalisation côté client : `console` en développement uniquement, aucune télémétrie (remplace les exigences de logs des skills).
+- **ADR-009** Thème clair et sombre selon le système ; jetons et styles de base partagés (`public/login/base.css`) entre les pages publiques et l'application.
 
 ## Structure (un seul projet)
 ```
@@ -61,7 +62,7 @@ Fichier réel : `public/staticwebapp.config.json` (copié dans `dist/` par Vite)
   "globalHeaders": { "Content-Security-Policy": "…", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }
 }
 ```
-- **Ordre des règles** : la première qui correspond gagne ; `/*` est donc toujours en dernier. Les pages publiques vivent dans `/login/` et `/forbidden/` avec leur propre CSS (le reste du site n'est servi qu'aux invités).
+- **Ordre des règles** : la première qui correspond gagne ; `/*` est donc toujours en dernier. Les pages publiques vivent dans `/login/` et `/forbidden/` avec leur propre CSS (le reste du site n'est servi qu'aux invités) ; les jetons de conception sont dans `/login/base.css`, que l'application charge aussi (ADR-009).
 - **Pas de `navigationFallback`** : la documentation précise que les règles de route ne s'appliquent pas aux requêtes qui le déclenchent ; un chemin inexistant servirait `index.html` à un anonyme.
   Si un routage côté client devient nécessaire, utiliser le fragment d'URL (`#/parametres`), qui ne génère aucune requête serveur.
 - **Ne jamais bloquer** `/.auth/login/*` par une règle : les invitations cesseraient de fonctionner.
