@@ -68,7 +68,7 @@ Fichier réel : `public/staticwebapp.config.json` (copié dans `dist/` par Vite)
 - **Ne jamais bloquer** `/.auth/login/*` par une règle : les invitations cesseraient de fonctionner.
 - **CSP** : à l'étape 0 `connect-src 'self'` seulement. Domaines cibles, ajoutés par l'étape qui en a besoin : `https://api.anthropic.com` et `http://localhost:11434` (étape 7),
   `https://login.microsoftonline.com` et `https://api.loganalytics.azure.com` (étape 10c), `https://*.blob.core.windows.net` (étape 10b). Pas de `'unsafe-inline'` ni de `'unsafe-eval'` : aucun style en ligne dans le code.
-  `base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `http://localhost:11434` depuis une page HTTPS : mesuré à l'étape 1 dans Opera avec cette CSP, à condition qu'Ollama autorise l'adresse du site (`OLLAMA_ORIGINS`) ; non vérifié dans Chrome, Edge ni Firefox (ADR-002).
+  `base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `http://localhost:11434` depuis une page HTTPS : mesuré à l'étape 1 dans Opera et dans Chrome avec cette CSP, à condition qu'Ollama autorise l'adresse du site (`OLLAMA_ORIGINS`) ; non vérifié dans Edge ni Firefox (ADR-002).
 - **Invitations** : rôle `invited` attribué depuis le portail Azure ou `az staticwebapp users invite` ; GitHub s'invite par nom d'utilisateur, Microsoft par adresse e-mail ; 25 invitations au maximum sur Free.
   Les résultats de la vérification déployée sont consignés dans l'ADR-006.
 Réglages applicatifs (valeurs par défaut dans le code) : niveaux d'erreur, profils de format, `maxInputChars`, règles de masquage.

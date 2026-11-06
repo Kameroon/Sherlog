@@ -28,6 +28,7 @@ Connexion Microsoft dans le navigateur (enregistrement d'application Microsoft E
 ### CORS — critère de go atteint
 - **Mesuré, `curl`, origine de production :** l'API `https://api.loganalytics.azure.com` répond à la pré-vérification (204) et à une requête réelle (200) avec `Access-Control-Allow-Origin: *`, en-têtes `authorization`, `content-type` et `x-api-key` autorisés. Le point de jeton `login.microsoftonline.com/common/oauth2/v2.0/token` répond à la pré-vérification d'un POST (200, `Access-Control-Allow-Origin: *`).
 - **Mesuré, navigateur** (Opera 139.0.6053.22, page de test HTTPS) : `POST` JSON avec `x-api-key: DEMO_KEY` sur `DEMO_WORKSPACE` (espace de démonstration public de Microsoft) : 200 en 1 170,5 ms, corps lisible : `tables[0]` de nom `PrimaryResult`, colonnes `Category` (string) et `count_` (long), `rows` vide pour cette requête. La forme exacte des lignes n'a donc pas été observée.
+- **Mesuré, Chrome** (navigateur indiqué par l'auteur ; version installée relevée : 156.0.8078.80), même page, même requête : 200 en 1 094,9 ms (premier essai) puis 1 955,3 ms (second essai), même corps. Le CORS de l'API Log Analytics fonctionne donc dans Opera et dans Chrome.
 - **Documenté :** la page Microsoft Learn sur l'accès à l'API ne mentionne pas le CORS : le comportement est mesuré, pas documenté.
 - **Non vérifié :** le CORS de l'API avec un jeton Entra (la clé de démonstration suit un autre chemin d'authentification) ; la pré-vérification du point de jeton dans un navigateur (MSAL n'a pas été exécuté).
 
