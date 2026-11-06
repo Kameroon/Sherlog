@@ -44,7 +44,8 @@ peuvent différer : tiret vs underscore).
    dépendances (`npm audit`, versions épinglées). Audit complet aux étapes 0, 7, 8, 10, 11 ; revue plus légère ailleurs.
 
 ## Stack (décidée, ne pas changer sans demander)
-- Vite + React + TypeScript strict ; Vitest ; ESLint
+- Vite + React + TypeScript strict ; Vitest ; ESLint. Versions épinglées exactement ; **TypeScript reste en 6.0.x** tant que `typescript-eslint` ne supporte pas TypeScript 7 (ADR-001)
+- **Aucun style en ligne** (`style={…}`, `<style>`) : la CSP n'autorise pas `'unsafe-inline'`. Styles en classes CSS
 - Aucune API serveur ; hébergement Azure Static Web Apps Free — **dérogation assumée** à la règle globale « Hetzner, staging + production » (ADR à écrire).
   Staging = environnements de prévisualisation par pull request (disponibilité sur Free à vérifier à l'étape 0, sinon revenir vers l'auteur), puis déploiement en production une fois validé.
   Si les invitations ne sont pas viables sur Free : repli en application publique sans connexion (risque accepté, voir ADR-006)
