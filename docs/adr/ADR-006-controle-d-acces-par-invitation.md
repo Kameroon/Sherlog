@@ -1,7 +1,7 @@
 # ADR-006 : Contrôle d'accès par l'authentification intégrée de Static Web Apps et rôle `invited`
 
 ## Statut
-Accepté sous réserve — à confirmer par la vérification sur le site déployé (étape 0). Résultats : section « Vérification » ci-dessous.
+Accepté — 2026-11-06 (étape 0 validée). Résultats et deux vérifications restantes : section « Vérification » ci-dessous.
 
 ## Contexte
 L'application ne détient ni donnée ni secret côté serveur. La menace visée est celle de développeurs ou testeurs acharnés qui solliciteraient l'outil : l'auteur veut contrôler qui peut le charger.
@@ -42,4 +42,13 @@ Avec le navigateur, sur la prévisualisation : un compte GitHub connecté mais *
 et le même lien sur l'hôte de prévisualisation renvoie 400. **Conséquence : la première invitation exige que la production soit déployée ; le chemin « invité » ne se teste pas sur le staging.**
 Les rôles sont propres à l'application : une fois invité via la production, le compte l'est aussi sur les prévisualisations (nouvelle connexion nécessaire sur chaque domaine).
 
-À compléter : accès après invitation ; accès refusé après retrait de l'invitation ; redirections `post_login_redirect_uri` / `post_logout_redirect_uri` relatives ; code de statut du 403 avec `rewrite`.
+**Production déployée (après la fusion de la pull request n°1) :**
+- Anonyme : mêmes résultats que sur la prévisualisation ; `/.auth/*` répond désormais.
+- Accès après invitation (compte GitHub invité avec le rôle `invited`, via un lien créé pour le domaine de production) : constaté par captures d'écran de l'auteur — l'application s'affiche avec l'identité « Kameroon via GitHub » et le lien « Se déconnecter ».
+- Redirections relatives : `post_login_redirect_uri=/` ramène bien sur l'application après connexion ; `post_logout_redirect_uri=/login/` ramène bien sur la page de connexion après déconnexion.
+
+**Go/no-go de l'étape 0 :** invitations viables sur le plan Free (oui) ; prévisualisations exploitables comme staging et protégées par la configuration (oui). Le repli en application publique n'est pas nécessaire.
+
+**Non vérifié (à ne pas supposer) :**
+- L'accès refusé **après retrait de l'invitation** n'a pas été testé : le test aurait retiré à l'auteur l'accès à sa propre application (un seul compte). À faire avant d'ouvrir l'application à d'autres personnes.
+- Le **code de statut** du 403 servi avec `rewrite` n'a pas été mesuré (la page s'affiche correctement ; l'émulateur local ne reproduit pas le comportement du cloud).

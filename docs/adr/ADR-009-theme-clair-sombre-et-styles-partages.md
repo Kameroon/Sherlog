@@ -1,7 +1,7 @@
 # ADR-009 : Thème clair et sombre selon le système, styles partagés avec les pages publiques
 
 ## Statut
-Accepté — 2026-11-06. Le chargement des jetons par l'application depuis `/login/base.css` est à confirmer sur la prévisualisation (voir Vérification).
+Accepté — 2026-11-06.
 
 ## Contexte
 La première interface (étape 0) a été jugée dépouillée, voire hostile. Trois maquettes ont été comparées ; la direction « Minuit » (sombre, orientée développeur, extrait de journal animé) a été retenue, avec un thème clair et sombre suivant le système.
@@ -30,4 +30,5 @@ La CSP interdit les styles en ligne : tout passe par des fichiers CSS.
 ## Vérification
 - Rendu contrôlé en local (build servi par un serveur temporaire) dans les deux thèmes : connexion, accès refusé, application avec identité.
 - Contrastes mesurés : texte 16,7:1 (clair) et 16,0:1 (sombre) ; texte secondaire 7,1:1 et 7,7:1 ; accent 5,5:1 et 8,0:1 ; bordures de contrôles 4,4:1 et 3,5:1.
-- À constater sur la prévisualisation de la pull request : une personne invitée et connectée charge bien `/login/base.css` (la règle `/login/*` est réservée au rôle `anonymous`, que tout visiteur possède).
+- Prévisualisation de la pull request n°2, en anonyme : `/login/base.css` et `/login/login.css` répondent 200, le reste du site redirige vers `/login/`.
+- Le chargement de `/login/base.css` par une personne invitée et connectée (la règle `/login/*` est réservée au rôle `anonymous`, que tout visiteur possède) a été soumis à l'auteur sur la prévisualisation ; l'auteur a validé l'étape 0 ensuite, sans constat détaillé consigné.
