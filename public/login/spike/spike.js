@@ -128,6 +128,7 @@ async function callOllamaChat(model) {
     body: JSON.stringify({
       model,
       stream: true,
+      options: { num_predict: 16 },
       messages: [{ role: 'user', content: 'Compte de 1 à 20, un nombre par ligne, sans rien ajouter.' }],
     }),
     signal: AbortSignal.timeout(OLLAMA_CHAT_TIMEOUT_MS),

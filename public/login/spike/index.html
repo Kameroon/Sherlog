@@ -38,7 +38,8 @@
         <pre id="ollama-report" aria-live="polite"></pre>
         <form id="ollama-form">
           <label for="ollama-model">Modèle Ollama</label>
-          <input id="ollama-model" type="text" value="llama3.2:1b" autocomplete="off" spellcheck="false" required />
+          <input id="ollama-model" type="text" value="sherlog-modele-absent" autocomplete="off" spellcheck="false" required />
+          <p>Par défaut, un modèle qui n'existe pas : Ollama répond par une erreur sans rien charger en mémoire. Un vrai nom (par exemple <code>llama3.2:1b</code>) charge le modèle et peut ralentir le poste ; la réponse est limitée à 16 jetons.</p>
           <button type="submit">Lancer un POST /api/chat en streaming</button>
         </form>
         <h3>Résultat</h3>
