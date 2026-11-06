@@ -1,0 +1,81 @@
+/*
+ * Colour pairs are chosen for WCAG AA contrast on the white background (text 21:1, muted 7.5:1, accent 6.9:1).
+ * Styles live in classes only: the Content-Security-Policy forbids inline styles (no 'unsafe-inline').
+ * These custom properties are the seed of the design tokens planned for step 5.
+ */
+:root {
+  --color-background: #ffffff;
+  --color-text: #1a1a1a;
+  --color-muted: #4b5563;
+  --color-accent: #0b57d0;
+  --color-danger: #9b1c1c;
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+/* Keyboard users must always see where the focus is. */
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid #d1d5db;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.app-main {
+  padding: var(--space-3);
+}
+
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.identity-provider {
+  color: var(--color-muted);
+}
+
+.error-fallback {
+  margin: var(--space-3);
+  padding: var(--space-2);
+  border: 2px solid var(--color-danger);
+  border-radius: 0.5rem;
+}
+
+.error-fallback h1 {
+  margin-top: 0;
+  color: var(--color-danger);
+}

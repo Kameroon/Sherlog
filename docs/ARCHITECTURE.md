@@ -46,31 +46,37 @@ Pas d'abstraction sans deuxième implémentation réelle.
 4. **Historique local** (optionnel) : écriture IndexedDB, export/import JSON.
 
 ## Configuration
-`staticwebapp.config.json` (point de départ à valider et ajuster à l'étape 0) :
+Fichier réel : `public/staticwebapp.config.json` (copié dans `dist/` par Vite). Il est verrouillé par `tests/staticwebapp-config.test.ts`.
 ```json
 {
-  "routes": [ { "route": "/*", "allowedRoles": ["invited"] } ],
+  "routes": [
+    { "route": "/login/*", "allowedRoles": ["anonymous"] },
+    { "route": "/forbidden/*", "allowedRoles": ["authenticated"] },
+    { "route": "/*", "allowedRoles": ["invited"] }
+  ],
   "responseOverrides": {
-    "401": { "redirect": "/.auth/login/github?post_login_redirect_uri=.referrer", "statusCode": 302 },
-    "403": { "rewrite": "/forbidden.html", "statusCode": 403 }
+    "401": { "redirect": "/login/", "statusCode": 302 },
+    "403": { "rewrite": "/forbidden/index.html", "statusCode": 403 }
   },
-  "navigationFallback": { "rewrite": "/index.html", "exclude": ["/assets/*"] },
-  "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self'; connect-src 'self' https://api.anthropic.com http://localhost:11434 https://login.microsoftonline.com https://api.loganalytics.azure.com https://*.blob.core.windows.net; worker-src 'self'; img-src 'self' data:; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
-  }
+  "globalHeaders": { "Content-Security-Policy": "…", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }
 }
 ```
-`base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `'unsafe-inline'` (styles) et `blob:` (worker) sont retirés par défaut : ne les rétablir
-que si le build l'exige, avec justification. `http://localhost:11434` depuis une page HTTPS dépend du navigateur (spike de l'étape 1). `/forbidden.html` doit rester accessible à une personne connectée non invitée.
-Le rôle `invited` est attribué par invitation depuis le portail Azure. À valider à l'étape 0 : la compatibilité d'une règle `/*` avec les routes de connexion `/.auth/*`,
-le fournisseur de redirection par défaut (GitHub ou Microsoft), le fonctionnement des invitations sur le plan Free, et la lecture de l'identité via `/.auth/me`.
+- **Ordre des règles** : la première qui correspond gagne ; `/*` est donc toujours en dernier. Les pages publiques vivent dans `/login/` et `/forbidden/` avec leur propre CSS (le reste du site n'est servi qu'aux invités).
+- **Pas de `navigationFallback`** : la documentation précise que les règles de route ne s'appliquent pas aux requêtes qui le déclenchent ; un chemin inexistant servirait `index.html` à un anonyme.
+  Si un routage côté client devient nécessaire, utiliser le fragment d'URL (`#/parametres`), qui ne génère aucune requête serveur.
+- **Ne jamais bloquer** `/.auth/login/*` par une règle : les invitations cesseraient de fonctionner.
+- **CSP** : à l'étape 0 `connect-src 'self'` seulement. Domaines cibles, ajoutés par l'étape qui en a besoin : `https://api.anthropic.com` et `http://localhost:11434` (étape 7),
+  `https://login.microsoftonline.com` et `https://api.loganalytics.azure.com` (étape 10c), `https://*.blob.core.windows.net` (étape 10b). Pas de `'unsafe-inline'` ni de `'unsafe-eval'` : aucun style en ligne dans le code.
+  `base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `http://localhost:11434` depuis une page HTTPS dépend du navigateur (spike de l'étape 1).
+- **Invitations** : rôle `invited` attribué depuis le portail Azure ou `az staticwebapp users invite` ; GitHub s'invite par nom d'utilisateur, Microsoft par adresse e-mail ; 25 invitations au maximum sur Free.
+  Les résultats de la vérification déployée sont consignés dans l'ADR-006.
 Réglages applicatifs (valeurs par défaut dans le code) : niveaux d'erreur, profils de format, `maxInputChars`, règles de masquage.
 Vérifier dans la documentation officielle : l'API du SDK Anthropic en mode navigateur, la bibliothèque d'authentification Microsoft pour application monopage, la syntaxe exacte des en-têtes de Static Web Apps.
 
 ## Déploiement
-Dépôt GitHub relié à Static Web Apps (plan Free) ; le workflow de CI exécute `tsc --noEmit`, `eslint --max-warnings 0`, tests, build et `npm audit` avant déploiement.
-Le jeton de déploiement est un secret GitHub, jamais dans le dépôt. Chaque pull request est déployée dans son environnement de prévisualisation (staging, disponibilité sur Free à vérifier à l'étape 0),
-validée, puis fusionnée pour déployer en production.
+Application Azure Static Web Apps (plan Free) **non liée** au dépôt ; le workflow `.github/workflows/azure-static-web-apps.yml` exécute `tsc --noEmit`, `eslint --max-warnings 0`, tests, build et `npm audit`,
+puis envoie seulement `dist/` (`skip_app_build`). Le jeton de déploiement est le secret GitHub `AZURE_STATIC_WEB_APPS_API_TOKEN`, jamais dans le dépôt.
+Flux : travail sur `dev` → pull request vers `main` (environnement de prévisualisation = staging, 3 maximum sur Free, supprimé à la fermeture) → fusion = production. Voir ADR-007.
 
 ## Budget de dépendances (objectif < 300 Ko gzip, à mesurer)
 Appel Anthropic par `fetch` + lecture SSE manuelle (pas de SDK), validation de la réponse par type guard écrit à la main, texte pré-formaté pour l'analyse et le chat en v1 (pas de bibliothèque Markdown tant que le besoin n'est pas prouvé).
