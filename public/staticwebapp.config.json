@@ -1,6 +1,8 @@
 {
   "routes": [
+    { "route": "/login/index.html", "allowedRoles": ["anonymous"] },
     { "route": "/login/*", "allowedRoles": ["anonymous"] },
+    { "route": "/forbidden/index.html", "allowedRoles": ["authenticated"] },
     { "route": "/forbidden/*", "allowedRoles": ["authenticated"] },
     { "route": "/*", "allowedRoles": ["invited"] }
   ],

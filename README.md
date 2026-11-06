@@ -25,7 +25,7 @@ Hors Azure Static Web Apps, l'interface affiche « Identité indisponible » : c
 | `npm run build` | Construit `dist/` |
 | `npm run audit` | `npm audit` au niveau high |
 
-Essayer le contrôle d'accès en local (émulateur, qui peut différer du cloud) : `npm run build` puis `npx swa start ./dist`.
+Essayer le contrôle d'accès en local (émulateur, qui peut différer du cloud) : `npm run build` puis `npx @azure/static-web-apps-cli@2.0.8 start ./dist` (version épinglée, le paquet n'est pas une dépendance du projet).
 
 Conventions : code, TSDoc et commentaires en anglais, documentation en français ; tests nommés `it('should … when …')` ; aucun style en ligne (la CSP les bloque).
 Les règles complètes sont dans `CLAUDE.md`, la spécification dans `docs/SPEC.md`, l'architecture dans `docs/ARCHITECTURE.md`, la feuille de route dans `docs/ROADMAP.md`, les décisions dans `docs/adr/`.

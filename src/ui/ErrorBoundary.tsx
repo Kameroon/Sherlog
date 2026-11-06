@@ -31,7 +31,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
     return (
       <div role="alert" className="error-fallback">
-        <h2>Une erreur est survenue</h2>
+        {/* h1: the boundary wraps the whole page, so in this state the fallback is the page title. */}
+        <h1>Une erreur est survenue</h1>
         <p>L’affichage a rencontré un problème. Aucune donnée n’a quitté votre navigateur.</p>
         <button type="button" onClick={this.retry}>
           Réessayer

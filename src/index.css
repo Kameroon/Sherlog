@@ -75,7 +75,7 @@ button:focus-visible {
   border-radius: 0.5rem;
 }
 
-.error-fallback h2 {
+.error-fallback h1 {
   margin-top: 0;
   color: var(--color-danger);
 }

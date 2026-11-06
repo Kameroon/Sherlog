@@ -51,6 +51,20 @@ describe('staticwebapp.config.json access rules', () => {
     expect(indexOfRoute('/forbidden/*')).toBeLessThan(catchAll);
   });
 
+  // The folder URL (/login/) is only guaranteed to match a rule written on its index.html file, not a wildcard.
+  // A miss would send every visitor into an endless 401 redirect to the login page.
+  it.each([
+    ['/login/index.html', 'anonymous'],
+    ['/forbidden/index.html', 'authenticated'],
+  ])('should declare an exact rule for %s so that its folder URL matches', (route, role) => {
+    // Arrange
+    const rule = config.routes.find((candidate) => candidate.route === route);
+
+    // Act & Assert
+    expect(rule?.allowedRoles).toEqual([role]);
+    expect(indexOfRoute(route)).toBeLessThan(indexOfRoute('/*'));
+  });
+
   it('should open the login page to anonymous visitors only', () => {
     // Arrange
     const loginRule = config.routes.find((rule) => rule.route === '/login/*');
