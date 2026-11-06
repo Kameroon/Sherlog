@@ -1,0 +1,42 @@
+.spike {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  position: relative;
+}
+
+.spike section {
+  margin-block: var(--space-4);
+}
+
+.spike label {
+  display: block;
+  margin-block: var(--space-2) var(--space-1);
+}
+
+.spike label.inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.spike input[type='password'] {
+  width: 100%;
+  padding: var(--space-1);
+  font-family: var(--font-mono);
+}
+
+.spike button {
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+}
+
+.spike pre {
+  min-height: 3rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+}

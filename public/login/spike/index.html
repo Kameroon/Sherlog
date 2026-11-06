@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <title>Spike étape 1 — Sherlog</title>
+    <link rel="stylesheet" href="/login/base.css" />
+    <link rel="stylesheet" href="/login/spike/spike.css" />
+  </head>
+  <body>
+    <main class="spike">
+      <h1>Spike étape 1 (jetable)</h1>
+      <p>Page de mesure, supprimée à la fin de l'étape. Rien n'est stocké ni écrit dans la console.</p>
+
+      <section>
+        <h2>Anthropic — appel en streaming depuis le navigateur</h2>
+        <form id="anthropic-form">
+          <label for="api-key">Clé API (dédiée au test)</label>
+          <input id="api-key" type="password" autocomplete="off" spellcheck="false" required />
+          <label class="inline" for="browser-header">
+            <input id="browser-header" type="checkbox" checked />
+            Envoyer l'en-tête d'accès navigateur
+          </label>
+          <button type="submit">Lancer l'appel</button>
+        </form>
+        <p>Modèle : <code>claude-haiku-5-5</code>, 128 jetons maximum, version d'API <code>2026-10-21</code>.</p>
+        <h3>Résultat</h3>
+        <pre id="anthropic-report" aria-live="polite"></pre>
+        <h3>Texte reçu</h3>
+        <pre id="anthropic-answer"></pre>
+      </section>
+
+      <section>
+        <h2>Ollama — comportement du navigateur vers localhost</h2>
+        <button id="ollama-probe" type="button">Sonder http://localhost:11434/api/tags</button>
+        <pre id="ollama-report" aria-live="polite"></pre>
+      </section>
+    </main>
+    <script type="module" src="/login/spike/spike.js"></script>
+  </body>
+</html>
