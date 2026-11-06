@@ -5,6 +5,10 @@ const ANTHROPIC_VERSION = '2026-10-21';
 const MODEL = 'claude-haiku-5-5';
 const OLLAMA_URL = 'http://localhost:11434/api/tags';
 const OLLAMA_CHAT_URL = 'http://localhost:11434/api/chat';
+// Public demonstration workspace and key published in the Microsoft Learn documentation, not a secret.
+const LOG_ANALYTICS_URL = 'https://api.loganalytics.azure.com/v1/workspaces/DEMO_WORKSPACE/query';
+const LOG_ANALYTICS_DEMO_KEY = 'DEMO_KEY';
+const LOG_ANALYTICS_TIMEOUT_MS = 20000;
 const OLLAMA_TIMEOUT_MS = 20000;
 const OLLAMA_CHAT_TIMEOUT_MS = 120000;
 
@@ -183,6 +187,25 @@ ollamaForm.addEventListener('submit', async (event) => {
     await callOllamaChat(ollamaModelInput.value.trim());
   } catch (error) {
     addLine(ollamaChatReport, `Échec de l'appel : ${error.name}: ${error.message}`);
+  }
+});
+
+document.getElementById('loganalytics-probe').addEventListener('click', async () => {
+  const target = document.getElementById('loganalytics-report');
+  target.textContent = '';
+  const start = performance.now();
+  try {
+    // JSON body plus a custom header: the browser sends a CORS preflight, as it will for a bearer token.
+    const response = await fetch(LOG_ANALYTICS_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': LOG_ANALYTICS_DEMO_KEY },
+      body: JSON.stringify({ query: 'AzureActivity | summarize count() by Category | take 3' }),
+      signal: AbortSignal.timeout(LOG_ANALYTICS_TIMEOUT_MS),
+    });
+    addLine(target, `Statut HTTP : ${response.status} (${since(start)} ms)`);
+    addLine(target, `Corps : ${await response.text()}`);
+  } catch (error) {
+    addLine(target, `Échec après ${since(start)} ms : ${error.name}: ${error.message}`);
   }
 });
 

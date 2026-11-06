@@ -30,6 +30,10 @@
 .spike button {
   margin-top: var(--space-2);
   padding: var(--space-1) var(--space-2);
+  border: 0;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 600;
   cursor: pointer;
 }
 
