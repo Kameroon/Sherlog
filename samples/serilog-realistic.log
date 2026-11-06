@@ -1,0 +1,52 @@
+2026-11-04 08:00:00.011 +01:00 [INF] Starting web host
+2026-11-04 08:00:01.244 +01:00 [INF] Now listening on: https://localhost:7141
+2026-11-04 08:05:12.870 +01:00 [WRN] The WebRootPath was not found: /app/wwwroot. Static files may be unavailable.
+2026-11-04 08:12:44.109 +01:00 [ERR] An unhandled exception has occurred while executing the request.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at Shop.Api.Controllers.OrdersController.GetById(Guid id) in /src/Shop.Api/Controllers/OrdersController.cs:line 58
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext)
+   at Microsoft.AspNetCore.Routing.EndpointMiddleware.Invoke(HttpContext httpContext)
+2026-11-04 08:13:02.331 +01:00 [INF] HTTP GET /api/orders/3b241101-e2bb-4255-8caf-4136c566a962 responded 500 in 212.4 ms
+2026-11-04 08:25:47.502 +01:00 [ERR] Failed to process payment for order 8841
+System.Net.Http.HttpRequestException: Response status code does not indicate success: 503 (Service Unavailable).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at Shop.Payments.GatewayClient.ChargeAsync(Order order) in /src/Shop.Payments/GatewayClient.cs:line 64
+   at Shop.Orders.CheckoutService.PayAsync(Int32 orderId) in /src/Shop.Orders/CheckoutService.cs:line 131
+2026-11-04 08:31:09.774 +01:00 [ERR] Failed to process payment for order 9120
+System.Net.Http.HttpRequestException: Response status code does not indicate success: 503 (Service Unavailable).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at Shop.Payments.GatewayClient.ChargeAsync(Order order) in /src/Shop.Payments/GatewayClient.cs:line 64
+   at Shop.Orders.CheckoutService.PayAsync(Int32 orderId) in /src/Shop.Orders/CheckoutService.cs:line 131
+2026-11-04 08:44:21.018 +01:00 [WRN] Retry 2/3 for message 5f0c9a1e-7c1a-4f25-a1d1-0a4c9c0c7b11
+2026-11-04 08:52:33.640 +01:00 [ERR] Database update failed for order 7710
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Violation of UNIQUE KEY constraint 'UQ_Orders_Reference'. Cannot insert duplicate key in object 'dbo.Orders'. The duplicate key value is (ORD-2026-7710).
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(DbContext context, CancellationToken cancellationToken)
+   at Shop.Orders.OrderRepository.SaveAsync(Order order) in /src/Shop.Orders/OrderRepository.cs:line 77
+2026-11-04 09:02:01.220 +01:00 [ERR] Background job SyncCatalog failed after 3 attempts
+System.AggregateException: One or more errors occurred. (Timeout expired.) (A task was canceled.)
+ ---> System.TimeoutException: Timeout expired.
+   at Shop.Catalog.SyncJob.RunAsync(CancellationToken ct) in /src/Shop.Catalog/SyncJob.cs:line 40
+ ---> (Inner Exception #1) System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+2026-11-04 09:15:30.007 +01:00 [ERR] SQL command failed:
+SELECT o.Id, o.Reference
+FROM Orders o
+WHERE o.CustomerId = 4411
+System.InvalidOperationException: Invalid operation. The connection is closed.
+   at Shop.Data.ReportQuery.ExecuteAsync(CancellationToken ct) in /src/Shop.Data/ReportQuery.cs:line 112
+2026-11-04 09:40:12.903 +01:00 [ERR] An unhandled exception has occurred while executing the request.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at Shop.Api.Controllers.OrdersController.GetById(Guid id) in /src/Shop.Api/Controllers/OrdersController.cs:line 58
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext)
+   at Microsoft.AspNetCore.Routing.EndpointMiddleware.Invoke(HttpContext httpContext)
+2026-11-04 09:41:00.450 +01:00 [DBG] Cache miss for key product:5521
+2026-11-04 09:55:18.311 +01:00 [WRN] Upstream call sent header Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJl
+2026-11-04 10:05:00.100 +01:00 [FTL] Host terminated unexpectedly
+System.InvalidOperationException: Unable to resolve service for type 'Shop.Payments.IGatewayClient' while attempting to activate 'Shop.Orders.CheckoutService'.
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.ThrowHelperUnableToResolveService(Type type, Type requiredBy)
+   at Shop.Api.Program.Main(String[] args) in /src/Shop.Api/Program.cs:line 24
+2026-11-04 10:12:33.894 +01:00 [ERR] Failed to send email to john.doe@example.com: SMTP server returned 550
+2026-11-04 10:12:34.100 +01:00 [INF] Email queued for retry

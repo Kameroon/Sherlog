@@ -1,0 +1,26 @@
+2026-11-04 08:12:01.123 +01:00 [INF] Application started. Environment=Production
+2026-11-04 08:12:02.457 +01:00 [INF] Now listening on: http://localhost:5000
+2026-11-04 08:15:44.901 +01:00 [WRN] Slow query detected (1840 ms): SELECT * FROM Orders WHERE CustomerId = 4411
+2026-11-04 08:16:10.332 +01:00 [ERR] Timeout after 30012 ms while calling PaymentGateway for order 8841
+System.TimeoutException: The operation has timed out.
+   at Shop.Payments.GatewayClient.ChargeAsync(Order order) in /src/Shop/Payments/GatewayClient.cs:line 87
+   at Shop.Orders.OrderService.CheckoutAsync(Int32 orderId) in /src/Shop/Orders/OrderService.cs:line 142
+2026-11-04 08:16:11.004 +01:00 [INF] Retrying checkout for order 8841
+2026-11-04 08:21:03.778 +01:00 [ERR] Timeout after 29977 ms while calling PaymentGateway for order 9120
+System.TimeoutException: The operation has timed out.
+   at Shop.Payments.GatewayClient.ChargeAsync(Order order) in /src/Shop/Payments/GatewayClient.cs:line 87
+   at Shop.Orders.OrderService.CheckoutAsync(Int32 orderId) in /src/Shop/Orders/OrderService.cs:line 142
+2026-11-04 08:30:27.210 +01:00 [DBG] Cache miss for key product:5521
+2026-11-04 08:30:27.215 +01:00 [VRB] Resolved 3 handlers for request GetProduct
+2026-11-04 09:02:15.640 +01:00 [ERR] Unhandled exception while processing request GET /api/customers/7f3c9a52-1b6e-4a0d-9b8e-2d5c1a6e44f1
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at Shop.Customers.CustomerController.Get(Guid id) in /src/Shop/Customers/CustomerController.cs:line 33
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.Execute()
+2026-11-04 09:45:50.018 +01:00 [WRN] Disk usage at 87%
+2026-11-04 10:03:09.552 +01:00 [FTL] Unable to connect to database. ConnectionString=Server=db01;User Id=app;Password=S3cr3t!
+Microsoft.Data.SqlClient.SqlException: A network-related or instance-specific error occurred while establishing a connection to SQL Server.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection)
+   at Shop.Data.ShopDbContext.OnConfiguring(DbContextOptionsBuilder options) in /src/Shop/Data/ShopDbContext.cs:line 21
+2026-11-04 10:03:10.001 +01:00 [INF] Health check failed, switching to degraded mode
+2026-11-04 10:12:33.894 +01:00 [ERR] Failed to send email to john.doe@example.com: SMTP server returned 550
+2026-11-04 10:12:34.100 +01:00 [INF] Email queued for retry

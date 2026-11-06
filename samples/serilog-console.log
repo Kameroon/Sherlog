@@ -1,0 +1,11 @@
+[08:12:01 INF] Application started. Environment=Production
+[08:16:10 ERR] Timeout after 30012 ms while calling PaymentGateway for order 8841
+System.TimeoutException: The operation has timed out.
+   at Shop.Payments.GatewayClient.ChargeAsync(Order order) in /src/Shop/Payments/GatewayClient.cs:line 87
+[08:21:03 WRN] Slow query detected (1840 ms)
+[08:21:44 ERR] Timeout after 29977 ms while calling PaymentGateway for order 9120
+System.TimeoutException: The operation has timed out.
+   at Shop.Payments.GatewayClient.ChargeAsync(Order order) in /src/Shop/Payments/GatewayClient.cs:line 87
+[10:03:09 FTL] Unable to connect to database
+Microsoft.Data.SqlClient.SqlException: A network-related or instance-specific error occurred while establishing a connection to SQL Server.
+   at Shop.Data.ShopDbContext.OnConfiguring(DbContextOptionsBuilder options) in /src/Shop/Data/ShopDbContext.cs:line 21
