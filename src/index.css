@@ -1,81 +1,133 @@
 /*
- * Colour pairs are chosen for WCAG AA contrast on the white background (text 21:1, muted 7.5:1, accent 6.9:1).
+ * Application styles, on top of the shared tokens and base styles of /login/base.css (loaded from index.html).
  * Styles live in classes only: the Content-Security-Policy forbids inline styles (no 'unsafe-inline').
- * These custom properties are the seed of the design tokens planned for step 5.
  */
-:root {
-  --color-background: #ffffff;
-  --color-text: #1a1a1a;
-  --color-muted: #4b5563;
-  --color-accent: #0b57d0;
-  --color-danger: #9b1c1c;
-  --space-1: 0.5rem;
-  --space-2: 1rem;
-  --space-3: 1.5rem;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--color-background);
-  color: var(--color-text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-}
-
-a {
-  color: var(--color-accent);
-}
-
-/* Keyboard users must always see where the focus is. */
-a:focus-visible,
-button:focus-visible {
-  outline: 3px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.app-header {
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid #d1d5db;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-.app-main {
-  padding: var(--space-3);
+  padding: 0.85rem 2rem;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-topbar);
+  backdrop-filter: blur(12px);
 }
 
 .identity {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 800;
+}
+
+.identity-text {
+  display: grid;
   margin: 0;
+  line-height: 1.2;
 }
 
 .identity-provider {
   color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.identity-message {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.signout {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.18s, border-color 0.18s;
+}
+
+.signout:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+}
+
+.content {
+  width: min(100% - 4rem, 62rem);
+  margin: 0 auto;
+  padding: 3.5rem 0 6rem;
+  animation: rise 0.6s ease-out both;
+}
+
+.hero h1 {
+  margin: 0 0 var(--space-1);
+  font-size: clamp(2.125rem, 3.4vw, 2.875rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.accent {
+  color: var(--color-accent);
+}
+
+.hero p {
+  max-width: 40rem;
+  margin: 0 0 var(--space-4);
+  color: var(--color-muted);
+  font-size: 1.1875rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 2.5rem 2rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-ok);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The blinking cursor says "waiting for input"; without animation it simply stays visible. */
+.cursor {
+  display: inline-block;
+  width: 0.55rem;
+  height: 1rem;
+  margin-left: 0.4rem;
+  vertical-align: text-bottom;
+  background: var(--color-ok);
+  animation: blink 1.1s steps(1) infinite;
 }
 
 .error-fallback {
   margin: var(--space-3);
   padding: var(--space-2);
-  border: 2px solid var(--color-danger);
-  border-radius: 0.5rem;
+  border: 2px solid var(--color-error);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
 }
 
 .error-fallback h1 {
   margin-top: 0;
-  color: var(--color-danger);
+  color: var(--color-error);
 }

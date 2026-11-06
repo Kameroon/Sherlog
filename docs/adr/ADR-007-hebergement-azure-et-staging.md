@@ -1,7 +1,7 @@
 # ADR-007 : Hébergement Azure Static Web Apps en dérogation, staging par prévisualisation
 
 ## Statut
-Accepté sous réserve — à confirmer par la vérification des prévisualisations (étape 0).
+Accepté — 2026-11-06 (étape 0 validée) : prévisualisations et production vérifiées.
 
 ## Contexte
 La règle globale de l'auteur héberge tous les projets sur un serveur Hetzner, avec deux environnements (staging et production) et une même image promue sans reconstruction.
@@ -30,4 +30,6 @@ Faite le 2026-11-06 avec la pull request n°1 :
 - Le workflow complet (typecheck, lint, tests, build, audit, déploiement) s'exécute en environ une minute.
 - Limite constatée : une invitation ne peut être créée que pour le domaine de production, qui renvoie 404 sur `/.auth/*` tant qu'aucun déploiement n'y a eu lieu. **La première fusion dans `main` est donc un prérequis pour inviter quelqu'un** ;
   le staging valide le refus et la protection, pas l'accès d'un invité (voir ADR-006).
-- Reste à constater : le déploiement en production après la fusion.
+- Production : déployée par le workflow après la fusion de la pull request n°1 (environnement par défaut « Ready » sur `main`), puis protégée comme la prévisualisation.
+- Le flux a servi deux fois : prévisualisations des pull requests n°1 et n°2, chacune avec son URL commentée par le bot.
+- Poids mesuré au build : environ 70 Ko gzip (JavaScript 70,07 Ko, CSS 0,78 Ko), base du budget de 300 Ko.

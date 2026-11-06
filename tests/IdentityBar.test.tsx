@@ -28,6 +28,22 @@ describe('IdentityBar', () => {
     expect(screen.getByText(/GitHub/)).toBeInTheDocument();
   });
 
+  it('should show the capitalised first letter of the user name as avatar', () => {
+    // Arrange & Act
+    render(<IdentityBar state={authenticatedState('github', 'octocat')} />);
+
+    // Assert
+    expect(screen.getByText('O')).toBeInTheDocument();
+  });
+
+  it('should still offer the sign-out link when the user name is empty', () => {
+    // Arrange & Act
+    render(<IdentityBar state={authenticatedState('github', '')} />);
+
+    // Assert
+    expect(screen.getByRole('link', { name: 'Se déconnecter' })).toBeInTheDocument();
+  });
+
   it('should label the Microsoft provider when the identity provider is aad', () => {
     // Arrange & Act
     render(<IdentityBar state={authenticatedState('aad', 'alice@exemple.com')} />);

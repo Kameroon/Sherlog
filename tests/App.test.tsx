@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App';
 
@@ -18,7 +18,7 @@ describe('App', () => {
     expect(await screen.findByText('octocat')).toBeInTheDocument();
   });
 
-  it('should expose the application title and an empty main area', async () => {
+  it('should show the brand in the header and a welcoming title in the main area', async () => {
     // Arrange
     vi.stubGlobal(
       'fetch',
@@ -29,8 +29,23 @@ describe('App', () => {
     render(<App />);
 
     // Assert
-    expect(screen.getByRole('heading', { level: 1, name: 'Sherlog' })).toBeInTheDocument();
-    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Sherlog')).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).getByRole('heading', { level: 1, name: /enquêter/ })).toBeInTheDocument();
+    await screen.findByRole('link', { name: 'Se connecter' });
+  });
+
+  it('should say that no log source is loaded yet', async () => {
+    // Arrange
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ clientPrincipal: null }))),
+    );
+
+    // Act
+    render(<App />);
+
+    // Assert
+    expect(within(screen.getByRole('main')).getByText(/Aucune source de logs chargée/)).toBeInTheDocument();
     await screen.findByRole('link', { name: 'Se connecter' });
   });
 });

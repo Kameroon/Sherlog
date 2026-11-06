@@ -36,8 +36,8 @@ peuvent différer : tiret vs underscore).
    sont **remplacés** par cette règle. `doc-writer` documente cette stratégie dans un court ADR « journalisation côté client ».
 4. **Tests** : Vitest + Testing Library ; `it('should … when …')` (convention validée) ; les assertions
    sur la gestion d'erreur vérifient le comportement visible, pas un service de logs.
-5. **frontend-architect** : états default/loading/error/empty, WCAG AA, clavier, `ErrorBoundary` React. Définir un petit jeu de design tokens
-   (variables CSS) dès l'étape 5. Storybook : écarté (YAGNI). **Desktop-first** (grand écran d'abord, utilisable sur tablette, pas d'optimisation téléphone) ;
+5. **frontend-architect** : états default/loading/error/empty, WCAG AA, clavier, `ErrorBoundary` React. Les design tokens (variables CSS, thème clair et sombre selon le système)
+   vivent dans `public/login/base.css` (ADR-009) : les étendre, ne pas les dupliquer. Storybook : écarté (YAGNI). **Desktop-first** (grand écran d'abord, utilisable sur tablette, pas d'optimisation téléphone) ;
    interface uniquement en français.
 6. **security-audit** : le skill est orienté serveur. Pour Sherlog, auditer cette checklist : routes et rôles Static Web Apps, CSP (directives complètes),
    XSS (pas de HTML brut), stockage de la clé, injection de prompt (délimiteur aléatoire par requête, JSON validé, rendu sûr), `redact`, ReDoS (regex de profil),
