@@ -36,6 +36,15 @@
         <h2>Ollama — comportement du navigateur vers localhost</h2>
         <button id="ollama-probe" type="button">Sonder http://localhost:11434/api/tags</button>
         <pre id="ollama-report" aria-live="polite"></pre>
+        <form id="ollama-form">
+          <label for="ollama-model">Modèle Ollama</label>
+          <input id="ollama-model" type="text" value="llama3.2:1b" autocomplete="off" spellcheck="false" required />
+          <button type="submit">Lancer un POST /api/chat en streaming</button>
+        </form>
+        <h3>Résultat</h3>
+        <pre id="ollama-chat-report" aria-live="polite"></pre>
+        <h3>Texte reçu</h3>
+        <pre id="ollama-answer"></pre>
       </section>
     </main>
     <script type="module" src="/login/spike/spike.js"></script>

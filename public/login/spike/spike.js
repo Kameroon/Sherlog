@@ -4,7 +4,9 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2026-10-21';
 const MODEL = 'claude-haiku-5-5';
 const OLLAMA_URL = 'http://localhost:11434/api/tags';
+const OLLAMA_CHAT_URL = 'http://localhost:11434/api/chat';
 const OLLAMA_TIMEOUT_MS = 20000;
+const OLLAMA_CHAT_TIMEOUT_MS = 120000;
 
 const form = document.getElementById('anthropic-form');
 const keyInput = document.getElementById('api-key');
@@ -13,6 +15,10 @@ const report = document.getElementById('anthropic-report');
 const answer = document.getElementById('anthropic-answer');
 const ollamaButton = document.getElementById('ollama-probe');
 const ollamaReport = document.getElementById('ollama-report');
+const ollamaForm = document.getElementById('ollama-form');
+const ollamaModelInput = document.getElementById('ollama-model');
+const ollamaChatReport = document.getElementById('ollama-chat-report');
+const ollamaAnswer = document.getElementById('ollama-answer');
 
 /** Appends one measured line to a report element (text only, never HTML). */
 function addLine(target, text) {
@@ -109,6 +115,73 @@ form.addEventListener('submit', async (event) => {
   } catch (error) {
     addLine(report, `Échec de l'appel : ${error.name}: ${error.message}`);
     addLine(report, "Cause exacte masquée par le navigateur : voir l'onglet Réseau et la Console des outils de développement.");
+  }
+});
+
+/** Streams a chat answer from Ollama (one JSON object per line) and reports what the browser allowed. */
+async function callOllamaChat(model) {
+  const start = performance.now();
+  // A JSON POST triggers a CORS preflight, unlike the GET above: this is what the real application will send.
+  const response = await fetch(OLLAMA_CHAT_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      stream: true,
+      messages: [{ role: 'user', content: 'Compte de 1 à 20, un nombre par ligne, sans rien ajouter.' }],
+    }),
+    signal: AbortSignal.timeout(OLLAMA_CHAT_TIMEOUT_MS),
+  });
+  addLine(ollamaChatReport, `Statut HTTP : ${response.status} (${since(start)} ms)`);
+  addLine(ollamaChatReport, `content-type : ${response.headers.get('content-type')}`);
+
+  if (!response.ok) {
+    addLine(ollamaChatReport, `Corps de l'erreur : ${await response.text()}`);
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let networkChunks = 0;
+  let textLines = 0;
+  let firstChunkAt = null;
+  let firstTextAt = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    networkChunks += 1;
+    firstChunkAt ??= since(start);
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines.filter((candidate) => candidate.trim() !== '')) {
+      const data = JSON.parse(line);
+      if (data.error) {
+        addLine(ollamaChatReport, `Erreur renvoyée par Ollama : ${data.error}`);
+      } else if (data.message?.content) {
+        textLines += 1;
+        firstTextAt ??= since(start);
+        ollamaAnswer.textContent += data.message.content;
+      }
+    }
+  }
+
+  addLine(ollamaChatReport, `Premier fragment réseau : ${firstChunkAt} ms`);
+  addLine(ollamaChatReport, `Premier texte : ${firstTextAt} ms`);
+  addLine(ollamaChatReport, `Fragments réseau : ${networkChunks} ; lignes de texte : ${textLines}`);
+  addLine(ollamaChatReport, `Durée totale : ${since(start)} ms`);
+}
+
+ollamaForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  ollamaChatReport.textContent = '';
+  ollamaAnswer.textContent = '';
+  try {
+    await callOllamaChat(ollamaModelInput.value.trim());
+  } catch (error) {
+    addLine(ollamaChatReport, `Échec de l'appel : ${error.name}: ${error.message}`);
   }
 });
 
