@@ -24,4 +24,10 @@ Sherlog est une application statique sans serveur : un compte Azure Static Web A
 - Les prévisualisations ne sont supportées que par les déploiements GitHub Actions.
 
 ## Vérification (étape 0)
-À compléter après la première pull request : la prévisualisation est-elle créée avec ce mode de déploiement ? est-elle protégée par les règles de routes ?
+Faite le 2026-11-06 avec la pull request n°1 :
+- Le mode « application non liée au dépôt, jeton de déploiement en secret GitHub » **crée bien** l'environnement de prévisualisation (`https://mango-plant-0313ba703-1.westeurope.4.azurestaticapps.net`) et le bot commente l'URL sur la pull request.
+- La prévisualisation **est protégée** par les règles de routes de `staticwebapp.config.json` (tout anonyme est redirigé vers `/login/`).
+- Le workflow complet (typecheck, lint, tests, build, audit, déploiement) s'exécute en environ une minute.
+- Limite constatée : une invitation ne peut être créée que pour le domaine de production, qui renvoie 404 sur `/.auth/*` tant qu'aucun déploiement n'y a eu lieu. **La première fusion dans `main` est donc un prérequis pour inviter quelqu'un** ;
+  le staging valide le refus et la protection, pas l'accès d'un invité (voir ADR-006).
+- Reste à constater : le déploiement en production après la fusion.

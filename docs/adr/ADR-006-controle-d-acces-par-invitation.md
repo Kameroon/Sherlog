@@ -24,5 +24,22 @@ Les invitations se font par nom d'utilisateur (GitHub) ou adresse e-mail (Micros
 - Alternative rejetée : plan Standard payant (contredit le coût nul).
 
 ## Vérification (étape 0)
-À compléter après le déploiement : anonyme sur `/`, sur un chemin inexistant et sur un fichier de `/assets/` ; page de connexion ; compte connecté non invité (403 maîtrisé, déconnexion possible) ;
-accès après invitation ; accès refusé après retrait de l'invitation ; protection de l'environnement de prévisualisation.
+Faite le 2026-11-06 sur l'environnement de prévisualisation de la pull request n°1 (`curl`, anonyme) :
+
+| Vérification | Résultat |
+|---|---|
+| `/`, chemin inexistant, `/assets/*.js`, `/assets/*.css`, `/index.html`, `/staticwebapp.config.json` | 302 vers `/login/` : aucun fichier de l'application ni `index.html` n'est servi |
+| `/login/`, `/login` et `/login/login.css` | 200, pas de boucle de redirection |
+| `/forbidden/` en anonyme | 302 vers `/login/` |
+| En-têtes sur `/login/` | CSP, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` présents |
+| `/.auth/me` en anonyme | 200, `{"clientPrincipal": null}` |
+| Protection de la prévisualisation | **Les règles de routes s'y appliquent** (malgré la mise en garde de la documentation Microsoft) |
+
+Avec le navigateur, sur la prévisualisation : un compte GitHub connecté mais **non invité** voit la page « Accès refusé » (403 maîtrisé) et non la page Azure par défaut.
+
+**Constat sur les invitations (important pour la suite) :** la signature d'un lien d'invitation est liée au domaine pour lequel il a été créé, et Azure n'accepte que le domaine par défaut de l'application
+(`--domain` avec l'hôte d'une prévisualisation est refusé : « domain object is not present »). Tant que l'environnement de production n'a rien de déployé, ses routes `/.auth/*` renvoient 404 (le lien est donc inutilisable)
+et le même lien sur l'hôte de prévisualisation renvoie 400. **Conséquence : la première invitation exige que la production soit déployée ; le chemin « invité » ne se teste pas sur le staging.**
+Les rôles sont propres à l'application : une fois invité via la production, le compte l'est aussi sur les prévisualisations (nouvelle connexion nécessaire sur chaque domaine).
+
+À compléter : accès après invitation ; accès refusé après retrait de l'invitation ; redirections `post_login_redirect_uri` / `post_logout_redirect_uri` relatives ; code de statut du 403 avec `rewrite`.
