@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ErrorRecord } from '../core/scanLog';
 import type { EntryPosition } from '../sources/readEntryText';
 import { readFailureMessage } from '../sources/readFailure';
+import { formatCount } from './format';
 
 /**
  * Rows shown at once. The list is not virtualised yet (step 5): showing every error of a big file would freeze
@@ -86,7 +87,7 @@ export function ErrorList({ records, readText }: ErrorListProps) {
     <>
       {records.length > shown.length && (
         <p className="notice notice-warning">
-          Les {shown.length} premières erreurs sur {records.length} sont affichées.
+          Les {formatCount(shown.length)} premières erreurs sur {formatCount(records.length)} sont affichées.
         </p>
       )}
       <ol className="error-list" aria-label="Erreurs">
