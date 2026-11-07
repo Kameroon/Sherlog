@@ -3,9 +3,9 @@
 ## Décisions structurantes
 Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape 0 (pas de texte dupliqué ici) :
 - **ADR-001** Application monopage statique (Vite + React + TypeScript strict) sur Azure Static Web Apps Free, sans API.
-- **ADR-002** *(proposé jusqu'au spike de l'étape 1)* Appels IA directs depuis le navigateur avec la clé de l'utilisateur ; Ollama local en option.
+- **ADR-002** Appels IA directs depuis le navigateur avec la clé de l'utilisateur ; Ollama local en option (spike de l'étape 1 : Anthropic mesuré, Ollama partiellement).
 - **ADR-003** `core` en TypeScript pur, sans DOM ni React : testable et réutilisable (d'où une empreinte sans `crypto.subtle`).
-- **ADR-004** *(proposé jusqu'au spike de l'étape 1)* Azure Monitor depuis le navigateur.
+- **ADR-004** *(proposé : poids de MSAL et CORS mesurés à l'étape 1, connexion réelle à vérifier à l'étape 10c)* Azure Monitor depuis le navigateur.
 - **ADR-005** Aucun backend : conséquences listées au §4 de `SPEC.md`.
 - **ADR-006** Contrôle d'accès par l'authentification intégrée de Static Web Apps (GitHub/Microsoft) et rôle `invited`, avec la menace visée (testeurs acharnés) et le repli public si les invitations ne sont pas viables sur Free.
 - **ADR-007** Hébergement Azure Static Web Apps : dérogation assumée à la règle globale Hetzner ; staging = prévisualisation par pull request, puis production.
@@ -68,7 +68,7 @@ Fichier réel : `public/staticwebapp.config.json` (copié dans `dist/` par Vite)
 - **Ne jamais bloquer** `/.auth/login/*` par une règle : les invitations cesseraient de fonctionner.
 - **CSP** : à l'étape 0 `connect-src 'self'` seulement. Domaines cibles, ajoutés par l'étape qui en a besoin : `https://api.anthropic.com` et `http://localhost:11434` (étape 7),
   `https://login.microsoftonline.com` et `https://api.loganalytics.azure.com` (étape 10c), `https://*.blob.core.windows.net` (étape 10b). Pas de `'unsafe-inline'` ni de `'unsafe-eval'` : aucun style en ligne dans le code.
-  `base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `http://localhost:11434` depuis une page HTTPS dépend du navigateur (spike de l'étape 1).
+  `base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `http://localhost:11434` depuis une page HTTPS : mesuré à l'étape 1 dans Opera et dans Chrome avec cette CSP, à condition qu'Ollama autorise l'adresse du site (`OLLAMA_ORIGINS`) ; non vérifié dans Edge ni Firefox (ADR-002).
 - **Invitations** : rôle `invited` attribué depuis le portail Azure ou `az staticwebapp users invite` ; GitHub s'invite par nom d'utilisateur, Microsoft par adresse e-mail ; 25 invitations au maximum sur Free.
   Les résultats de la vérification déployée sont consignés dans l'ADR-006.
 Réglages applicatifs (valeurs par défaut dans le code) : niveaux d'erreur, profils de format, `maxInputChars`, règles de masquage.
@@ -81,7 +81,7 @@ Flux : travail sur `dev` → pull request vers `main` (environnement de prévisu
 
 ## Budget de dépendances (objectif < 300 Ko gzip, à mesurer)
 Appel Anthropic par `fetch` + lecture SSE manuelle (pas de SDK), validation de la réponse par type guard écrit à la main, texte pré-formaté pour l'analyse et le chat en v1 (pas de bibliothèque Markdown tant que le besoin n'est pas prouvé).
-MSAL.js uniquement si le spike le juge compatible avec le budget. Les prompts `.md` sont embarqués au build (`?raw`) : le bénéfice est la lisibilité et le diff, pas l'absence de rebuild.
+MSAL.js : mesuré à l'étape 1 à 68,74 Ko gzip (`@azure/msal-browser` 5.28.0), soit environ 139 Ko avec le JavaScript de l'application, sous le budget (ADR-004) ; il n'est ajouté qu'à l'étape 10c. Les prompts `.md` sont embarqués au build (`?raw`) : le bénéfice est la lisibilité et le diff, pas l'absence de rebuild.
 
 ## Écrans
 Une page principale : sources, liste d'erreurs, panneau de détail avec onglets Analyse et Chat ; une page Paramètres (fournisseur, clé).
