@@ -241,6 +241,17 @@ describe('createLineSplitter long lines', () => {
     expect(lines[0]).toMatchObject({ text: 'abcd', truncated: true });
   });
 
+  it('should drop a single trailing byte of a UTF-16 input and flag the line instead of inventing a character', () => {
+    // Arrange: BOM, "ab", then half of a code unit
+    const bytes = Uint8Array.from([...utf16('ab', 'le'), 0x63]);
+
+    // Act
+    const { lines } = split(bytes);
+
+    // Assert
+    expect(lines).toEqual([{ text: 'ab', offset: 0, byteLength: 7, truncated: true }]);
+  });
+
   it('should not flag the line when it is exactly at the limit', () => {
     // Act
     const { lines } = split(utf8('abcdefgh\n'), 4, { maxRetainedBytes: 8 });
