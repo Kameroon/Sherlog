@@ -12,6 +12,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-008** Journalisation côté client : `console` en développement uniquement, aucune télémétrie (remplace les exigences de logs des skills).
 - **ADR-009** Thème clair et sombre selon le système ; jetons et styles de base partagés (`public/login/base.css`) entre les pages publiques et l'application.
 - **ADR-010** *(proposé, étape 2)* Le flux est découpé en lignes sur les octets avant d'être décodé : positions exactes, détection de profil sans deviner, limite de conservation provisoire.
+- **ADR-011** *(proposé, étape 4)* Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
 
 ## Structure (un seul projet)
 ```
@@ -19,9 +20,9 @@ sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), Redactor — TS pur
-│  ├─ sources/   file, folder (File System Access), url, azure-monitor
+│  ├─ sources/   detectFormat, readEntryText, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
-│  ├─ workers/   parse.worker.ts
+│  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
 │  ├─ store/     état de session + historique local (IndexedDB)
 │  └─ ui/        composants React
 └─ tests/        Vitest + Testing Library
@@ -30,19 +31,17 @@ Outillage : Vite, TypeScript strict, ESLint, Vitest. Pas de bibliothèque d'éta
 
 ## Abstractions
 ```ts
-interface LogSource {                                          // file, folder, url, azure-monitor, paste
-  chunks(): AsyncIterable<Uint8Array>                          // lecture unique, en streaming ; `core` découpe en lignes (ADR-010)
-  readRange(offset: number, length: number): Promise<string>   // relecture à la demande ; offset et length en octets
-}
+// Étape 4 : une source est un `Blob` (un `File`, ou du texte collé) — pas d'interface `LogSource` tant qu'une 2e source distincte n'existe pas (ADR-011).
+//   lecture en flux : `blobChunks(blob)` ; relecture à la demande : `readEntryText(blob, { offset, length }, encoding)`, offset et length en octets.
 interface AiProvider { stream(messages: Message[]): AsyncIterable<string> }  // anthropic, ollama
 function redact(text: string, rules: RedactionRules): string  // pur
 ```
-Pas d'abstraction sans deuxième implémentation réelle. La signature de `LogSource` est une esquisse : elle est fixée à l'étape 4, qui est la première à l'implémenter.
+Pas d'abstraction sans deuxième implémentation réelle. L'étape 4, première à lire une source, n'a eu besoin que d'un `Blob` : l'interface `LogSource` n'existe pas (ADR-011) et reviendra, si besoin, aux étapes 10a à 10c.
 Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées) → `isErrorLevel` (filtre) → `fingerprint` (clé de regroupement d'une entrée en erreur : niveau, message normalisé par `normalizeMessage`, première frame applicative par `firstApplicationFrame`).
 
 ## Flux
-1. **Collecte** : `LogSource` → worker (découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et index des empreintes en état de session.
-   Le worker ne conserve que des positions et métadonnées (voir « Mémoire » au §3 de `SPEC.md`) ; le texte est relu par `readRange` (`File.slice`) à l'affichage du détail et à l'analyse.
+1. **Collecte** : choisir un fichier ou coller du texte reconnaît le format sur le début (`detectFormat`), sans rien analyser ; « Analyser ce journal » lance `Blob` → worker (`scanLog` : découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et table des empreintes en état de session.
+   Le worker ne conserve que des positions et métadonnées (voir « Mémoire » au §3 de `SPEC.md`) ; le texte est relu par `readEntryText` (`Blob.slice`) à l'affichage du détail et à l'analyse.
    Pour le collage et les résultats Azure, le texte reste en mémoire. Le worker est annulable et terminable (regex de profil saisie par l'utilisateur).
 2. **Analyse** : erreur (occurrence la plus récente de son empreinte) + contexte → `redact` → aperçu → `AiProvider` → JSON validé, rattaché à l'empreinte.
 3. **Chat** : historique + contexte → réponse en streaming.

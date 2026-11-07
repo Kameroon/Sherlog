@@ -34,7 +34,7 @@ une analyse IA précise et un chat, avec la clé de l'utilisateur ou un modèle 
   Robustesse : fins de ligne CRLF, BOM, UTF-16 (fréquent avec la redirection PowerShell 5.1), UTF-8 coupé entre deux blocs, entrées très longues.
   **Mémoire** : par entrée en erreur, seuls position, longueur, horodatage, niveau, première ligne et empreinte sont conservés ; le détail complet et les lignes voisines
   sont relus à la demande depuis le fichier choisi. Aucune troncature silencieuse : toute limite atteinte (entrée trop longue, fichier modifié ou illisible depuis le chargement,
-  résultat Azure plafonné) est signalée à l'écran. Les seuils sont fixés par une mesure sur un gros fichier généré, pas posés à l'avance.
+  résultat Azure plafonné) est signalée à l'écran. Les seuils sont fixés par une mesure sur un gros fichier généré, pas posés à l'avance : valeurs retenues et chiffres dans l'ADR-011 (100 000 erreurs enregistrées, 200 lignes affichées tant que la liste n'est pas virtualisée).
 - **Préparation avant analyse** : choisir un fichier ou coller du texte **lit** le journal dans le navigateur, sans l'analyser ni l'envoyer.
   L'utilisateur arrive sur un espace de préparation, facultatif, où il règle ce qui sera analysé, puis lance lui-même l'analyse (« Analyser ce journal »).
   Le fichier d'origine n'est jamais modifié (ADR-010) : les réglages ne changent que ce qui est retenu, affiché et envoyé. Des compteurs visibles
