@@ -83,9 +83,13 @@ possibilité de saisir un profil personnalisé, **ne pas deviner**. Une détecti
 **Profil « Serilog console »** (sans date) : `^\[(?<ts>\d{2}:\d{2}:\d{2}) (?<level>[A-Z]{3})\]\s+(?<msg>.*)$`. Le profil par défaut ne reconnaît aucune ligne de ce format ; il est donc intégré à part et signalé comme limité (seule l'heure est connue : pas de première/dernière apparition fiable).
 
 **Empreinte** : la clé de regroupement est la chaîne `niveau + message normalisé + première frame applicative` elle-même (pas de hachage : synchrone, sans API Web, `core` reste du TS pur).
-Normalisation : GUID, nombres, timestamps, e-mails, adresses IP, URL, identifiants alphanumériques (`ORD-2026-7710`), chemins temporaires, adresses mémoire remplacés par des jokers.
+Normalisation : GUID, nombres, timestamps, e-mails, adresses IP, URL, identifiants alphanumériques (`ORD-2026-7710`), chemins temporaires, adresses mémoire remplacés par des jokers
+(`<n>`, `<time>`, `<guid>`, `<email>`, `<ip>`, `<url>`, `<id>`, `<tmp>`, `<addr>`). Elle ne porte que sur le **message de l'en-tête** (groupe `msg` du profil ; à défaut, toute la première ligne) :
+les lignes de continuation ne comptent pas, hors la première frame. Choix qui évitent de fusionner des erreurs différentes : un nombre collé à des lettres (`Int32`) reste tel quel ;
+un mot avec tiret ou souligné n'est un identifiant que s'il contient lettres **et** chiffres (`Content-Type` reste tel quel). IPv6 n'est pas traité (ses groupes restent écrits : cela ne peut que séparer des erreurs identiques, jamais en fusionner). Ce n'est pas un masquage : `redact` (étape 6) reste seul garant de ce qui part vers l'IA.
 **Première frame applicative** : première frame dont le nom ne commence pas par un préfixe de bibliothèque déclaré dans le profil (profil .NET : `System.`, `Microsoft.`) ;
-si aucune ne convient, la première frame ; si l'entrée n'a pas de stack, pas de frame.
+si aucune ne convient, la première frame ; si l'entrée n'a pas de stack, pas de frame. Seule la syntaxe `   at Nom(arguments)` (.NET, Java) est reconnue ; le suffixe ` in fichier:line N` est retiré (le numéro change à chaque build). Un profil personnalisé ne déclare aucun préfixe : sa première frame est retenue.
+Une entrée tronquée (`truncated`) peut avoir perdu sa stack : son empreinte est alors calculée sur le texte conservé.
 
 **Profil structuré** (JSON lines, exports Log Analytics / App Insights) : une table de correspondance déclare le champ d'horodatage, de niveau, de message et d'exception, plus la table des niveaux
 (texte ou numérique). Préréglages v1 : Serilog compact et Log Analytics / App Insights. Les noms exacts des colonnes d'un export sont relevés sur un échantillon réel, jamais supposés.

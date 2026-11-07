@@ -13,7 +13,7 @@ Résultats de référence, calculés avec un prototype des règles du §5 de `do
 | `serilog-console.log` | Serilog console (sans date) | 5 | 3 | 2 |
 | `serilog-pieges.log` | Serilog fichier | 7 | 5 | 3 |
 
-Étape 2 : les colonnes « Profil attendu », « Entrées » et « Erreurs » sont vérifiées par `tests/samples.test.ts` (parseur de `src/core`). La colonne « Empreintes distinctes » relève de l'étape 3 : elle n'est pas encore vérifiée.
+Étape 2 : les colonnes « Profil attendu », « Entrées » et « Erreurs » sont vérifiées par `tests/samples.test.ts` (parseur de `src/core`). Étape 3 : la colonne « Empreintes distinctes » est vérifiée par `tests/samples.test.ts`, qui contrôle aussi quelles erreurs partagent la même empreinte.
 
 ## Ce que chaque fichier vérifie
 - **`sample.log`** : le cas de base ; deux timeouts qui ne diffèrent que par des nombres partagent la même empreinte ; un secret (`Password=`) et un email pour le `redact`.

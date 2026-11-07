@@ -18,7 +18,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ src/
-│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte, Redactor — TS pur
+│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), Redactor — TS pur
 │  ├─ sources/   file, folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
 │  ├─ workers/   parse.worker.ts
@@ -38,7 +38,7 @@ interface AiProvider { stream(messages: Message[]): AsyncIterable<string> }  // 
 function redact(text: string, rules: RedactionRules): string  // pur
 ```
 Pas d'abstraction sans deuxième implémentation réelle. La signature de `LogSource` est une esquisse : elle est fixée à l'étape 4, qui est la première à l'implémenter.
-Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées) → `isErrorLevel` (filtre).
+Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées) → `isErrorLevel` (filtre) → `fingerprint` (clé de regroupement d'une entrée en erreur : niveau, message normalisé par `normalizeMessage`, première frame applicative par `firstApplicationFrame`).
 
 ## Flux
 1. **Collecte** : `LogSource` → worker (découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et index des empreintes en état de session.
