@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { fingerprint } from '../src/core/fingerprint';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
 import { DEFAULT_PROFILE, matchHeader } from '../src/core/profiles';
 import { errorEntries, parseBytes } from './helpers/parseLog';
@@ -34,7 +35,7 @@ function summaryOf({ detection, entries }: ParsedLog) {
 
 const summarize = (bytes: Uint8Array, chunkSize?: number) => summaryOf(parseBytes(bytes, chunkSize));
 
-// Reference results of samples/README.md (entries and errors; fingerprints belong to step 3).
+// Reference results of samples/README.md (profile, entries and errors; fingerprints are checked further down).
 const references = [
   { file: 'sample.log', profile: 'serilog-file', entries: 14, errors: 5 },
   { file: 'serilog-realistic.log', profile: 'serilog-file', entries: 17, errors: 9 },
@@ -77,6 +78,42 @@ describe('reference samples', () => {
 
     // Assert
     expect(errorEntries(entries).every((entry) => ['ERR', 'FTL'].includes(entry.level ?? ''))).toBe(true);
+  });
+});
+
+describe('fingerprints of the reference samples', () => {
+  /** Index of the first error that has the same fingerprint, for every error in reading order. */
+  function groupsOf(file: string): number[] {
+    const { detection, entries } = parseBytes(utf8(readSample(file)));
+    if (detection.status !== 'detected') {
+      throw new Error(`${file}: no profile detected`);
+    }
+    const keys = errorEntries(entries).map((entry) => fingerprint(entry, detection.profile));
+    return keys.map((key) => [...new Set(keys)].indexOf(key));
+  }
+
+  // Reference results of samples/README.md ("Empreintes distinctes"); the groups give the detail by error.
+  const fingerprintReferences = [
+    { file: 'sample.log', distinct: 4, groups: [0, 0, 1, 2, 3] },
+    { file: 'serilog-realistic.log', distinct: 7, groups: [0, 1, 1, 2, 3, 4, 0, 5, 6] },
+    { file: 'serilog-console.log', distinct: 2, groups: [0, 0, 1] },
+    { file: 'serilog-pieges.log', distinct: 3, groups: [0, 1, 1, 2, 2] },
+  ];
+
+  it.each(fingerprintReferences)('should find $distinct distinct fingerprints when parsing $file', (reference) => {
+    // Act
+    const groups = groupsOf(reference.file);
+
+    // Assert
+    expect(new Set(groups).size).toBe(reference.distinct);
+  });
+
+  it.each(fingerprintReferences)('should group the identical errors of $file as documented', (reference) => {
+    // Act
+    const groups = groupsOf(reference.file);
+
+    // Assert
+    expect(groups).toEqual(reference.groups);
   });
 });
 
