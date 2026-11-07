@@ -46,6 +46,40 @@ export const CONSOLE_PROFILE: LogProfile = {
 /** Built-in profiles, in the order they are offered to the detection. */
 export const BUILT_IN_PROFILES: readonly LogProfile[] = [DEFAULT_PROFILE, CONSOLE_PROFILE];
 
+/** Outcome of building a profile from a user-typed pattern; `invalid` always carries a user-facing reason. */
+export type CustomProfileResult =
+  | { status: 'ok'; profile: LogProfile }
+  | { status: 'invalid'; reason: string };
+
+/**
+ * Builds a profile from a regular expression typed by the user.
+ *
+ * The pattern is compiled case-insensitively, like the built-in ones, and must define a named group
+ * `level` (needed by the error filter); `ts` is optional. Without `ts` the profile is flagged limited.
+ * The pattern is user input: a pathological one can run for a long time, which is why parsing runs in a
+ * terminable worker (step 4) rather than being bounded here.
+ */
+export function createCustomProfile(pattern: string): CustomProfileResult {
+  let header: RegExp;
+  try {
+    header = new RegExp(pattern, 'i');
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { status: 'invalid', reason: `expression régulière invalide (${detail})` };
+  }
+
+  // An empty alternative always matches, so `groups` lists every named group of the pattern.
+  const groups = new RegExp(`${pattern}|`, 'i').exec('')?.groups;
+  if (groups === undefined || !('level' in groups)) {
+    return { status: 'invalid', reason: 'l’expression doit définir un groupe nommé « level » : (?<level>…)' };
+  }
+
+  return {
+    status: 'ok',
+    profile: { id: 'custom', label: 'Profil personnalisé', header, limited: !('ts' in groups) },
+  };
+}
+
 /**
  * Reads the header of an entry.
  *
