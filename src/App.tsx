@@ -1,9 +1,10 @@
 import { useClientPrincipal } from './auth/useClientPrincipal';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { IdentityBar } from './ui/IdentityBar';
+import { LogWorkspace } from './ui/LogWorkspace';
 import { Logo } from './ui/Logo';
 
-/** Application shell. Step 0 only: a protected welcome page showing the signed-in identity. */
+/** Application shell: the signed-in identity and the working area where a log is chosen, analysed and read. */
 export function App() {
   const principalState = useClientPrincipal();
 
@@ -20,10 +21,7 @@ export function App() {
           </h1>
           <p>Sherlog isole les erreurs de vos journaux et vous explique chacune d’elles.</p>
         </section>
-        <p className="empty">
-          Aucune source de logs chargée pour le moment.
-          <span className="cursor" aria-hidden="true" />
-        </p>
+        <LogWorkspace />
       </main>
     </ErrorBoundary>
   );

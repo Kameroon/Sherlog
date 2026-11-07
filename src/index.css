@@ -131,3 +131,214 @@
   margin-top: 0;
   color: var(--color-error);
 }
+
+/* ---- Working area: choosing, analysing and reading a log ---- */
+
+/* Hidden for the eye, still read by screen readers and reachable by keyboard (the file input and button names). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.source-picker,
+.panel {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.panel {
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.panel h2,
+.panel p {
+  margin: 0;
+}
+
+.button-primary,
+.button-secondary,
+.button-link {
+  justify-self: start;
+  padding: 0.65rem 1.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.18s, border-color 0.18s, opacity 0.18s;
+}
+
+.button-primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--color-ink);
+  border-color: var(--color-control-border);
+}
+
+.button-secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+}
+
+.button-link {
+  padding-inline: 0.25rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The file input is hidden inside its label, so the label shows the focus ring for it. */
+.file-button:focus-within {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.source-or {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field label {
+  font-weight: 600;
+}
+
+.text-area {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  border: 1px solid var(--color-ok);
+  border-radius: 999px;
+  color: var(--color-ok);
+  font-weight: 600;
+}
+
+.notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--color-warning);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+}
+
+.notice-error {
+  border-left-color: var(--color-error);
+}
+
+.result-title {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.result-sentence {
+  font-family: var(--font-mono);
+}
+
+.progress {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--color-accent);
+}
+
+.error-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.error-row {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+}
+
+.error-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.error-time,
+.error-level {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.error-level {
+  color: var(--color-error);
+  font-weight: 700;
+}
+
+.error-first-line {
+  flex: 1 1 20rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.entry-text {
+  max-height: 24rem;
+  margin: var(--space-1) 0 0;
+  padding: 0.75rem;
+  overflow: auto;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
