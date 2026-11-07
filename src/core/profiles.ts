@@ -12,6 +12,11 @@ export interface LogProfile {
   readonly header: RegExp;
   /** `true` when the format gives no reliable date, so "first/last seen" cannot be trusted. */
   readonly limited: boolean;
+  /**
+   * Name prefixes of library code (`System.`, `Microsoft.` for .NET). The fingerprint looks for the first stack
+   * frame that does not start with one of them, because that frame is the application code that failed.
+   */
+  readonly libraryPrefixes: readonly string[];
 }
 
 /** Result of reading an entry header. */
@@ -20,6 +25,8 @@ export interface HeaderMatch {
   readonly timestamp: string | null;
   /** Level exactly as written in the log (case preserved). */
   readonly level: string;
+  /** Text of the `msg` group, which stops at the end of the header line; `null` when the profile has no `msg` group. */
+  readonly message: string | null;
 }
 
 /**
@@ -33,6 +40,7 @@ export const DEFAULT_PROFILE: LogProfile = {
   header:
     /^(?<ts>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:\s?(?:Z|[+-]\d{2}:?\d{2}))?)\s+\[?(?<level>VERBOSE|VRB|TRACE|TRC|DEBUG|DBG|INFORMATION|INFO|INF|WARNING|WARN|WRN|ERROR|ERR|CRITICAL|FATAL|FTL)\]?\s+(?<msg>.*)$/i,
   limited: false,
+  libraryPrefixes: ['System.', 'Microsoft.'],
 };
 
 /** Serilog console template, which has no date: `[08:16:10 ERR] message`. */
@@ -41,6 +49,7 @@ export const CONSOLE_PROFILE: LogProfile = {
   label: 'Serilog console (sans date)',
   header: /^\[(?<ts>\d{2}:\d{2}:\d{2}) (?<level>[A-Z]{3})\]\s+(?<msg>.*)$/,
   limited: true,
+  libraryPrefixes: ['System.', 'Microsoft.'],
 };
 
 /** Built-in profiles, in the order they are offered to the detection. */
@@ -56,6 +65,8 @@ export type CustomProfileResult =
  *
  * The pattern is compiled case-insensitively, like the built-in ones, and must define a named group
  * `level` (needed by the error filter); `ts` is optional. Without `ts` the profile is flagged limited.
+ * `msg` is optional too: without it the fingerprint uses the whole first line. No library prefix is
+ * declared, since the stack syntax of a user format is unknown: the fingerprint then uses the first frame.
  * The pattern is user input: a pathological one can run for a long time, which is why parsing runs in a
  * terminable worker (step 4) rather than being bounded here.
  */
@@ -76,7 +87,7 @@ export function createCustomProfile(pattern: string): CustomProfileResult {
 
   return {
     status: 'ok',
-    profile: { id: 'custom', label: 'Profil personnalisé', header, limited: !('ts' in groups) },
+    profile: { id: 'custom', label: 'Profil personnalisé', header, limited: !('ts' in groups), libraryPrefixes: [] },
   };
 }
 
@@ -91,5 +102,5 @@ export function matchHeader(profile: LogProfile, line: string): HeaderMatch | nu
   if (level === undefined) {
     return null;
   }
-  return { timestamp: groups?.['ts'] ?? null, level };
+  return { timestamp: groups?.['ts'] ?? null, level, message: groups?.['msg'] ?? null };
 }

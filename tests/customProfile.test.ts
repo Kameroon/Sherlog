@@ -19,7 +19,7 @@ describe('createCustomProfile', () => {
     const match = matchHeader(profile, '08:16:10 |ERROR| Timeout');
 
     // Assert
-    expect(match).toEqual({ timestamp: '08:16:10', level: 'ERROR' });
+    expect(match).toEqual({ timestamp: '08:16:10', level: 'ERROR', message: 'Timeout' });
   });
 
   it('should read a level that follows an extra tag when the pattern skips that tag', () => {
@@ -30,7 +30,7 @@ describe('createCustomProfile', () => {
     const match = matchHeader(profile, '[10:32:39 BOOT INF] Starting');
 
     // Assert
-    expect(match).toEqual({ timestamp: '10:32:39', level: 'INF' });
+    expect(match).toEqual({ timestamp: '10:32:39', level: 'INF', message: 'Starting' });
   });
 
   it('should give a null timestamp and flag the profile as limited when the pattern has no timestamp group', () => {
@@ -41,7 +41,29 @@ describe('createCustomProfile', () => {
     const match = matchHeader(profile, 'ERR: Timeout');
 
     // Assert
-    expect({ match, limited: profile.limited }).toEqual({ match: { timestamp: null, level: 'ERR' }, limited: true });
+    expect({ match, limited: profile.limited }).toEqual({
+      match: { timestamp: null, level: 'ERR', message: 'Timeout' },
+      limited: true,
+    });
+  });
+
+  it('should give a null message when the pattern has no message group', () => {
+    // Arrange
+    const profile = expectProfile(String.raw`^(?<ts>\d{2}:\d{2}:\d{2}) (?<level>[A-Z]{3})`);
+
+    // Act
+    const match = matchHeader(profile, '08:16:10 ERR Timeout');
+
+    // Assert
+    expect(match).toEqual({ timestamp: '08:16:10', level: 'ERR', message: null });
+  });
+
+  it('should declare no library prefix because the stack syntax of the format is unknown', () => {
+    // Act
+    const profile = expectProfile(String.raw`^(?<level>[A-Z]{3}): (?<msg>.*)$`);
+
+    // Assert
+    expect(profile.libraryPrefixes).toEqual([]);
   });
 
   it('should not flag the profile as limited when the pattern has a timestamp group', () => {

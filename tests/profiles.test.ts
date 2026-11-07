@@ -8,7 +8,7 @@ describe('default profile', () => {
     const match = matchHeader(DEFAULT_PROFILE, '2026-11-04 08:16:10.332 +01:00 [ERR] Timeout after 30012 ms');
 
     // Assert
-    expect(match).toEqual({ timestamp: '2026-11-04 08:16:10.332 +01:00', level: 'ERR' });
+    expect(match).toEqual({ timestamp: '2026-11-04 08:16:10.332 +01:00', level: 'ERR', message: 'Timeout after 30012 ms' });
   });
 
   it('should match when the header is a generic ISO timestamp followed by an unbracketed level', () => {
@@ -16,7 +16,7 @@ describe('default profile', () => {
     const match = matchHeader(DEFAULT_PROFILE, '2026-11-04T08:16:10Z ERROR Connection refused');
 
     // Assert
-    expect(match).toEqual({ timestamp: '2026-11-04T08:16:10Z', level: 'ERROR' });
+    expect(match).toEqual({ timestamp: '2026-11-04T08:16:10Z', level: 'ERROR', message: 'Connection refused' });
   });
 
   it('should keep the level as written when it is not upper case', () => {
@@ -32,7 +32,7 @@ describe('default profile', () => {
     const match = matchHeader(DEFAULT_PROFILE, '2026-11-04 08:16:10.332 +01:00 [INF] ');
 
     // Assert
-    expect(match?.level).toBe('INF');
+    expect(match).toMatchObject({ level: 'INF', message: '' });
   });
 
   it('should not match when a message line starts with a date followed by a word that is not a level', () => {
@@ -75,6 +75,11 @@ describe('default profile', () => {
     // Assert
     expect(DEFAULT_PROFILE.limited).toBe(false);
   });
+
+  it('should treat the System and Microsoft namespaces as library code', () => {
+    // Assert
+    expect(DEFAULT_PROFILE.libraryPrefixes).toEqual(['System.', 'Microsoft.']);
+  });
 });
 
 describe('console profile', () => {
@@ -83,7 +88,7 @@ describe('console profile', () => {
     const match = matchHeader(CONSOLE_PROFILE, '[08:16:10 ERR] Timeout after 30012 ms');
 
     // Assert
-    expect(match).toEqual({ timestamp: '08:16:10', level: 'ERR' });
+    expect(match).toEqual({ timestamp: '08:16:10', level: 'ERR', message: 'Timeout after 30012 ms' });
   });
 
   it('should not match a Serilog file line because the header starts with a date', () => {
@@ -105,5 +110,10 @@ describe('console profile', () => {
   it('should be flagged as limited because only the time is known', () => {
     // Assert
     expect(CONSOLE_PROFILE.limited).toBe(true);
+  });
+
+  it('should treat the System and Microsoft namespaces as library code', () => {
+    // Assert
+    expect(CONSOLE_PROFILE.libraryPrefixes).toEqual(['System.', 'Microsoft.']);
   });
 });
