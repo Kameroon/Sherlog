@@ -1,29 +1,11 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { fingerprint } from '../src/core/fingerprint';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
 import { DEFAULT_PROFILE, matchHeader } from '../src/core/profiles';
 import { errorEntries, parseBytes } from './helpers/parseLog';
 import type { ParsedLog } from './helpers/parseLog';
-
-/** Reads a sample with LF line endings, whatever the checkout converted them to. */
-function readSample(name: string): string {
-  const path = fileURLToPath(new URL(`../samples/${name}`, import.meta.url));
-  return readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
-}
-
-function utf16(text: string, order: 'le' | 'be'): Uint8Array {
-  const bytes: number[] = order === 'le' ? [0xff, 0xfe] : [0xfe, 0xff];
-  for (let index = 0; index < text.length; index += 1) {
-    const unit = text.charCodeAt(index);
-    bytes.push(...(order === 'le' ? [unit & 0xff, unit >> 8] : [unit >> 8, unit & 0xff]));
-  }
-  return Uint8Array.from(bytes);
-}
-
-const utf8 = (text: string): Uint8Array => new TextEncoder().encode(text);
+import { readSample, utf16, utf8 } from './helpers/samples';
 
 function summaryOf({ detection, entries }: ParsedLog) {
   return {
