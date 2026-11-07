@@ -1,10 +1,11 @@
 # Échantillons de logs
 
-**Ces fichiers sont synthétiques** : ils suivent le modèle de fichier par défaut documenté de Serilog
+**Tous ces fichiers sont synthétiques, sauf `real-serilog.log`.** Les fichiers synthétiques suivent le modèle de fichier par défaut documenté de Serilog
 (`{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}`), mais ne proviennent d'aucune vraie application.
-À compléter ou remplacer par des extraits réels dès qu'ils sont disponibles.
+`real-serilog.log` est un extrait réel (voir plus bas).
 
-Résultats de référence, calculés avec un prototype des règles du §5 de `docs/SPEC.md` (l'implémentation TypeScript doit les reproduire) :
+Résultats de référence : ceux des quatre fichiers synthétiques sont calculés avec un prototype des règles du §5 de `docs/SPEC.md` (l'implémentation TypeScript doit les reproduire) ;
+ceux de `real-serilog.log` sont comptés à la main sur le fichier, puis confirmés par l'implémentation.
 
 | Fichier | Profil attendu | Entrées | Erreurs | Empreintes distinctes |
 |---|---|---|---|---|
@@ -12,6 +13,7 @@ Résultats de référence, calculés avec un prototype des règles du §5 de `do
 | `serilog-realistic.log` | Serilog fichier | 17 | 9 | 7 |
 | `serilog-console.log` | Serilog console (sans date) | 5 | 3 | 2 |
 | `serilog-pieges.log` | Serilog fichier | 7 | 5 | 3 |
+| `real-serilog.log` | Serilog console (sans date) | 21 | 3 | 1 |
 
 Étape 2 : les colonnes « Profil attendu », « Entrées » et « Erreurs » sont vérifiées par `tests/samples.test.ts` (parseur de `src/core`). Étape 3 : la colonne « Empreintes distinctes » est vérifiée par `tests/samples.test.ts`, qui contrôle aussi quelles erreurs partagent la même empreinte.
 
@@ -26,6 +28,10 @@ Résultats de référence, calculés avec un prototype des règles du §5 de `do
   seule l'entrée d'import a une stack (la première frame applicative est `Shop.Import…`, `System.` étant ignoré). Les variantes d'encodage et de fin de ligne
   (CRLF, BOM, UTF-16 LE, UTF-8 coupé entre deux blocs, une ligne de plusieurs Mo) sont **générées par les tests** à partir de ce fichier et doivent donner exactement les mêmes résultats ; elles ne sont pas committées.
 
+- **`real-serilog.log`** : **extrait réel** de la sortie console d'un conteneur Docker (21 lignes, `docker logs`), fourni par l'auteur. Il confirme sur du réel le profil Serilog console
+  avec un identifiant de corrélation entre crochets dans le message (`[33ffff3c-…]`), des appels de santé journalisés au niveau `ERR`
+  (`Executed endpoint 'HTTP: GET /health'`) et un message en français au niveau `DBG`. Les trois erreurs ne diffèrent que par ce GUID : une seule empreinte.
+  Il ne contient **ni stack, ni message sur plusieurs lignes, ni niveau `FTL`** : ces cas restent couverts uniquement par les échantillons synthétiques.
+
 ## À ajouter par l'auteur (non devinable)
-- ~30 lignes réelles de log Serilog, avant la clôture de l'étape 2 (`samples/real-serilog.log`) ; les résultats attendus sont alors calculés et ajoutés au tableau ci-dessus.
 - Un export réel Application Insights / Log Analytics (JSON de l'API et/ou CSV du portail), avant l'étape 3b : les noms exacts des colonnes sont relevés sur cet export, jamais supposés.
