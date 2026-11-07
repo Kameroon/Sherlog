@@ -1,48 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { ErrorRecord, ScanResult } from '../src/core/scanLog';
 import type { FormatDetection } from '../src/sources/detectFormat';
 import { useLogScan } from '../src/ui/useLogScan';
-import type { ScanMessage, ScanRequest, StartScan } from '../src/workers/scanProtocol';
+import { consoleLog, errorRecord as record, fakeScanner, scanResult as result } from './helpers/fakeScanner';
 
-const consoleLog = '[08:16:10 ERR] Failed\n[08:16:11 INF] Next\n';
 const fileOf = (text: string, name = 'app.log'): File => new File([text], name);
-
-const record: ErrorRecord = {
-  offset: 0,
-  length: 22,
-  timestamp: '08:16:10',
-  level: 'ERR',
-  firstLine: '[08:16:10 ERR] Failed',
-  firstLineCut: false,
-  lineCount: 1,
-  fingerprintId: 0,
-};
-const result: ScanResult = {
-  bytes: 44,
-  encoding: 'utf-8',
-  entries: 2,
-  errors: 1,
-  truncatedEntries: 0,
-  limitReached: false,
-  fingerprints: ['ERR\nFailed\n'],
-};
-
-/** A fake worker: remembers the request and lets the test send messages and see the stop. */
-function fakeScanner() {
-  const requests: ScanRequest[] = [];
-  const stop = vi.fn<() => void>();
-  let send: (message: ScanMessage) => void = () => undefined;
-  const startScan: StartScan = (request, onMessage) => {
-    requests.push(request);
-    send = onMessage;
-    return stop;
-  };
-  const emit = (message: ScanMessage): void => {
-    act(() => send(message));
-  };
-  return { startScan, requests, stop, emit };
-}
 
 async function chooseRecognised(scanner = fakeScanner()) {
   const hook = renderHook(() => useLogScan({ startScan: scanner.startScan }));
