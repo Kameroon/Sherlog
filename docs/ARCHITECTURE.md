@@ -11,13 +11,14 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-007** Hébergement Azure Static Web Apps : dérogation assumée à la règle globale Hetzner ; staging = prévisualisation par pull request, puis production.
 - **ADR-008** Journalisation côté client : `console` en développement uniquement, aucune télémétrie (remplace les exigences de logs des skills).
 - **ADR-009** Thème clair et sombre selon le système ; jetons et styles de base partagés (`public/login/base.css`) entre les pages publiques et l'application.
+- **ADR-010** *(proposé, étape 2)* Le flux est découpé en lignes sur les octets avant d'être décodé : positions exactes, détection de profil sans deviner, limite de conservation provisoire.
 
 ## Structure (un seul projet)
 ```
 sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ src/
-│  ├─ core/      parsing, empreinte, Redactor, types — TS pur
+│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte, Redactor — TS pur
 │  ├─ sources/   file, folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
 │  ├─ workers/   parse.worker.ts
@@ -30,13 +31,14 @@ Outillage : Vite, TypeScript strict, ESLint, Vitest. Pas de bibliothèque d'éta
 ## Abstractions
 ```ts
 interface LogSource {                                          // file, folder, url, azure-monitor, paste
-  lines(): AsyncIterable<{ text: string; offset: number }>     // lecture unique, en streaming
-  readRange(offset: number, length: number): Promise<string>   // relecture à la demande (détail, lignes voisines)
+  chunks(): AsyncIterable<Uint8Array>                          // lecture unique, en streaming ; `core` découpe en lignes (ADR-010)
+  readRange(offset: number, length: number): Promise<string>   // relecture à la demande ; offset et length en octets
 }
 interface AiProvider { stream(messages: Message[]): AsyncIterable<string> }  // anthropic, ollama
 function redact(text: string, rules: RedactionRules): string  // pur
 ```
-Pas d'abstraction sans deuxième implémentation réelle.
+Pas d'abstraction sans deuxième implémentation réelle. La signature de `LogSource` est une esquisse : elle est fixée à l'étape 4, qui est la première à l'implémenter.
+Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées) → `isErrorLevel` (filtre).
 
 ## Flux
 1. **Collecte** : `LogSource` → worker (découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et index des empreintes en état de session.
