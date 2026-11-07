@@ -130,6 +130,17 @@ describe('firstApplicationFrame', () => {
     expect(frame).toBe('System.A.B()');
   });
 
+  it('should read a frame written with the Java syntax when it is indented with a tab', () => {
+    // Arrange
+    const text = ['ERROR Failed', '\tat com.shop.Orders.get(Orders.java:42)'].join('\n');
+
+    // Act
+    const frame = firstApplicationFrame(text, []);
+
+    // Assert
+    expect(frame).toBe('com.shop.Orders.get(Orders.java:42)');
+  });
+
   it('should return null when the entry has no stack', () => {
     // Act
     const frame = firstApplicationFrame('[ERR] Failed to send email', libraryPrefixes);
