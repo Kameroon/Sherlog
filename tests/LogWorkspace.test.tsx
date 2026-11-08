@@ -334,6 +334,18 @@ describe('LogWorkspace result', () => {
     expect(screen.getByText(/2 entrées très longues/)).toBeInTheDocument();
   });
 
+  it('should also say that the rules only read the beginning of very long entries when rules were used', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+
+    // Act
+    finish(scanner, [errorRecord], { ...scanResult, truncatedEntries: 1, ignoredPerRule: [3] });
+
+    // Assert
+    expect(screen.getByText(/1 entrée très longue : seul son début a servi à regrouper les erreurs identiques et à appliquer vos règles/)).toBeInTheDocument();
+  });
+
   it('should say that no error was found when the log has none', async () => {
     // Arrange
     const scanner = setup();

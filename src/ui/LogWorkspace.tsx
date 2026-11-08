@@ -60,7 +60,7 @@ function ScanSummary({ result, recorded, focusTarget }: ScanSummaryProps) {
           {result.truncatedEntries > 1
             ? `${formatCount(result.truncatedEntries)} entrées très longues : seul leur début`
             : '1 entrée très longue : seul son début'}{' '}
-          a servi à regrouper les erreurs identiques.
+          a servi à regrouper les erreurs identiques{result.ignoredPerRule.length > 0 ? ' et à appliquer vos règles' : ''}.
         </p>
       )}
     </>
