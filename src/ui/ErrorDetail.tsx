@@ -170,6 +170,9 @@ function NeighbourReading({ record, position, readNeighbours }: { record: ErrorR
     case 'done':
       return (
         <>
+          <p className="visually-hidden" role="status">
+            Lignes autour de l’erreur {position} affichées.
+          </p>
           <p className="small-note">Lignes du fichier, quelle que soit l’entrée à laquelle elles appartiennent.</p>
           <NeighbourSide side="before" lines={reading.before} limited={reading.beforeLimited} position={position} />
           <NeighbourSide side="after" lines={reading.after} limited={reading.afterLimited} position={position} />

@@ -238,6 +238,30 @@ describe('ErrorDetail neighbour lines', () => {
     expect(screen.getByRole('button', { name: 'Masquer les lignes autour' })).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('should announce once that the lines are shown, for a reader that cannot see them appear', async () => {
+    // Arrange
+    render(<ErrorDetail record={record(0)} position={3} readText={read} readNeighbours={noNeighbours} />);
+
+    // Act
+    show();
+
+    // Assert
+    expect(screen.queryByText('Lignes autour de l’erreur 3 affichées.')).not.toBeInTheDocument();
+    expect(await screen.findByText('Lignes autour de l’erreur 3 affichées.')).toBeInTheDocument();
+  });
+
+  it('should not announce the lines as shown when they could not be read', async () => {
+    // Arrange
+    render(<ErrorDetail record={record(0)} position={1} readText={read} readNeighbours={() => Promise.reject(new DOMException('gone', 'NotFoundError'))} />);
+
+    // Act
+    show();
+    await screen.findByRole('alert');
+
+    // Assert
+    expect(screen.queryByText(/affichées/)).not.toBeInTheDocument();
+  });
+
   it('should say that nothing comes before or after when the error is at the edge of the file', async () => {
     // Arrange
     render(<ErrorDetail record={record(0)} position={1} readText={read} readNeighbours={noNeighbours} />);
