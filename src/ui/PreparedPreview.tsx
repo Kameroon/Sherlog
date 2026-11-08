@@ -1,0 +1,68 @@
+import { MAX_PREVIEW_LINES } from '../core/previewHead';
+import type { HeadPreview } from '../core/previewHead';
+import { formatCount, formatSize } from './format';
+
+interface PreparedPreviewProps {
+  preview: HeadPreview;
+  /** Name of the log, for the caption. */
+  name: string;
+  /** Bytes read from the source for the preview. */
+  headBytes: number;
+  /** Size of the whole source. */
+  sourceBytes: number;
+  /** `true` when the preview covers the whole source. */
+  complete: boolean;
+}
+
+function tagOf(line: HeadPreview['lines'][number]): string {
+  if (line.kind === 'continuation') {
+    return 'suite';
+  }
+  return line.ignored ? 'ignorée' : (line.level ?? '').toUpperCase();
+}
+
+/**
+ * The first lines of the log as the preparation sees them: headers apart from the lines that continue them, errors
+ * marked, and the lines of entries that are left out struck through. Text only: a log line is never markup.
+ */
+export function PreparedPreview({ preview, name, headBytes, sourceBytes, complete }: PreparedPreviewProps) {
+  const where = complete
+    ? `${formatCount(preview.totalLines)} lignes lues dans ce navigateur`
+    : `début du fichier (${formatSize(headBytes)} sur ${formatSize(sourceBytes)}) : ${formatCount(preview.totalLines)} lignes`;
+  const hidden = preview.totalLines - preview.lines.length;
+
+  return (
+    <section className="panel prep-view" aria-labelledby="preview-title">
+      <h2 id="preview-title">Aperçu du journal préparé</h2>
+      <p className="small-note">
+        {name} · {where}.{hidden > 0 ? ` Aperçu des ${MAX_PREVIEW_LINES} premières.` : ''}
+      </p>
+      <ol className="excerpt" aria-label="Premières lignes du journal">
+        {preview.lines.map((line) => {
+          const classes = [line.kind === 'header' ? 'is-header' : 'is-continuation'];
+          if (line.isError) {
+            classes.push('is-error');
+          }
+          if (line.ignored) {
+            classes.push('is-ignored');
+          }
+          return (
+            <li key={line.number} className={classes.join(' ')}>
+              <span className="line-no">{line.number}</span>
+              <span className="line-tag">{tagOf(line)}</span>
+              <span>
+                {line.text}
+                {line.cut ? '…' : ''}
+                {line.ignored && <span className="visually-hidden"> (écartée)</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <ul className="legend">
+        <li>Lignes barrées : écartées par vos réglages</li>
+        <li>Lignes en rouge : erreurs gardées</li>
+      </ul>
+    </section>
+  );
+}

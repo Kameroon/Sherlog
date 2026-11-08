@@ -1,38 +1,34 @@
 import { useCallback, useEffect, useRef } from 'react';
+import type { Preparation } from '../core/preparation';
 import type { ScanResult } from '../core/scanLog';
+import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import type { FormatDetection } from '../sources/readHead';
 import { ErrorList } from './ErrorList';
 import { countOf, formatCount } from './format';
+import { PreparationScreen } from './PreparationScreen';
 import { SourcePicker } from './SourcePicker';
+import { Steps } from './Steps';
+import type { StepNumber } from './Steps';
+import { Tip } from './Tip';
 import { useLogScan } from './useLogScan';
-import type { ScanDependencies } from './useLogScan';
+import type { ScanDependencies, ScanState } from './useLogScan';
 
 interface LogWorkspaceProps {
   /** Replaces the worker and the format detection; used by the tests. */
   dependencies?: Partial<ScanDependencies>;
 }
 
-function FormatNotice({ detection }: { detection: FormatDetection }) {
-  switch (detection.status) {
-    case 'detected':
-      return (
-        <>
-          <p>
-            <span className="chip">Format reconnu : {detection.profile.label}</span>
-          </p>
-          {detection.profile.limited && <p className="hint">Ce format ne contient que l’heure, pas la date.</p>}
-        </>
-      );
-    case 'structured':
-      return <p className="notice notice-warning">Ce journal semble être du JSON, un format pas encore pris en charge.</p>;
-    case 'unrecognized':
-      return (
-        <>
-          <p className="notice notice-warning">Format non reconnu : {detection.reason}.</p>
-          <p className="hint">Ce journal ne peut pas être analysé pour l’instant : le choix manuel du format n’est pas encore disponible.</p>
-        </>
-      );
+/** Why a log cannot be analysed: its format is not one Sherlog reads (yet). */
+function UnreadableFormat({ detection }: { detection: Exclude<FormatDetection, { status: 'detected' }> }) {
+  if (detection.status === 'structured') {
+    return <p className="notice notice-warning">Ce journal semble être du JSON, un format pas encore pris en charge.</p>;
   }
+  return (
+    <>
+      <p className="notice notice-warning">Format non reconnu : {detection.reason}.</p>
+      <p className="hint">Ce journal ne peut pas être analysé pour l’instant : le choix manuel du format n’est pas encore disponible.</p>
+    </>
+  );
 }
 
 interface ScanSummaryProps {
@@ -71,27 +67,76 @@ function ScanSummary({ result, recorded, focusTarget }: ScanSummaryProps) {
   );
 }
 
+/** The step shown as current for each stage of the path from a log to its errors. */
+function stepOf(phase: ScanState['phase']): StepNumber {
+  switch (phase) {
+    case 'idle':
+    case 'detecting':
+    case 'failed':
+      return 1;
+    case 'ready':
+      return 2;
+    case 'analysing':
+    case 'analysed':
+      return 3;
+  }
+}
+
 /**
- * The page's working area: choose a log, see how it was recognised, analyse it on demand, read the errors.
+ * The page's working area: choose a log, prepare it, analyse it on demand, read the errors.
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
 export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
-  const { state, chooseFile, chooseText, analyse, cancel, reset, readText } = useLogScan(dependencies);
+  const { state, chooseFile, chooseText, changePreparation, analyse, cancel, reset, readText } = useLogScan(dependencies);
 
   // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
-  // new stage, a keyboard user lands on the page body. Not on the first render, which must not steal the focus.
+  // new stage, a keyboard user lands on the page body. Not on the first render, which must not steal the focus, and not
+  // when a setting changes after an analysis: the screen stays as it is and the user is in the middle of editing it.
   const focusTarget = useRef<HTMLElement | null>(null);
   const shownPhase = useRef(state.phase);
   useEffect(() => {
     if (shownPhase.current !== state.phase) {
       shownPhase.current = state.phase;
-      focusTarget.current?.focus();
+      if (!(state.phase === 'ready' && state.settingsChanged)) {
+        focusTarget.current?.focus();
+      }
     }
-  }, [state.phase]);
+  }, [state]);
   const setFocusTarget = useCallback((element: HTMLElement | null): void => {
     focusTarget.current = element;
   }, []);
 
+  return (
+    <>
+      <Steps current={stepOf(state.phase)} />
+      <Stage
+        state={state}
+        setFocusTarget={setFocusTarget}
+        onFile={(file) => void chooseFile(file)}
+        onText={(text) => void chooseText(text)}
+        onPreparationChange={changePreparation}
+        onAnalyse={analyse}
+        onCancel={cancel}
+        onReset={reset}
+        readText={readText}
+      />
+    </>
+  );
+}
+
+interface StageProps {
+  state: ScanState;
+  setFocusTarget: (element: HTMLElement | null) => void;
+  onFile: (file: File) => void;
+  onText: (text: string) => void;
+  onPreparationChange: (preparation: Preparation) => void;
+  onAnalyse: () => void;
+  onCancel: () => void;
+  onReset: () => void;
+  readText: (position: EntryPosition) => Promise<EntryText>;
+}
+
+function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onAnalyse, onCancel, onReset, readText }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -100,7 +145,7 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
             Aucune source de logs chargée pour le moment.
             <span className="cursor" aria-hidden="true" />
           </p>
-          <SourcePicker onFile={(file) => void chooseFile(file)} onText={(text) => void chooseText(text)} />
+          <SourcePicker onFile={onFile} onText={onText} />
         </>
       );
     case 'detecting':
@@ -115,31 +160,56 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
           <p className="notice notice-error" role="alert" ref={setFocusTarget} tabIndex={-1}>
             {state.message}
           </p>
-          <SourcePicker onFile={(file) => void chooseFile(file)} onText={(text) => void chooseText(text)} />
+          <SourcePicker onFile={onFile} onText={onText} />
         </>
       );
     case 'ready':
+    case 'analysed': {
+      if (state.detection.status !== 'detected') {
+        return (
+          <section className="panel" aria-label="Journal choisi">
+            <h2 ref={setFocusTarget} tabIndex={-1}>
+              {state.name}
+            </h2>
+            <UnreadableFormat detection={state.detection} />
+            <div className="actions">
+              <Tip text="Revient au choix du journal et vide le champ de texte collé.">
+                {(describedBy) => (
+                  <button type="button" className="button-link" aria-describedby={describedBy} onClick={onReset}>
+                    Choisir un autre journal
+                  </button>
+                )}
+              </Tip>
+            </div>
+          </section>
+        );
+      }
+      const analysed = state.phase === 'analysed';
       return (
-        <section className="panel" aria-label="Journal choisi">
-          <h2 ref={setFocusTarget} tabIndex={-1}>
-            {state.name}
-          </h2>
-          <FormatNotice detection={state.detection} />
-          <div className="actions">
-            {state.detection.status === 'detected' && (
-              <button type="button" className="button-primary" onClick={analyse}>
-                Analyser ce journal
-              </button>
-            )}
-            <button type="button" className="button-link" onClick={reset}>
-              Choisir un autre journal
-            </button>
-          </div>
-          {state.detection.status === 'detected' && (
-            <p className="hint">L’analyse se fait sur cet ordinateur. Rien n’est envoyé sur Internet.</p>
+        <>
+          <PreparationScreen
+            name={state.name}
+            source={state.source}
+            head={state.head}
+            complete={state.complete}
+            profile={state.detection.profile}
+            preparation={state.preparation}
+            onPreparationChange={onPreparationChange}
+            result={analysed ? state.result : null}
+            settingsChanged={state.phase === 'ready' && state.settingsChanged}
+            onAnalyse={analysed ? undefined : onAnalyse}
+            onReset={onReset}
+            titleRef={analysed ? undefined : setFocusTarget}
+          />
+          {analysed && (
+            <section className="panel" aria-label="Résultat de l’analyse">
+              <ScanSummary result={state.result} recorded={state.records.length} focusTarget={setFocusTarget} />
+              {state.records.length > 0 && <ErrorList records={state.records} readText={readText} />}
+            </section>
           )}
-        </section>
+        </>
       );
+    }
     case 'analysing': {
       const total = state.source.size;
       const percent = total === 0 ? 0 : Math.floor((state.bytesRead / total) * 100);
@@ -155,25 +225,12 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
           </p>
           <progress className="progress" aria-label="Progression de l’analyse" max={total} value={state.bytesRead} />
           <div className="actions">
-            <button type="button" className="button-secondary" onClick={cancel}>
+            <button type="button" className="button-secondary" onClick={onCancel}>
               Annuler
             </button>
           </div>
         </section>
       );
     }
-    case 'analysed':
-      return (
-        <section className="panel" aria-label="Résultat de l’analyse">
-          <h2>{state.name}</h2>
-          <ScanSummary result={state.result} recorded={state.records.length} focusTarget={setFocusTarget} />
-          {state.records.length > 0 && <ErrorList records={state.records} readText={readText} />}
-          <div className="actions">
-            <button type="button" className="button-link" onClick={reset}>
-              Choisir un autre journal
-            </button>
-          </div>
-        </section>
-      );
   }
 }

@@ -1,32 +1,10 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { ErrorRecord } from '../src/core/scanLog';
 import { LogWorkspace } from '../src/ui/LogWorkspace';
 import { MAX_DISPLAYED_ERRORS } from '../src/ui/ErrorList';
 import type { StartScan } from '../src/workers/scanProtocol';
-import { consoleLog, errorRecord, fakeScanner, scanResult } from './helpers/fakeScanner';
-
-function setup() {
-  const scanner = fakeScanner();
-  render(<LogWorkspace dependencies={{ startScan: scanner.startScan }} />);
-  return scanner;
-}
-
-const chooseFile = async (text: string, name = 'app.log') => {
-  fireEvent.change(screen.getByLabelText('Choisir un fichier'), { target: { files: [new File([text], name)] } });
-  await screen.findByRole('button', { name: 'Choisir un autre journal' });
-};
-
-const startAnalysis = async (scanner: ReturnType<typeof fakeScanner>) => {
-  await chooseFile(consoleLog);
-  fireEvent.click(screen.getByRole('button', { name: 'Analyser ce journal' }));
-  expect(scanner.requests).toHaveLength(1);
-};
-
-const finish = (scanner: ReturnType<typeof fakeScanner>, records: readonly ErrorRecord[] = [errorRecord], result = scanResult) => {
-  scanner.emit({ type: 'errors', records });
-  scanner.emit({ type: 'done', result });
-};
+import { consoleLog, errorRecord, scanResult } from './helpers/fakeScanner';
+import { chooseFile, finish, setup, startAnalysis } from './helpers/workspace';
 
 describe('LogWorkspace choosing a source', () => {
   it('should offer a file and a paste field and say that no source is loaded', () => {
