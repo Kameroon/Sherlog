@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { FormatDetection, HeadRead } from '../src/sources/readHead';
 import type { StartScan } from '../src/workers/scanProtocol';
 import { EMPTY_PREPARATION } from '../src/core/preparation';
+import { BUILT_IN_PROFILES } from '../src/core/profiles';
 import { useLogScan } from '../src/ui/useLogScan';
 import { consoleLog, errorRecord as record, fakeScanner, scanResult as result } from './helpers/fakeScanner';
 
@@ -341,5 +342,152 @@ describe('useLogScan preparation', () => {
 
     // Assert
     expect(hook.current.state).toMatchObject({ phase: 'ready', name: 'other.log', preparation: EMPTY_PREPARATION });
+  });
+});
+
+describe('useLogScan format', () => {
+  const [file, consoleFormat] = BUILT_IN_PROFILES;
+  if (file === undefined || consoleFormat === undefined) {
+    throw new Error('the built-in profiles are missing');
+  }
+
+  async function chooseUnrecognised() {
+    const scanner = fakeScanner();
+    const hook = renderHook(() => useLogScan({ startScan: scanner.startScan }));
+    await act(() => hook.result.current.chooseText('hello\nworld\n'));
+    return { ...hook, scanner };
+  }
+
+  it('should start with the recognised format as the chosen one', async () => {
+    // Act
+    const { result: hook } = await chooseRecognised();
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', profile: { id: 'serilog-console' } });
+  });
+
+  it('should start without a format when the log was not recognised, and refuse to analyse', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseUnrecognised();
+
+    // Act
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', profile: null });
+    expect(scanner.requests).toEqual([]);
+  });
+
+  it('should analyse with the format the user chose when the log was not recognised', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseUnrecognised();
+    act(() => {
+      hook.current.changeProfile(consoleFormat);
+    });
+
+    // Act
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Assert
+    expect(scanner.requests[0]).toMatchObject({ profileId: 'serilog-console' });
+  });
+
+  it('should analyse with another format than the recognised one when the user changes it', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseRecognised();
+    act(() => {
+      hook.current.changeProfile(file);
+    });
+
+    // Act
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Assert
+    expect(scanner.requests[0]).toMatchObject({ profileId: 'serilog-file' });
+  });
+
+  it('should keep the rules and forget the period when the format changes, since a period only fits its own format', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+    act(() => {
+      hook.current.changePreparation({ ignoreTexts: ['/health'], period: { from: '09:00', to: '10:00' } });
+    });
+
+    // Act
+    act(() => {
+      hook.current.changeProfile(file);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', preparation: { ignoreTexts: ['/health'], period: { from: '', to: '' } } });
+  });
+
+  it('should forget the result and ask for a new analysis when the format changes after the analysis', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseRecognised();
+    act(() => {
+      hook.current.analyse();
+    });
+    scanner.emit({ type: 'done', result });
+
+    // Act
+    act(() => {
+      hook.current.changeProfile(file);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', profile: { id: 'serilog-file' }, settingsChanged: true });
+    expect(hook.current.state).not.toHaveProperty('result');
+  });
+
+  it('should ignore a change of format while the analysis runs', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Act
+    act(() => {
+      hook.current.changeProfile(file);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'analysing', profile: { id: 'serilog-console' } });
+  });
+
+  it('should not offer a format for a log that looks like JSON', async () => {
+    // Arrange
+    const scanner = fakeScanner();
+    const { result: hook } = renderHook(() => useLogScan({ startScan: scanner.startScan }));
+    await act(() => hook.current.chooseText('{"@t":"2026-11-04T08:16:10Z"}\n'));
+
+    // Act
+    act(() => {
+      hook.current.changeProfile(consoleFormat);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', profile: null, detection: { status: 'structured' } });
+  });
+
+  it('should start again from the recognised format when another log is chosen', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+    act(() => {
+      hook.current.changeProfile(file);
+    });
+
+    // Act
+    await act(() => hook.current.chooseFile(fileOf(consoleLog, 'other.log')));
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', name: 'other.log', profile: { id: 'serilog-console' } });
   });
 });

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { ErrorRecord, ScanResult } from '../core/scanLog';
-import { EMPTY_PREPARATION } from '../core/preparation';
+import { EMPTY_PREPARATION, NO_PERIOD } from '../core/preparation';
 import type { Preparation } from '../core/preparation';
+import type { LogProfile } from '../core/profiles';
 import { readHead } from '../sources/readHead';
 import type { FormatDetection, HeadRead } from '../sources/readHead';
 import { readEntryText } from '../sources/readEntryText';
@@ -20,10 +21,12 @@ interface Chosen {
   /** `true` when `head` is the whole source, so that the figures computed on it are exact. */
   readonly complete: boolean;
   readonly preparation: Preparation;
+  /** The format the log is read with: the recognised one at first, then the user's choice; `null` until there is one. */
+  readonly profile: LogProfile | null;
 }
 
-function chosenOf({ source, name, detection, head, complete, preparation }: Chosen): Chosen {
-  return { source, name, detection, head, complete, preparation };
+function chosenOf({ source, name, detection, head, complete, preparation, profile }: Chosen): Chosen {
+  return { source, name, detection, head, complete, preparation, profile };
 }
 
 /**
@@ -42,6 +45,7 @@ type Action =
   | { readonly type: 'detecting' }
   | { readonly type: 'chosen'; readonly chosen: Chosen }
   | { readonly type: 'preparationChanged'; readonly preparation: Preparation }
+  | { readonly type: 'profileChanged'; readonly profile: LogProfile }
   | { readonly type: 'analysisStarted' }
   | { readonly type: 'message'; readonly message: ScanMessage }
   | { readonly type: 'cancelled' }
@@ -60,6 +64,14 @@ function reducer(state: ScanState, action: Action): ScanState {
         return { phase: 'ready', settingsChanged: true, ...chosenOf(state), preparation: action.preparation };
       }
       return state.phase === 'ready' ? { ...state, preparation: action.preparation } : state;
+    case 'profileChanged': {
+      // JSON is not read yet: there is no format to offer for it. The period fits the format it was set for, so it goes.
+      if ((state.phase !== 'ready' && state.phase !== 'analysed') || state.detection.status === 'structured') {
+        return state;
+      }
+      const changed = { ...chosenOf(state), profile: action.profile, preparation: { ...state.preparation, period: NO_PERIOD } };
+      return { phase: 'ready', settingsChanged: state.phase === 'analysed' || state.settingsChanged, ...changed };
+    }
     case 'analysisStarted':
       return state.phase === 'ready' ? { phase: 'analysing', bytesRead: 0, records: [], ...chosenOf(state) } : state;
     case 'message':
@@ -126,7 +138,8 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
       try {
         const { detection, head, complete } = await read(source);
         if (generation === generationRef.current) {
-          dispatch({ type: 'chosen', chosen: { source, name, detection, head, complete, preparation: EMPTY_PREPARATION } });
+          const profile = detection.status === 'detected' ? detection.profile : null;
+          dispatch({ type: 'chosen', chosen: { source, name, detection, head, complete, preparation: EMPTY_PREPARATION, profile } });
         }
       } catch (error) {
         if (generation === generationRef.current) {
@@ -141,14 +154,14 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
   const chooseText = useCallback((text: string) => choose(new Blob([text]), PASTED_TEXT_NAME), [choose]);
 
   const analyse = useCallback(() => {
-    if (state.phase !== 'ready' || state.detection.status !== 'detected') {
+    if (state.phase !== 'ready' || state.profile === null) {
       return;
     }
     generationRef.current += 1;
     const generation = generationRef.current;
     dispatch({ type: 'analysisStarted' });
     try {
-      const request = { source: state.source, profileId: state.detection.profile.id, preparation: state.preparation };
+      const request = { source: state.source, profileId: state.profile.id, preparation: state.preparation };
       stopRef.current = startScan(request, (message) => {
         if (generation !== generationRef.current) {
           return;
@@ -166,6 +179,10 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
 
   const changePreparation = useCallback((preparation: Preparation) => {
     dispatch({ type: 'preparationChanged', preparation });
+  }, []);
+
+  const changeProfile = useCallback((profile: LogProfile) => {
+    dispatch({ type: 'profileChanged', profile });
   }, []);
 
   const cancel = useCallback(() => {
@@ -190,5 +207,5 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
     [state],
   );
 
-  return { state, chooseFile, chooseText, changePreparation, analyse, cancel, reset, readText };
+  return { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText };
 }
