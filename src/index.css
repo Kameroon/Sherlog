@@ -127,7 +127,8 @@
   background: var(--color-surface);
 }
 
-.error-fallback h1 {
+.error-fallback h1,
+.error-fallback h2 {
   margin-top: 0;
   color: var(--color-error);
 }

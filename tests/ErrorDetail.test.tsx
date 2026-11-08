@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ErrorRecord } from '../src/core/scanLog';
 import type { EntryPosition, EntryText } from '../src/sources/readEntryText';
+import type { IdenticalErrors } from '../src/core/identicalErrors';
 import { ErrorDetail } from '../src/ui/ErrorDetail';
 
 const record = (offset: number, length = 90): ErrorRecord => ({
@@ -130,5 +131,61 @@ describe('ErrorDetail', () => {
     // Assert
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(await screen.findByLabelText('Texte de l’erreur 2')).toHaveTextContent('second error');
+  });
+});
+
+describe('ErrorDetail identical errors', () => {
+  const read = () => Promise.resolve({ text: 'x', cut: false });
+  const group = (count: number, firstIndex: number, lastIndex: number, first: string | null, last: string | null): IdenticalErrors => ({
+    count,
+    first: { ...record(0), timestamp: first },
+    last: { ...record(0), timestamp: last },
+    firstIndex,
+    lastIndex,
+  });
+
+  it('should say how many identical errors there are, with the first and the last in reading order', async () => {
+    // Act
+    render(<ErrorDetail record={record(0)} position={3} readText={read} identical={group(4, 0, 9, '08:00:00', '09:30:00')} countIsMinimum={false} />);
+    await screen.findByLabelText('Texte de l’erreur 3');
+
+    // Assert
+    expect(screen.getByText('4 erreurs identiques parmi les erreurs enregistrées.')).toBeInTheDocument();
+    expect(screen.getByText('Première : 08:00:00 (erreur 1). Dernière : 09:30:00 (erreur 10), dans l’ordre de lecture du journal.')).toBeInTheDocument();
+  });
+
+  it('should say "at least" when errors past the record limit were not recorded', async () => {
+    // Act
+    render(<ErrorDetail record={record(0)} position={1} readText={read} identical={group(4, 0, 3, '08:00:00', '08:00:09')} countIsMinimum />);
+    await screen.findByLabelText('Texte de l’erreur 1');
+
+    // Assert
+    expect(screen.getByText('Au moins 4 erreurs identiques parmi les erreurs enregistrées.')).toBeInTheDocument();
+  });
+
+  it('should say nothing about identical errors when the error is alone', async () => {
+    // Act
+    render(<ErrorDetail record={record(0)} position={1} readText={read} identical={group(1, 0, 0, '08:00:00', '08:00:00')} countIsMinimum={false} />);
+    await screen.findByLabelText('Texte de l’erreur 1');
+
+    // Assert
+    expect(screen.queryByText(/identiques/)).not.toBeInTheDocument();
+  });
+
+  it('should write « sans heure » for an end of the group that has no timestamp', async () => {
+    // Act
+    render(<ErrorDetail record={record(0)} position={1} readText={read} identical={group(2, 0, 1, null, null)} countIsMinimum={false} />);
+    await screen.findByLabelText('Texte de l’erreur 1');
+
+    // Assert
+    expect(screen.getByText(/Première : sans heure \(erreur 1\)\. Dernière : sans heure \(erreur 2\)/)).toBeInTheDocument();
+  });
+
+  it('should announce once that the detail is ready, for a reader that cannot see it appear', async () => {
+    // Act
+    render(<ErrorDetail record={record(0)} position={5} readText={read} identical={undefined} countIsMinimum={false} />);
+
+    // Assert
+    expect(await screen.findByText('Détail de l’erreur 5 affiché.')).toBeInTheDocument();
   });
 });

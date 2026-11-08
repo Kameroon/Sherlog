@@ -197,7 +197,7 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onP
           {analysed && (
             <section className="panel" aria-label="Résultat de l’analyse">
               <ScanSummary result={state.result} recorded={state.records.length} focusTarget={setFocusTarget} />
-              {state.records.length > 0 && <ErrorBrowser records={state.records} readText={readText} />}
+              {state.records.length > 0 && <ErrorBrowser records={state.records} readText={readText} limitReached={state.result.limitReached} />}
             </section>
           )}
         </>

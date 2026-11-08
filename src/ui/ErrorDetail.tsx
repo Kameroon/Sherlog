@@ -1,9 +1,10 @@
 import { useEffect, useId, useState } from 'react';
+import type { IdenticalErrors } from '../core/identicalErrors';
 import type { ErrorRecord } from '../core/scanLog';
 import { MAX_ENTRY_TEXT_BYTES } from '../sources/readEntryText';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import { readFailureMessage } from '../sources/readFailure';
-import { formatSize } from './format';
+import { formatCount, formatSize } from './format';
 
 /** What the panel shows of the selected entry: the read in progress, the text, or why it could not be read. */
 type Reading =
@@ -17,6 +18,27 @@ interface ErrorDetailProps {
   /** Position of the error in the list, from 1. */
   position: number;
   readText: (position: EntryPosition) => Promise<EntryText>;
+  /** The errors that share the fingerprint of this one, if any. */
+  identical?: IdenticalErrors;
+  /** `true` when errors past the record limit were not recorded: the count of identical errors is then a minimum. */
+  countIsMinimum?: boolean;
+}
+
+/** `08:00:00`, or « sans heure » for an entry that has none. */
+const timeOf = (record: ErrorRecord): string => record.timestamp ?? 'sans heure';
+
+function IdenticalSummary({ identical, countIsMinimum }: { identical: IdenticalErrors; countIsMinimum: boolean }) {
+  return (
+    <div className="identical">
+      <p>
+        {countIsMinimum ? 'Au moins ' : ''}
+        {formatCount(identical.count)} erreurs identiques parmi les erreurs enregistrées.
+      </p>
+      <p className="small-note">
+        {`Première : ${timeOf(identical.first)} (erreur ${formatCount(identical.firstIndex + 1)}). Dernière : ${timeOf(identical.last)} (erreur ${formatCount(identical.lastIndex + 1)}), dans l’ordre de lecture du journal.`}
+      </p>
+    </div>
+  );
 }
 
 function EntryReading({ record, position, readText }: { record: ErrorRecord; position: number; readText: ErrorDetailProps['readText'] }) {
@@ -58,6 +80,9 @@ function EntryReading({ record, position, readText }: { record: ErrorRecord; pos
     case 'done':
       return (
         <>
+          <p className="visually-hidden" role="status">
+            Détail de l’erreur {position} affiché.
+          </p>
           {reading.cut && (
             <p className="notice notice-warning">
               Cette entrée fait {formatSize(record.length)} : seul son début ({formatSize(MAX_ENTRY_TEXT_BYTES)}) est affiché.
@@ -72,7 +97,7 @@ function EntryReading({ record, position, readText }: { record: ErrorRecord; pos
 }
 
 /** The whole text of the selected error, with its stack, read again from the file; text only, never markup. */
-export function ErrorDetail({ record, position, readText }: ErrorDetailProps) {
+export function ErrorDetail({ record, position, readText, identical, countIsMinimum = false }: ErrorDetailProps) {
   const titleId = useId();
   return (
     <section className="error-detail" aria-labelledby={titleId}>
@@ -85,6 +110,7 @@ export function ErrorDetail({ record, position, readText }: ErrorDetailProps) {
             {record.timestamp !== null && <span className="error-time">{record.timestamp}</span>}
             <span className="error-level">{record.level}</span>
           </p>
+          {identical !== undefined && identical.count > 1 && <IdenticalSummary identical={identical} countIsMinimum={countIsMinimum} />}
           <EntryReading record={record} position={position} readText={readText} />
         </>
       )}
