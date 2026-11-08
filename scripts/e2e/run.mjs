@@ -342,6 +342,17 @@ async function run(cdp, appUrl, dataDir) {
       identicalText.includes(`(erreur ${fr(expected.errors)})`),
     identicalText,
   );
+  check('les lignes autour ne sont lues qu’à la demande', (await count('.neighbour-lines *')) === 0);
+  await click('Voir les lignes autour');
+  await waitFor(`!!document.querySelector('.neighbour-lines [aria-label^="Lignes avant"]')`, 'les lignes avant la dernière erreur');
+  const linesBefore = await evaluate(`document.querySelector('.neighbour-lines [aria-label^="Lignes avant"]').textContent.split('\\n')`);
+  check('dix lignes avant la dernière erreur, toutes des lignes d’information du fichier', linesBefore.length === 10 && linesBefore.every((line) => line.includes('[INF]')), `${linesBefore.length} lignes`);
+  const linesAfter = await evaluate(`document.querySelector('.neighbour-lines [aria-label^="Lignes après"]')?.textContent.split('\\n') ?? null`);
+  check(
+    'après la dernière erreur : au plus dix lignes d’information, ou la fin du journal dite',
+    linesAfter === null ? await evaluate(hasText('l’erreur est à la fin du journal')) : linesAfter.length <= 10 && linesAfter.every((line) => line.includes('[INF]')),
+    `${linesAfter?.length ?? 0} lignes`,
+  );
   await pressOnList('Home');
   check('Début revient à la première erreur', (await activePosition()) === 1);
 
@@ -393,6 +404,12 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasText('Analyse terminée'), 'l’analyse du texte collé', 20000);
   check('le texte collé donne 2 entrées, 1 erreur', (await text('.result-sentence')) === '2 entrées lues, 1 erreur (1 distincte).', await text('.result-sentence'));
   check('le balisage collé reste du texte', !(await evaluate(`!!document.querySelector('[role=option] img')`)) && (await text('.error-first-line')).includes('<img src=x'));
+  await pressOnList('Home');
+  await pressOnList('Enter');
+  await waitFor(hasButton('Voir les lignes autour'), 'le bouton des lignes autour de l’erreur collée');
+  await click('Voir les lignes autour');
+  await waitFor(hasText('Aucune ligne avant'), 'les lignes autour de l’erreur collée');
+  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
 
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 }
