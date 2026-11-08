@@ -1,18 +1,29 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { ErrorRecord, ScanResult } from '../core/scanLog';
-import { detectFormat } from '../sources/detectFormat';
-import type { FormatDetection } from '../sources/detectFormat';
+import { EMPTY_PREPARATION } from '../core/preparation';
+import type { Preparation } from '../core/preparation';
+import { readHead } from '../sources/readHead';
+import type { FormatDetection, HeadRead } from '../sources/readHead';
 import { readEntryText } from '../sources/readEntryText';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import { readFailureMessage, startFailureMessage } from '../sources/readFailure';
 import type { ScanMessage, StartScan } from '../workers/scanProtocol';
 import { startScanWorker } from '../workers/startScanWorker';
 
-/** The source the user chose and what the format detection said about it. */
+/** The source the user chose, what the format detection said about it, and what the user set for the analysis. */
 interface Chosen {
   readonly source: Blob;
   readonly name: string;
   readonly detection: FormatDetection;
+  /** The beginning of the source: the preparation screen shows its figures from it, without reading the file again. */
+  readonly head: Uint8Array;
+  /** `true` when `head` is the whole source, so that the figures computed on it are exact. */
+  readonly complete: boolean;
+  readonly preparation: Preparation;
+}
+
+function chosenOf({ source, name, detection, head, complete, preparation }: Chosen): Chosen {
+  return { source, name, detection, head, complete, preparation };
 }
 
 /**
@@ -22,7 +33,7 @@ interface Chosen {
 export type ScanState =
   | { readonly phase: 'idle' }
   | { readonly phase: 'detecting' }
-  | ({ readonly phase: 'ready' } & Chosen)
+  | ({ readonly phase: 'ready'; readonly settingsChanged: boolean } & Chosen)
   | ({ readonly phase: 'analysing'; readonly bytesRead: number; readonly records: readonly ErrorRecord[] } & Chosen)
   | ({ readonly phase: 'analysed'; readonly result: ScanResult; readonly records: readonly ErrorRecord[] } & Chosen)
   | { readonly phase: 'failed'; readonly message: string };
@@ -30,6 +41,7 @@ export type ScanState =
 type Action =
   | { readonly type: 'detecting' }
   | { readonly type: 'chosen'; readonly chosen: Chosen }
+  | { readonly type: 'preparationChanged'; readonly preparation: Preparation }
   | { readonly type: 'analysisStarted' }
   | { readonly type: 'message'; readonly message: ScanMessage }
   | { readonly type: 'cancelled' }
@@ -41,17 +53,22 @@ function reducer(state: ScanState, action: Action): ScanState {
     case 'detecting':
       return { phase: 'detecting' };
     case 'chosen':
-      return { phase: 'ready', ...action.chosen };
+      return { phase: 'ready', settingsChanged: false, ...action.chosen };
+    case 'preparationChanged':
+      // A result was computed with the old settings: it is dropped, and the screen says to analyse again.
+      if (state.phase === 'analysed') {
+        return { phase: 'ready', settingsChanged: true, ...chosenOf(state), preparation: action.preparation };
+      }
+      return state.phase === 'ready' ? { ...state, preparation: action.preparation } : state;
     case 'analysisStarted':
-      return state.phase === 'ready' ? { ...state, phase: 'analysing', bytesRead: 0, records: [] } : state;
+      return state.phase === 'ready' ? { phase: 'analysing', bytesRead: 0, records: [], ...chosenOf(state) } : state;
     case 'message':
       return state.phase === 'analysing' ? applyMessage(state, action.message) : state;
     case 'cancelled': {
       if (state.phase !== 'analysing') {
         return state;
       }
-      const { source, name, detection } = state;
-      return { phase: 'ready', source, name, detection };
+      return { phase: 'ready', settingsChanged: false, ...chosenOf(state) };
     }
     case 'failed':
       return { phase: 'failed', message: action.message };
@@ -66,10 +83,8 @@ function applyMessage(state: Extract<ScanState, { phase: 'analysing' }>, message
       return { ...state, bytesRead: message.bytesRead };
     case 'errors':
       return { ...state, records: [...state.records, ...message.records] };
-    case 'done': {
-      const { source, name, detection, records } = state;
-      return { phase: 'analysed', source, name, detection, records, result: message.result };
-    }
+    case 'done':
+      return { phase: 'analysed', records: state.records, result: message.result, ...chosenOf(state) };
     case 'failed':
       return { phase: 'failed', message: message.message };
   }
@@ -78,7 +93,7 @@ function applyMessage(state: Extract<ScanState, { phase: 'analysing' }>, message
 /** What the hook needs from the outside; replaced by fakes in the tests. */
 export interface ScanDependencies {
   readonly startScan: StartScan;
-  readonly detect: (source: Blob) => Promise<FormatDetection>;
+  readonly readHead: (source: Blob) => Promise<HeadRead>;
 }
 
 /** Name shown for text that was pasted instead of read from a file. */
@@ -89,7 +104,7 @@ export const PASTED_TEXT_NAME = 'Texte collé';
  * user, scan in a worker, follow the progress, allow cancelling. The worker is stopped whenever the scan
  * ends, is cancelled or the component goes away.
  */
-export function useLogScan({ startScan = startScanWorker, detect = detectFormat }: Partial<ScanDependencies> = {}) {
+export function useLogScan({ startScan = startScanWorker, readHead: read = readHead }: Partial<ScanDependencies> = {}) {
   const [state, dispatch] = useReducer(reducer, { phase: 'idle' });
   const stopRef = useRef<(() => void) | null>(null);
   // Bumped by every action that makes pending results obsolete, so that a late answer cannot overwrite a newer state.
@@ -109,9 +124,9 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
       const generation = generationRef.current;
       dispatch({ type: 'detecting' });
       try {
-        const detection = await detect(source);
+        const { detection, head, complete } = await read(source);
         if (generation === generationRef.current) {
-          dispatch({ type: 'chosen', chosen: { source, name, detection } });
+          dispatch({ type: 'chosen', chosen: { source, name, detection, head, complete, preparation: EMPTY_PREPARATION } });
         }
       } catch (error) {
         if (generation === generationRef.current) {
@@ -119,7 +134,7 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
         }
       }
     },
-    [detect, stopScan],
+    [read, stopScan],
   );
 
   const chooseFile = useCallback((file: File) => choose(file, file.name), [choose]);
@@ -133,7 +148,8 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
     const generation = generationRef.current;
     dispatch({ type: 'analysisStarted' });
     try {
-      stopRef.current = startScan({ source: state.source, profileId: state.detection.profile.id }, (message) => {
+      const request = { source: state.source, profileId: state.detection.profile.id, preparation: state.preparation };
+      stopRef.current = startScan(request, (message) => {
         if (generation !== generationRef.current) {
           return;
         }
@@ -147,6 +163,10 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
       dispatch({ type: 'failed', message: startFailureMessage(error) });
     }
   }, [state, startScan, stopScan]);
+
+  const changePreparation = useCallback((preparation: Preparation) => {
+    dispatch({ type: 'preparationChanged', preparation });
+  }, []);
 
   const cancel = useCallback(() => {
     stopScan();
@@ -170,5 +190,5 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
     [state],
   );
 
-  return { state, chooseFile, chooseText, analyse, cancel, reset, readText };
+  return { state, chooseFile, chooseText, changePreparation, analyse, cancel, reset, readText };
 }

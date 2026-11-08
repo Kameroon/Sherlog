@@ -28,7 +28,11 @@ class FakeWorker {
   }
 }
 
-const request: ScanRequest = { source: new Blob(['[08:16:10 ERR] Failed\n']), profileId: 'serilog-console' };
+const request: ScanRequest = {
+  source: new Blob(['[08:16:10 ERR] Failed\n']),
+  profileId: 'serilog-console',
+  preparation: { ignoreTexts: [] },
+};
 
 function start() {
   const received: ScanMessage[] = [];

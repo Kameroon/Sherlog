@@ -1,3 +1,4 @@
+import type { Preparation } from '../core/preparation';
 import type { ErrorRecord, ScanResult } from '../core/scanLog';
 
 /** What the page asks the worker to do. */
@@ -6,6 +7,8 @@ export interface ScanRequest {
   readonly source: Blob;
   /** Id of a built-in profile, as recognised by the format detection. */
   readonly profileId: string;
+  /** What to leave out; plain data, so that it is cloned to the worker as it is. */
+  readonly preparation: Preparation;
 }
 
 /** What the worker answers, in order: any number of `progress` and `errors`, then exactly one `done` or `failed`. */

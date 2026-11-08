@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ScanResult } from '../core/scanLog';
-import type { FormatDetection } from '../sources/detectFormat';
+import type { FormatDetection } from '../sources/readHead';
 import { ErrorList } from './ErrorList';
 import { countOf, formatCount } from './format';
 import { SourcePicker } from './SourcePicker';

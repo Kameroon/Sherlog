@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { EMPTY_PREPARATION } from '../src/core/preparation';
+import type { Preparation } from '../src/core/preparation';
 import { blobChunks } from '../src/sources/blobChunks';
 import { runScan } from '../src/workers/runScan';
 import type { ScanMessage } from '../src/workers/scanProtocol';
@@ -7,9 +9,9 @@ import { readSample, utf8 } from './helpers/samples';
 
 const blobOf = (text: string): Blob => new Blob([utf8(text) as BlobPart]);
 
-async function run(source: Blob, profileId: string, now?: () => number): Promise<ScanMessage[]> {
+async function run(source: Blob, profileId: string, now?: () => number, preparation: Preparation = EMPTY_PREPARATION): Promise<ScanMessage[]> {
   const messages: ScanMessage[] = [];
-  await runScan({ source, profileId }, (message) => messages.push(message), now);
+  await runScan({ source, profileId, preparation }, (message) => messages.push(message), now);
   return messages;
 }
 
@@ -53,6 +55,16 @@ describe('runScan', () => {
     const last = messages.at(-1);
     expect(errors).toHaveLength(9);
     expect(last).toMatchObject({ type: 'done', result: { entries: 17, errors: 9, limitReached: false } });
+  });
+
+  it('should leave out the entries of the preparation and report how many when a rule is given', async () => {
+    // Act
+    const messages = await run(blobOf(readSample('real-serilog.log')), 'serilog-console', undefined, { ignoreTexts: ['/health'] });
+
+    // Assert
+    const errors = messages.flatMap((message) => (message.type === 'errors' ? message.records : []));
+    expect(errors).toHaveLength(0);
+    expect(messages.at(-1)).toMatchObject({ type: 'done', result: { entries: 21, ignored: 15, ignoredPerRule: [15], errors: 0 } });
   });
 
   it('should send a failed message naming the profile when the profile id is unknown', async () => {

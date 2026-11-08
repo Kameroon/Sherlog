@@ -1,11 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { FormatDetection } from '../src/sources/detectFormat';
+import type { FormatDetection, HeadRead } from '../src/sources/readHead';
 import type { StartScan } from '../src/workers/scanProtocol';
 import { useLogScan } from '../src/ui/useLogScan';
 import { consoleLog, errorRecord as record, fakeScanner, scanResult as result } from './helpers/fakeScanner';
 
 const fileOf = (text: string, name = 'app.log'): File => new File([text], name);
+const headOf = (detection: FormatDetection): HeadRead => ({ detection, head: new Uint8Array(), complete: true });
 
 async function chooseRecognised(scanner = fakeScanner()) {
   const hook = renderHook(() => useLogScan({ startScan: scanner.startScan }));
@@ -180,8 +181,8 @@ describe('useLogScan', () => {
 
   it('should show the reason when the chosen file cannot be read', async () => {
     // Arrange
-    const detect = vi.fn<() => Promise<FormatDetection>>().mockRejectedValue(new DOMException('gone', 'NotFoundError'));
-    const { result: hook } = renderHook(() => useLogScan({ startScan: fakeScanner().startScan, detect }));
+    const readHead = vi.fn<() => Promise<HeadRead>>().mockRejectedValue(new DOMException('gone', 'NotFoundError'));
+    const { result: hook } = renderHook(() => useLogScan({ startScan: fakeScanner().startScan, readHead }));
 
     // Act
     await act(() => hook.current.chooseFile(fileOf(consoleLog)));
@@ -192,9 +193,9 @@ describe('useLogScan', () => {
 
   it('should keep the last chosen file when an earlier detection finishes after it', async () => {
     // Arrange
-    const resolvers: ((detection: FormatDetection) => void)[] = [];
-    const detect = vi.fn<() => Promise<FormatDetection>>(() => new Promise((resolve) => resolvers.push(resolve)));
-    const { result: hook } = renderHook(() => useLogScan({ startScan: fakeScanner().startScan, detect }));
+    const resolvers: ((read: HeadRead) => void)[] = [];
+    const readHead = vi.fn<() => Promise<HeadRead>>(() => new Promise((resolve) => resolvers.push(resolve)));
+    const { result: hook } = renderHook(() => useLogScan({ startScan: fakeScanner().startScan, readHead }));
     let first: Promise<void> = Promise.resolve();
     let second: Promise<void> = Promise.resolve();
     act(() => {
@@ -204,9 +205,9 @@ describe('useLogScan', () => {
 
     // Act
     await act(async () => {
-      resolvers[1]?.({ status: 'unrecognized', reason: 'second' });
+      resolvers[1]?.(headOf({ status: 'unrecognized', reason: 'second' }));
       await second;
-      resolvers[0]?.({ status: 'unrecognized', reason: 'first' });
+      resolvers[0]?.(headOf({ status: 'unrecognized', reason: 'first' }));
       await first;
     });
 
@@ -228,5 +229,116 @@ describe('useLogScan', () => {
 
     // Assert
     expect(entry).toEqual({ text: '[08:16:10 ERR] Failed', cut: false });
+  });
+});
+
+describe('useLogScan preparation', () => {
+  const health = { ignoreTexts: ['/health'] };
+
+  it('should keep the beginning of the source and start with nothing left out when a file is chosen', async () => {
+    // Act
+    const { result: hook } = await chooseRecognised();
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', complete: true, preparation: { ignoreTexts: [] } });
+    expect(hook.current.state.phase === 'ready' && new TextDecoder().decode(hook.current.state.head)).toBe(consoleLog);
+  });
+
+  it('should send the preparation to the scan when the user analyses', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseRecognised();
+    act(() => {
+      hook.current.changePreparation(health);
+    });
+
+    // Act
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Assert
+    expect(scanner.requests[0]).toMatchObject({ profileId: 'serilog-console', preparation: health });
+  });
+
+  it('should keep the preparation when the user cancels the analysis', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+    act(() => {
+      hook.current.changePreparation(health);
+    });
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Act
+    act(() => {
+      hook.current.cancel();
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', preparation: health });
+  });
+
+  it('should forget the result and ask for a new analysis when a setting changes after the analysis', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseRecognised();
+    act(() => {
+      hook.current.analyse();
+    });
+    scanner.emit({ type: 'errors', records: [record] });
+    scanner.emit({ type: 'done', result });
+
+    // Act
+    act(() => {
+      hook.current.changePreparation(health);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', preparation: health, settingsChanged: true });
+    expect(hook.current.state).not.toHaveProperty('result');
+    expect(hook.current.state).not.toHaveProperty('records');
+  });
+
+  it('should not say the settings changed when nothing was analysed yet', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+
+    // Act
+    act(() => {
+      hook.current.changePreparation(health);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', settingsChanged: false });
+  });
+
+  it('should ignore a change of settings while the analysis runs', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Act
+    act(() => {
+      hook.current.changePreparation(health);
+    });
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'analysing', preparation: { ignoreTexts: [] } });
+  });
+
+  it('should start again from nothing left out when another log is chosen', async () => {
+    // Arrange
+    const { result: hook } = await chooseRecognised();
+    act(() => {
+      hook.current.changePreparation(health);
+    });
+
+    // Act
+    await act(() => hook.current.chooseFile(fileOf(consoleLog, 'other.log')));
+
+    // Assert
+    expect(hook.current.state).toMatchObject({ phase: 'ready', name: 'other.log', preparation: { ignoreTexts: [] } });
   });
 });

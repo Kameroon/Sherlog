@@ -1,3 +1,4 @@
+import { createEntryFilter } from '../core/preparation';
 import { BUILT_IN_PROFILES } from '../core/profiles';
 import { scanLog } from '../core/scanLog';
 import { blobChunks } from '../sources/blobChunks';
@@ -23,7 +24,7 @@ export async function runScan(request: ScanRequest, post: (message: ScanMessage)
 
   let lastProgressAt = Number.NEGATIVE_INFINITY;
   try {
-    const result = await scanLog(blobChunks(request.source), { profile }, {
+    const result = await scanLog(blobChunks(request.source), { profile, filter: createEntryFilter(request.preparation) }, {
       onErrors: (records) => post({ type: 'errors', records }),
       onProgress: (bytesRead) => {
         const time = now();
