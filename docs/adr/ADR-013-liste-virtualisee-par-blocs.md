@@ -33,7 +33,7 @@ La liste de l'étape 4 n'affichait que 200 erreurs, avec un bouton « Voir le te
 **Mesuré** (Chrome 156.0.8078.80 sans interface, `npm run e2e`, application construite sous la CSP de production, fichier synthétique de 14 Mo qui donne plus de 100 000 erreurs, 100 000 enregistrées) :
 - 200 lignes et 3 544 nœuds dans la page pour 100 000 erreurs (dont 2 000 blocs vides) ; première ligne affichée dès la fin de l'analyse (1 ms) ;
 - touche Fin : 22 à 50 ms jusqu'à la 100 000e erreur dans la page ; Page ↑ : 17 à 25 ms ; saut de l'ascenseur au milieu : 49 à 53 ms (deux images dessinées comprises) ;
-- tas JavaScript de la page : 32 Mo avec les 100 000 enregistrements ;
+- tas JavaScript de la page : 32 à 55 Mo selon le passage (ramasse-miettes) avec les 100 000 enregistrements ;
 - aucune violation de la CSP, console sans erreur.
 
 **Non vérifié :**
