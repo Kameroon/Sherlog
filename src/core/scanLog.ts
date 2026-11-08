@@ -4,6 +4,7 @@ import { fingerprint } from './fingerprint';
 import { isErrorLevel } from './levels';
 import { createLineSplitter } from './lineSplitter';
 import type { SourceLine, TextEncoding } from './lineSplitter';
+import type { EntryFilter } from './preparation';
 import type { LogProfile } from './profiles';
 import { truncateText } from './text';
 
@@ -44,6 +45,8 @@ export interface ScanOptions {
   readonly maxErrorRecords?: number;
   readonly maxFirstLineChars?: number;
   readonly batchSize?: number;
+  /** Leaves entries out: an entry it ignores is counted as read, but it is neither an error nor fingerprinted. */
+  readonly filter?: EntryFilter;
 }
 
 export interface ScanCallbacks {
@@ -60,7 +63,11 @@ export interface ScanResult {
   readonly encoding: TextEncoding | null;
   /** Every entry of the source, errors or not. */
   readonly entries: number;
-  /** Every error entry, including those past the record limit. */
+  /** Entries left out by the filter, each counted once; `entries - ignored` is what the analysis looked at. */
+  readonly ignored: number;
+  /** For each rule of the filter, the entries it matches (an entry matched by two rules counts for both). */
+  readonly ignoredPerRule: readonly number[];
+  /** Every error entry kept by the filter, including those past the record limit. */
   readonly errors: number;
   /** Entries whose text was too long to keep: their beginning is kept, their position stays exact. */
   readonly truncatedEntries: number;
@@ -90,6 +97,7 @@ export async function scanLog(
   const maxErrorRecords = options.maxErrorRecords ?? MAX_ERROR_RECORDS;
   const maxFirstLineChars = options.maxFirstLineChars ?? MAX_FIRST_LINE_CHARS;
   const batchSize = options.batchSize ?? ERROR_BATCH_SIZE;
+  const { filter } = options;
 
   const splitter = createLineSplitter();
   const assembler = createEntryAssembler(profile);
@@ -139,6 +147,9 @@ export async function scanLog(
     if (entry.truncated) {
       truncatedEntries += 1;
     }
+    if (filter?.ignores(entry) === true) {
+      return;
+    }
     if (entry.level !== null && isErrorLevel(entry.level)) {
       errors += 1;
       if (recorded < maxErrorRecords) {
@@ -162,10 +173,13 @@ export async function scanLog(
   take(assembler.finish());
   flush();
 
+  const { ignored, ignoredPerRule } = filter?.counts() ?? { ignored: 0, ignoredPerRule: [] };
   return {
     bytes,
     encoding: splitter.encoding,
     entries,
+    ignored,
+    ignoredPerRule,
     errors,
     truncatedEntries,
     limitReached: errors > recorded,

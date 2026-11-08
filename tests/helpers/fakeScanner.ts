@@ -21,6 +21,8 @@ export const scanResult: ScanResult = {
   bytes: 44,
   encoding: 'utf-8',
   entries: 2,
+  ignored: 0,
+  ignoredPerRule: [],
   errors: 1,
   truncatedEntries: 0,
   limitReached: false,

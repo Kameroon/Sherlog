@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { MAX_MESSAGE_KEY_CHARS } from '../src/core/fingerprint';
+import { createEntryFilter } from '../src/core/preparation';
 import { scanLog } from '../src/core/scanLog';
 import type { ErrorRecord, ScanOptions, ScanResult } from '../src/core/scanLog';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
@@ -243,5 +244,76 @@ describe('scanLog limits', () => {
 
     // Assert
     expect({ entries: result.entries, truncatedEntries: result.truncatedEntries }).toEqual({ entries: 2, truncatedEntries: 1 });
+  });
+});
+
+describe('scanLog with entries left out by the user', () => {
+  const scanWithout = (bytes: Uint8Array, profile: LogProfile, ignoreTexts: string[], blockSize = bytes.length, options: Partial<ScanOptions> = {}) =>
+    scan(bytes, profile, blockSize, { ...options, filter: createEntryFilter({ ignoreTexts }) });
+
+  it('should leave out the 15 of 21 entries of the real sample that mention /health so that no error remains', async () => {
+    // Act
+    const { result, records } = await scanWithout(utf8(readSample('real-serilog.log')), CONSOLE_PROFILE, ['/health']);
+
+    // Assert
+    expect({ entries: result.entries, ignored: result.ignored, ignoredPerRule: result.ignoredPerRule, errors: result.errors }).toEqual({
+      entries: 21,
+      ignored: 15,
+      ignoredPerRule: [15],
+      errors: 0,
+    });
+    expect({ records: records.length, fingerprints: result.fingerprints }).toEqual({ records: 0, fingerprints: [] });
+  });
+
+  it('should not count an ignored error and keep the other errors', async () => {
+    // Act
+    const { result, records } = await scanWithout(utf8(readSample('sample.log')), DEFAULT_PROFILE, ['timeout']);
+
+    // Assert
+    expect({ entries: result.entries, ignored: result.ignored, errors: result.errors, recorded: records.length }).toEqual({
+      entries: 14,
+      ignored: 2,
+      errors: 3,
+      recorded: 3,
+    });
+  });
+
+  it('should leave the errors alone when the ignored entries are not errors', async () => {
+    // Act
+    const { result } = await scanWithout(utf8(readSample('sample.log')), DEFAULT_PROFILE, ['health check']);
+
+    // Assert
+    expect({ ignored: result.ignored, errors: result.errors }).toEqual({ ignored: 1, errors: 5 });
+  });
+
+  it('should give the same result whatever the size of the blocks it reads', async () => {
+    // Arrange
+    const bytes = utf8(readSample('sample.log'));
+
+    // Act
+    const whole = await scanWithout(bytes, DEFAULT_PROFILE, ['timeout', 'sql']);
+    const byte = await scanWithout(bytes, DEFAULT_PROFILE, ['timeout', 'sql'], 1);
+    const seven = await scanWithout(bytes, DEFAULT_PROFILE, ['timeout', 'sql'], 7);
+
+    // Assert
+    expect(byte.result).toEqual(whole.result);
+    expect(seven.result).toEqual(whole.result);
+    expect(seven.records).toEqual(whole.records);
+  });
+
+  it('should not spend the record limit on entries that are left out', async () => {
+    // Act
+    const { result } = await scanWithout(utf8(readSample('sample.log')), DEFAULT_PROFILE, ['timeout'], undefined, { maxErrorRecords: 3 });
+
+    // Assert
+    expect({ errors: result.errors, limitReached: result.limitReached }).toEqual({ errors: 3, limitReached: false });
+  });
+
+  it('should report nothing left out when there is no filter', async () => {
+    // Act
+    const { result } = await scan(utf8(readSample('sample.log')), DEFAULT_PROFILE);
+
+    // Assert
+    expect({ ignored: result.ignored, ignoredPerRule: result.ignoredPerRule }).toEqual({ ignored: 0, ignoredPerRule: [] });
   });
 });
