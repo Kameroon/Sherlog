@@ -79,6 +79,8 @@ Constats du même essai : aucune erreur de CSP ni de worker ; progression croiss
 
 Le pic de mémoire du premier cas inclut le fichier construit en mémoire par le script de mesure ; seule la différence avant/après est interprétable. Dans le navigateur, l'effet n'a pas été relevé.
 
+Ce parcours est versionné dans `scripts/e2e/` (`npm run e2e`, 17 vérifications, fichier de 64 Mo généré à chaque exécution, comptes attendus exacts) : il reste exécutable à la main, il n'est pas encore branché dans le workflow de CI (décision à prendre : le workflow actuel ne le lance pas, et rien n'a été vérifié sur ce point).
+
 **Non vérifié :**
 - Firefox, Safari, Edge et Opera (le navigateur de l'auteur) : seul Chrome a été exercé ; le sélecteur de fichiers natif n'a pas été utilisé (le champ a reçu le fichier par DevTools).
 - La mémoire du **worker dans le navigateur** (seul le tas de la page a été relevé).

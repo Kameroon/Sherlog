@@ -18,6 +18,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 ```
 sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
+├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), Redactor — TS pur
 │  ├─ sources/   detectFormat, readEntryText, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor

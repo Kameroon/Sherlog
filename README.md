@@ -14,7 +14,13 @@ Prérequis : Node 22.13 ou plus récent.
 npm ci
 npm run dev        # http://localhost:5173
 ```
-Hors Azure Static Web Apps, l'interface affiche « Identité indisponible » : c'est normal, `/.auth/me` n'existe qu'une fois déployé.
+Hors Azure Static Web Apps, `npm run dev` affiche « Identité indisponible » et une erreur 404 sur `/.auth/me` dans la console : c'est normal, cette route n'existe qu'une fois déployé.
+
+Pour essayer l'application construite, avec la CSP de production et une identité simulée (donc sans ce message) :
+```bash
+npm run build
+npm run serve:dist   # http://127.0.0.1:4173
+```
 
 ## Développement
 | Commande | Rôle |
@@ -23,6 +29,8 @@ Hors Azure Static Web Apps, l'interface affiche « Identité indisponible » : c
 | `npm run lint` | ESLint, zéro avertissement toléré |
 | `npm test` | Tests Vitest |
 | `npm run build` | Construit `dist/` |
+| `npm run serve:dist` | Sert `dist/` avec les en-têtes de production (CSP) et une identité locale simulée ; ne reproduit pas le contrôle d'accès |
+| `npm run e2e` | Parcours de bout en bout dans Chrome (après `npm run build`) : vrai worker sous la CSP, vrai fichier, progression, annulation, comptes exacts, console sans erreur. Chrome ou Chromium requis (`CHROME_PATH` si introuvable), aucune dépendance ajoutée |
 | `npm run audit` | `npm audit` au niveau high |
 
 Essayer le contrôle d'accès en local (émulateur, qui peut différer du cloud) : `npm run build` puis `npx @azure/static-web-apps-cli@2.0.8 start ./dist` (version épinglée, le paquet n'est pas une dépendance du projet).
@@ -43,6 +51,6 @@ typecheck, lint, tests, build et audit. Ne jamais pousser directement sur `main`
 `console` en développement uniquement, aucune télémétrie. Le contenu des logs analysés, les clés et les échanges avec le modèle ne sont jamais écrits dans la console. Voir ADR-008.
 
 ## Dépannage
-- **« Identité indisponible » en local** : normal hors Azure Static Web Apps.
+- **« Identité indisponible » en local** : normal avec `npm run dev`, hors Azure Static Web Apps ; `npm run serve:dist` simule une identité.
 - **403 « Accès refusé » une fois déployé** : le compte est connecté mais n'a pas été invité.
 - **Le workflow échoue à l'étape d'audit** : `npm audit` a trouvé une vulnérabilité de niveau high ; lire `npm audit` avant tout contournement.
