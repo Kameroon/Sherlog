@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { parseHead, previewHead } from '../core/previewHead';
+import { validatePeriod } from '../core/preparation';
 import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
 import type { ScanResult } from '../core/scanLog';
 import { FormatPanel } from './FormatPanel';
 import { formatCount, formatSize } from './format';
 import { IgnoreTool } from './IgnoreTool';
+import { PeriodTool } from './PeriodTool';
 import { PreparedPreview } from './PreparedPreview';
 import { Tip } from './Tip';
 
@@ -53,7 +55,15 @@ export function PreparationScreen({
   const counts =
     result === null
       ? preview.counts
-      : { read: result.entries, ignored: result.ignored, ignoredPerRule: result.ignoredPerRule, ready: result.entries - result.ignored };
+      : {
+          read: result.entries,
+          ignored: result.ignored,
+          ignoredPerRule: result.ignoredPerRule,
+          ignoredByPeriod: result.ignoredByPeriod,
+          ready: result.entries - result.ignored,
+        };
+  // A period that cannot be used is shown with its reason and not applied; the analysis waits until it is fixed.
+  const periodProblem = validatePeriod(preparation.period);
   const forTheBeginning = result === null && !complete;
   const nothingLeft = result === null && counts.read > 0 && counts.ready === 0;
 
@@ -105,6 +115,15 @@ export function PreparationScreen({
             counts={counts.ignoredPerRule}
             countsAreForTheBeginning={forTheBeginning}
           />
+          <PeriodTool
+            preparation={preparation}
+            onChange={onPreparationChange}
+            withDate={!profile.limited}
+            range={preview.timeRange}
+            forTheBeginning={!complete}
+            ignoredByPeriod={counts.ignoredByPeriod}
+            problem={periodProblem}
+          />
         </div>
         <PreparedPreview preview={preview} name={name} headBytes={head.length} sourceBytes={source.size} complete={complete} />
       </div>
@@ -117,7 +136,7 @@ export function PreparationScreen({
                 type="button"
                 className="button-primary"
                 aria-describedby={describedBy}
-                disabled={nothingLeft && complete}
+                disabled={(nothingLeft && complete) || periodProblem !== null}
                 onClick={onAnalyse}
               >
                 Analyser ce journal

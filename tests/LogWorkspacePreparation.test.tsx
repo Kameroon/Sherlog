@@ -289,3 +289,218 @@ describe('LogWorkspace preparing when only the beginning of a big file was read'
     expect(screen.getByText(/1 entrée écartée dans le début/)).toBeInTheDocument();
   });
 });
+
+const selectTime = (label: string, value: string) => {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } });
+};
+const setTimes = (from: [string, string], to: [string, string]) => {
+  selectTime('Heure de début', from[0]);
+  selectTime('Minutes de début', from[1]);
+  selectTime('Heure de fin', to[0]);
+  selectTime('Minutes de fin', to[1]);
+};
+
+describe('LogWorkspace preparing with a period of times of day', () => {
+  it('should say what the period is for and where the log starts and ends', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(realLog, 'real.log');
+
+    // Assert
+    expect(screen.getByText(/entre deux heures de la journée/)).toBeInTheDocument();
+    expect(screen.getByText('Le journal va de 12:05:38 à 12:07:09.')).toBeInTheDocument();
+  });
+
+  it('should keep only the entries between the two times and count the others as left out by the period', async () => {
+    // Arrange
+    setup();
+    await chooseFile(realLog, 'real.log');
+
+    // Act
+    setTimes(['12', '06'], ['12', '06']);
+
+    // Assert
+    expect(counters()).toEqual([
+      expect.stringContaining('21entrées lues') as unknown,
+      expect.stringContaining('7écartées') as unknown,
+      expect.stringContaining('14prêtes') as unknown,
+    ]);
+    expect(screen.getByText('7 entrées écartées par la période')).toBeInTheDocument();
+    expect(document.querySelectorAll('.excerpt .is-ignored')).toHaveLength(7);
+  });
+
+  it('should leave the minutes unavailable until an hour is chosen, so that no bound is half set', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(realLog, 'real.log');
+
+    // Assert
+    expect(screen.getByLabelText('Minutes de début')).toBeDisabled();
+    selectTime('Heure de début', '12');
+    expect(screen.getByLabelText('Minutes de début')).toBeEnabled();
+  });
+
+  it('should clear a bound when its hour is set back to none', async () => {
+    // Arrange
+    setup();
+    await chooseFile(realLog, 'real.log');
+    setTimes(['12', '06'], ['12', '06']);
+
+    // Act
+    selectTime('Heure de début', '');
+    selectTime('Heure de fin', '');
+
+    // Assert
+    expect(counters()[1]).toContain('0écartée');
+  });
+
+  it('should refuse an end before the start, say so, apply no period and not allow the analysis', async () => {
+    // Arrange
+    setup();
+    await chooseFile(realLog, 'real.log');
+
+    // Act
+    setTimes(['12', '07'], ['12', '06']);
+
+    // Assert
+    expect(screen.getByText('La fin doit suivre le début : un passage de minuit n’est pas géré.')).toBeInTheDocument();
+    expect(counters()[1]).toContain('0écartée');
+    expect(screen.getByRole('button', { name: 'Analyser ce journal' })).toBeDisabled();
+  });
+
+  it('should allow the analysis again once the period is valid', async () => {
+    // Arrange
+    setup();
+    await chooseFile(realLog, 'real.log');
+    setTimes(['12', '07'], ['12', '06']);
+
+    // Act
+    selectTime('Minutes de fin', '08');
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Analyser ce journal' })).toBeEnabled();
+  });
+
+  it('should send the period to the scan when the user analyses', async () => {
+    // Arrange
+    const scanner = setup();
+    await chooseFile(realLog, 'real.log');
+    setTimes(['12', '06'], ['12', '06']);
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Analyser ce journal' }));
+
+    // Assert
+    expect(scanner.requests[0]).toMatchObject({ preparation: { period: { from: '12:06', to: '12:06' } } });
+  });
+
+  it('should drop the result and ask for a new analysis when the period changes after the analysis', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+    finish(scanner);
+
+    // Act
+    selectTime('Heure de début', '08');
+
+    // Assert
+    expect(screen.queryByText(/Analyse terminée sur votre ordinateur/)).not.toBeInTheDocument();
+    expect(screen.getByText('Vous avez changé les réglages : relancez l’analyse pour en tenir compte.')).toBeInTheDocument();
+  });
+
+  it('should keep the focus on the field the user changed after the analysis', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+    finish(scanner);
+    const hour = screen.getByLabelText('Heure de début');
+    hour.focus();
+
+    // Act
+    selectTime('Heure de début', '08');
+
+    // Assert
+    expect(hour).toHaveFocus();
+  });
+});
+
+describe('LogWorkspace preparing with a period of dates', () => {
+  const datedLog = readSample('sample.log');
+
+  it('should offer a date and a time for each bound, written as in the log, and say the offset is not read', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(datedLog, 'dated.log');
+
+    // Assert
+    expect(screen.getByLabelText('Début (date et heure)')).toHaveAttribute('type', 'datetime-local');
+    expect(screen.getByLabelText('Fin (date et heure)')).toHaveAttribute('type', 'datetime-local');
+    expect(screen.getByText(/décalage horaire/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Heure de début')).not.toBeInTheDocument();
+  });
+
+  it('should keep only the entries between the two dates to the minute', async () => {
+    // Arrange
+    setup();
+    await chooseFile(datedLog, 'dated.log');
+
+    // Act
+    fireEvent.change(screen.getByLabelText('Début (date et heure)'), { target: { value: '2026-11-04T08:16' } });
+    fireEvent.change(screen.getByLabelText('Fin (date et heure)'), { target: { value: '2026-11-04T08:16' } });
+
+    // Assert
+    expect(counters()).toEqual([
+      expect.stringContaining('14entrées lues') as unknown,
+      expect.stringContaining('12écartées') as unknown,
+      expect.stringContaining('2prêtes') as unknown,
+    ]);
+  });
+
+  it('should refuse an end before the start', async () => {
+    // Arrange
+    setup();
+    await chooseFile(datedLog, 'dated.log');
+
+    // Act
+    fireEvent.change(screen.getByLabelText('Début (date et heure)'), { target: { value: '2026-11-05T08:00' } });
+    fireEvent.change(screen.getByLabelText('Fin (date et heure)'), { target: { value: '2026-11-04T09:00' } });
+
+    // Assert
+    expect(screen.getByText('La fin doit suivre le début : un passage de minuit n’est pas géré.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Analyser ce journal' })).toBeDisabled();
+  });
+});
+
+describe('LogWorkspace preparing a period on the beginning of a big file', () => {
+  const consoleProfile = BUILT_IN_PROFILES.find((profile) => profile.id === 'serilog-console');
+  if (consoleProfile === undefined) {
+    throw new Error('the console profile is missing');
+  }
+  const bigHead: HeadRead = {
+    detection: { status: 'detected', profile: consoleProfile, encoding: 'utf-8' },
+    head: new TextEncoder().encode(consoleLog),
+    complete: false,
+  };
+
+  it('should say that the range and the count of the period are for the beginning', async () => {
+    // Arrange
+    setup({ readHead: () => Promise.resolve(bigHead) });
+    const big = new File(['x'], 'big.log');
+    Object.defineProperty(big, 'size', { value: 300 * 1024 * 1024 });
+    fireEvent.change(screen.getByLabelText('Choisir un fichier'), { target: { files: [big] } });
+    await screen.findByRole('button', { name: 'Choisir un autre journal' });
+
+    // Act: both entries of the beginning are before 09:00.
+    selectTime('Heure de début', '09');
+
+    // Assert
+    expect(screen.getByText('Le début du fichier va de 08:16:10 à 08:16:11.')).toBeInTheDocument();
+    expect(screen.getByText('2 entrées écartées par la période dans le début')).toBeInTheDocument();
+  });
+});
