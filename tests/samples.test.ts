@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { fingerprint } from '../src/core/fingerprint';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
-import { DEFAULT_PROFILE, matchHeader } from '../src/core/profiles';
+import { CONSOLE_PROFILE, DEFAULT_PROFILE, matchHeader } from '../src/core/profiles';
 import { errorEntries, parseBytes } from './helpers/parseLog';
 import type { ParsedLog } from './helpers/parseLog';
 import { readSample, utf16, utf8 } from './helpers/samples';
@@ -43,6 +43,25 @@ describe('reference samples', () => {
 
     // Assert
     expect(result).toEqual({ profile: 'unrecognized', entries: 0, errors: 0 });
+  });
+
+  // What a manual choice of format gives on that real extract: no format reads all of it, and the console format
+  // swallows the dated line into the entry before it. Recorded, not endorsed: the case is still open.
+  it('should read the real mixed-formats sample as 5 entries with the console format, the dated line joining the warning before it', () => {
+    // Arrange
+    const bytes = utf8(readSample('real-mixed-formats.log'));
+
+    // Act
+    const { entries } = parseBytes(bytes, bytes.length, CONSOLE_PROFILE);
+
+    // Assert
+    expect(entries.map((entry) => ({ level: entry.level, lineCount: entry.lineCount }))).toEqual([
+      { level: null, lineCount: 1 },
+      { level: 'WRN', lineCount: 2 },
+      { level: 'INF', lineCount: 1 },
+      { level: 'ERR', lineCount: 3 },
+      { level: 'INF', lineCount: 1 },
+    ]);
   });
 
   it('should not recognise any line of the console sample with the default profile', () => {

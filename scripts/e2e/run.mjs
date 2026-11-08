@@ -155,6 +155,10 @@ async function run(cdp, appUrl, dataDir) {
     evaluate(
       `(() => { const label = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === ${JSON.stringify(label)}); const input = document.getElementById(label.htmlFor); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
     );
+  const pickFormat = (optionText) =>
+    evaluate(
+      `(() => { const label = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Format du journal'); const select = document.getElementById(label.htmlFor); const option = [...select.options].find((candidate) => candidate.textContent === ${JSON.stringify(optionText)}); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, option.value); select.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    );
   const isDisabled = (text) => evaluate(`[...document.querySelectorAll('button')].find((button) => button.textContent.includes(${JSON.stringify(text)}))?.disabled ?? null`);
   const chooseFile = async (path) => {
     const { root: documentRoot } = await cdp.send('DOM.getDocument', { depth: 0 });
@@ -234,6 +238,34 @@ async function run(cdp, appUrl, dataDir) {
   await click('Analyser ce journal');
   await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse du journal daté', 20000);
   check('avec la période datée, l’analyse trouve 1 erreur', (await text('.result-sentence')) === '14 entrées lues, 1 erreur (1 distincte).', await text('.result-sentence'));
+
+  // 2d. Another format picked by hand: on a log that is not recognised, and on one that is.
+  await click('Choisir un autre journal');
+  await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix du journal à formats mélangés');
+  await chooseFile(join(root, 'samples', 'real-mixed-formats.log'));
+  await waitFor(hasText('Format non reconnu'), 'le refus de reconnaître le journal à formats mélangés');
+  check('un journal non reconnu attend un choix : analyse interdite, ni compteurs ni aperçu', (await isDisabled('Analyser ce journal')) === true && (await count('.counter')) === 0 && (await count('.excerpt')) === 0);
+  await pickFormat('Serilog console (sans date)');
+  const mixed = await counters();
+  check('avec le format console choisi, l’aperçu compte 5 entrées sur les 8 lignes', mixed[0] === '5 entrées lues', mixed.join(' | '));
+  check('la ligne avant la première en-tête est signalée', await evaluate(hasText('1 ligne au début du fichier n’a ni date ni niveau')));
+  check('le format est dit « choisi », pas « reconnu »', await evaluate(hasText('Format choisi : Serilog console (sans date)')));
+  await click('Analyser ce journal');
+  await waitFor(hasText('Analyse terminée'), 'l’analyse du journal à formats mélangés', 20000);
+  check('l’analyse avec le format choisi trouve 1 erreur sur 5 entrées', (await text('.result-sentence')) === '5 entrées lues, 1 erreur (1 distincte).', await text('.result-sentence'));
+  await pickFormat('Serilog fichier / horodatage ISO + niveau');
+  check('changer le format après l’analyse efface le résultat', !(await evaluate(hasText('Analyse terminée'))) && (await evaluate(hasText('Vous avez changé les réglages'))));
+  const mixedAsFile = await counters();
+  check('avec le format fichier, l’extrait mêlé se lit autrement : 2 entrées, 2 lignes avant la première en-tête', mixedAsFile[0] === '2 entrées lues' && (await evaluate(hasText('2 lignes au début du fichier n’ont ni date ni niveau'))), mixedAsFile.join(' | '));
+
+  await click('Choisir un autre journal');
+  await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix du journal console');
+  await chooseFile(join(root, 'samples', 'real-serilog.log'));
+  await waitFor(hasText('Format reconnu'), 'la reconnaissance du journal console');
+  await pickFormat('Serilog fichier / horodatage ISO + niveau');
+  check('un format qui ne lit aucune ligne interdit l’analyse et le dit', (await isDisabled('Analyser ce journal')) === true && (await evaluate(hasText('Aucune ligne du début ne correspond à ce format'))));
+  await pickFormat('Serilog console (sans date)');
+  check('le bon format rend l’analyse possible', (await isDisabled('Analyser ce journal')) === false && (await evaluate(hasText('Format reconnu : Serilog console (sans date)'))));
 
   // 3. A big generated file: progress, cancelling, the exact result.
   const big = join(dataDir, 'big.log');
