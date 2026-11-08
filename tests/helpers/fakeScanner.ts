@@ -11,8 +11,8 @@ export const errorRecord: ErrorRecord = {
   length: 22,
   timestamp: '08:16:10',
   level: 'ERR',
-  firstLine: '[08:16:10 ERR] Failed',
-  firstLineCut: false,
+  message: 'Failed',
+  messageCut: false,
   lineCount: 1,
   fingerprintId: 0,
 };

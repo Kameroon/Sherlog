@@ -1,10 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { LogWorkspace } from '../src/ui/LogWorkspace';
-import { MAX_DISPLAYED_ERRORS } from '../src/ui/ErrorList';
 import type { StartScan } from '../src/workers/scanProtocol';
 import { consoleLog, errorRecord, scanResult } from './helpers/fakeScanner';
 import { chooseFile, finish, setup, startAnalysis } from './helpers/workspace';
+
+/** The format list also has options: only those of the error list count. */
+const selectFirstError = () => {
+  fireEvent.click(within(screen.getByRole('listbox', { name: 'Erreurs' })).getByRole('option'));
+};
 
 describe('LogWorkspace choosing a source', () => {
   it('should offer a file and a paste field and say that no source is loaded', () => {
@@ -243,9 +247,9 @@ describe('LogWorkspace result', () => {
     expect(screen.getByText(/Analyse terminée sur votre ordinateur/)).toBeInTheDocument();
     expect(screen.getByText(/2 entrées lues/)).toBeInTheDocument();
     expect(screen.getByText(/1 erreur\b/)).toBeInTheDocument();
-    const list = screen.getByRole('list', { name: 'Erreurs' });
-    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
-    expect(within(list).getByText('[08:16:10 ERR] Failed')).toBeInTheDocument();
+    const list = screen.getByRole('listbox', { name: 'Erreurs' });
+    expect(within(list).getAllByRole('option')).toHaveLength(1);
+    expect(within(list).getByText('Failed')).toBeInTheDocument();
   });
 
   it('should show the first line of an error as text and never as markup', async () => {
@@ -255,7 +259,7 @@ describe('LogWorkspace result', () => {
     const hostile = '<img src=x onerror=alert(1)>';
 
     // Act
-    finish(scanner, [{ ...errorRecord, firstLine: hostile }]);
+    finish(scanner, [{ ...errorRecord, message: hostile }]);
 
     // Assert
     expect(screen.getByText(hostile)).toBeInTheDocument();
@@ -268,24 +272,25 @@ describe('LogWorkspace result', () => {
     await startAnalysis(scanner);
 
     // Act
-    finish(scanner, [{ ...errorRecord, firstLine: 'abc', firstLineCut: true }]);
+    finish(scanner, [{ ...errorRecord, message: 'abc', messageCut: true }]);
 
     // Assert
     expect(screen.getByText('abc…')).toBeInTheDocument();
   });
 
-  it('should limit the rows shown and say how many errors were recorded when there are too many', async () => {
+  it('should list every recorded error, however many, without putting a row in the page for each', async () => {
     // Arrange
     const scanner = setup();
     await startAnalysis(scanner);
-    const many = Array.from({ length: MAX_DISPLAYED_ERRORS + 50 }, (_, index) => ({ ...errorRecord, offset: index * 22 }));
+    const many = Array.from({ length: 5000 }, (_, index) => ({ ...errorRecord, offset: index * 22 }));
 
     // Act
     finish(scanner, many, { ...scanResult, errors: many.length });
 
     // Assert
-    expect(within(screen.getByRole('list', { name: 'Erreurs' })).getAllByRole('listitem')).toHaveLength(MAX_DISPLAYED_ERRORS);
-    expect(screen.getByText(new RegExp(`${MAX_DISPLAYED_ERRORS} premières erreurs sur ${many.length}`))).toBeInTheDocument();
+    const options = within(screen.getByRole('listbox', { name: 'Erreurs' })).getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-setsize', '5000');
+    expect(options.length).toBeLessThan(500);
   });
 
   it('should say that errors were counted but not recorded when the record limit was reached', async () => {
@@ -362,19 +367,18 @@ describe('LogWorkspace result', () => {
   });
 });
 
-describe('LogWorkspace reading an entry again', () => {
-  it('should show the text read again from the file when the user asks for it', async () => {
+describe('LogWorkspace reading an error again', () => {
+  it('should show the text read again from the file when the user selects an error', async () => {
     // Arrange
     const scanner = setup();
     await startAnalysis(scanner);
     finish(scanner);
 
     // Act
-    fireEvent.click(screen.getByRole('button', { name: /Voir le texte/ }));
+    selectFirstError();
 
     // Assert
-    expect(await screen.findByLabelText(/Texte de l’entrée/)).toHaveTextContent('[08:16:10 ERR] Failed');
-    expect(screen.getByRole('button', { name: /Masquer le texte/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByLabelText(/Texte de l’erreur 1/)).toHaveTextContent('[08:16:10 ERR] Failed');
   });
 
   it('should say that only the beginning is shown when the entry is bigger than the limit', async () => {
@@ -384,7 +388,7 @@ describe('LogWorkspace reading an entry again', () => {
     finish(scanner, [{ ...errorRecord, length: 3 * 1024 * 1024 }]);
 
     // Act
-    fireEvent.click(screen.getByRole('button', { name: /Voir le texte/ }));
+    selectFirstError();
 
     // Assert
     expect(await screen.findByText(/Cette entrée fait 3 Mio : seul son début \(1 Mio\) est affiché/)).toBeInTheDocument();
@@ -397,8 +401,8 @@ describe('LogWorkspace reading an entry again', () => {
     finish(scanner);
 
     // Act
-    fireEvent.click(screen.getByRole('button', { name: /Voir le texte/ }));
-    await screen.findByLabelText(/Texte de l’entrée/);
+    selectFirstError();
+    await screen.findByLabelText(/Texte de l’erreur 1/);
 
     // Assert
     expect(screen.queryByText(/seul son début/)).not.toBeInTheDocument();
@@ -421,7 +425,7 @@ describe('LogWorkspace reading an entry again', () => {
     finish(scanner);
 
     // Act
-    fireEvent.click(screen.getByRole('button', { name: /Voir le texte/ }));
+    selectFirstError();
 
     // Assert
     expect(await screen.findByRole('alert')).toHaveTextContent('modifié, déplacé ou n’est plus lisible');

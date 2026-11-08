@@ -3,7 +3,7 @@ import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
 import type { ScanResult } from '../core/scanLog';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import { ErrorList } from './ErrorList';
+import { ErrorBrowser } from './ErrorBrowser';
 import { countOf, formatCount } from './format';
 import { PreparationScreen } from './PreparationScreen';
 import { SourcePicker } from './SourcePicker';
@@ -197,7 +197,7 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onP
           {analysed && (
             <section className="panel" aria-label="Résultat de l’analyse">
               <ScanSummary result={state.result} recorded={state.records.length} focusTarget={setFocusTarget} />
-              {state.records.length > 0 && <ErrorList records={state.records} readText={readText} />}
+              {state.records.length > 0 && <ErrorBrowser records={state.records} readText={readText} />}
             </section>
           )}
         </>
