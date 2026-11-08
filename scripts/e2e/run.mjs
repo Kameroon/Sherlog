@@ -332,6 +332,16 @@ async function run(cdp, appUrl, dataDir) {
   await pressOnList('Enter');
   await waitFor(`!!document.querySelector('.entry-text')`, 'le texte de la dernière erreur');
   check('Entrée ouvre le détail de la dernière erreur, avec sa stack', (await text('.error-detail h2')).startsWith('Détail de l’erreur') && (await text('.entry-text')).includes('System.TimeoutException'), await text('.error-detail h2'));
+  const lastGroup = (expected.errors - 1) % 6;
+  const lastGroupCount = Math.ceil((expected.errors - lastGroup) / 6);
+  const identicalText = await text('.identical');
+  check(
+    'le détail dit combien d’erreurs sont identiques, de la première à la dernière',
+    identicalText.includes(`${fr(lastGroupCount)} erreurs identiques parmi les erreurs enregistrées`) &&
+      identicalText.includes(`(erreur ${lastGroup + 1})`) &&
+      identicalText.includes(`(erreur ${fr(expected.errors)})`),
+    identicalText,
+  );
   await pressOnList('Home');
   check('Début revient à la première erreur', (await activePosition()) === 1);
 
@@ -353,6 +363,11 @@ async function run(cdp, appUrl, dataDir) {
   metrics.nodesInPage = await evaluate(`document.querySelectorAll('*').length`);
   check('au-delà de la limite, la liste porte les 100 000 premières erreurs', manyExpected.errors > 100000 && manySetSize === 100000, `${manyExpected.errors} erreurs, ${manySetSize} dans la liste`);
   check('100 000 erreurs laissent moins de 400 lignes et 5 000 nœuds dans la page', metrics.optionsInPage < 400 && metrics.nodesInPage < 5000, `${metrics.optionsInPage} lignes, ${metrics.nodesInPage} nœuds`);
+  await pressOnList('End');
+  await pressOnList('Enter');
+  await waitFor(`!!document.querySelector('.identical')`, 'le détail de la dernière erreur enregistrée');
+  check('au-delà de la limite, le nombre d’erreurs identiques est dit minimum', (await text('.identical')).startsWith('Au moins'), await text('.identical'));
+  await pressOnList('Home');
   metrics.endKeyMs = Math.round(await pressOnList('End'));
   check('Fin saute à la 100 000e erreur', (await activePosition()) === 100000);
   metrics.pageUpKeyMs = Math.round(await pressOnList('PageUp'));
