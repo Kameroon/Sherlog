@@ -97,6 +97,53 @@ describe('previewHead counters', () => {
   });
 });
 
+describe('previewHead lines that look like another format', () => {
+  const mixed = () => utf8(readSample('real-mixed-formats.log'));
+
+  it('should count the line that is a header of the file format when the text is read with the console format', () => {
+    // Act
+    const { otherFormat } = previewHead(mixed(), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(otherFormat).toEqual({ lines: 1, labels: [DEFAULT_PROFILE.label] });
+  });
+
+  it('should count the lines that are headers of the console format when the text is read with the file format', () => {
+    // Act
+    const { otherFormat } = previewHead(mixed(), DEFAULT_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(otherFormat).toEqual({ lines: 4, labels: [CONSOLE_PROFILE.label] });
+  });
+
+  it('should count nothing when every line is either a header of the format or a line that continues one', () => {
+    // Act
+    const { otherFormat } = previewHead(utf8(readSample('sample.log')), DEFAULT_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(otherFormat).toEqual({ lines: 0, labels: [] });
+  });
+
+  it('should count the lines beyond the ones shown in the preview', () => {
+    // Arrange
+    const many = '[08:16:10 INF] first\n' + 'x\n'.repeat(MAX_PREVIEW_LINES * 2) + '2026-11-04 08:16:10 +01:00 [INF] dated\n';
+
+    // Act
+    const { otherFormat } = previewHead(utf8(many), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(otherFormat.lines).toBe(1);
+  });
+
+  it('should count nothing for a text with no line', () => {
+    // Act
+    const { otherFormat } = previewHead(new Uint8Array(), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(otherFormat).toEqual({ lines: 0, labels: [] });
+  });
+});
+
 describe('previewHead headers', () => {
   it('should count the entry headers of the text for the format', () => {
     // Act

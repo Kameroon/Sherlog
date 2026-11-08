@@ -5,7 +5,7 @@ import { createLineSplitter } from './lineSplitter';
 import type { SourceLine } from './lineSplitter';
 import { createEntryFilter } from './preparation';
 import type { Preparation } from './preparation';
-import { matchHeader } from './profiles';
+import { BUILT_IN_PROFILES, matchHeader } from './profiles';
 import type { LogProfile } from './profiles';
 import { truncateText } from './text';
 
@@ -57,6 +57,8 @@ export interface HeadPreview {
   readonly totalLines: number;
   /** Entries that start with a header of the format: 0 means the format reads nothing of this text. */
   readonly headerCount: number;
+  /** Lines that look like a header of another known format. */
+  readonly otherFormat: OtherFormatLines;
   /** Where the text starts and ends in time, as written; `null` when no entry has a timestamp. */
   readonly timeRange: TimeRange | null;
   /** Lines before the first header: kept, but never an error, since nothing says what level they have. */
@@ -71,16 +73,45 @@ export interface ParsedHead {
   /** Every line of the text. */
   readonly totalLines: number;
   readonly entries: readonly LogEntry[];
+  /** Lines that are not a header of the format but look like a header of another known format. */
+  readonly otherFormat: OtherFormatLines;
   /** Entries that start with a header of the format: 0 means the format reads nothing of this text. */
   readonly headerCount: number;
   /** First and last timestamp of the text as written, to tell the user what a period can be chosen in. */
   readonly timeRange: TimeRange | null;
 }
 
+/**
+ * Lines that the format in use reads as the continuation of the entry before them, though they are headers of another
+ * known format: a log that mixes layouts. They are only pointed out; the reading does not change.
+ */
+export interface OtherFormatLines {
+  readonly lines: number;
+  /** The other formats they look like, once each. */
+  readonly labels: readonly string[];
+}
+
 /** The timestamps of the first and of the last entry that has one, exactly as written in the log. */
 export interface TimeRange {
   readonly first: string;
   readonly last: string;
+}
+
+function findOtherFormatLines(lines: readonly SourceLine[], profile: LogProfile): OtherFormatLines {
+  const others = BUILT_IN_PROFILES.filter((candidate) => candidate.id !== profile.id);
+  const labels = new Set<string>();
+  let count = 0;
+  for (const line of lines) {
+    if (matchHeader(profile, line.text) !== null) {
+      continue;
+    }
+    const like = others.filter((other) => matchHeader(other, line.text) !== null);
+    if (like.length > 0) {
+      count += 1;
+      like.forEach((other) => labels.add(other.label));
+    }
+  }
+  return { lines: count, labels: [...labels] };
 }
 
 /**
@@ -108,7 +139,7 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
   const lastStamp = stamps.at(-1);
   const timeRange = firstStamp === undefined || lastStamp === undefined ? null : { first: firstStamp, last: lastStamp };
   const headerCount = entries.filter((entry) => entry.level !== null).length;
-  return { profile, firstLines: lines.slice(0, MAX_PREVIEW_LINES), totalLines: lines.length, entries, headerCount, timeRange };
+  return { profile, firstLines: lines.slice(0, MAX_PREVIEW_LINES), totalLines: lines.length, entries, headerCount, timeRange, otherFormat: findOtherFormatLines(lines, profile) };
 }
 
 /**
@@ -119,7 +150,7 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
  * @param parsed - The text, read by {@link parseHead} with the format to preview.
  * @param preparation - What to leave out.
  */
-export function previewHead({ profile, firstLines, totalLines, entries, headerCount, timeRange }: ParsedHead, preparation: Preparation): HeadPreview {
+export function previewHead({ profile, firstLines, totalLines, entries, headerCount, timeRange, otherFormat }: ParsedHead, preparation: Preparation): HeadPreview {
   const filter = createEntryFilter(preparation);
   const ignoredEntries = entries.map((entry) => filter.ignores(entry));
 
@@ -150,6 +181,7 @@ export function previewHead({ profile, firstLines, totalLines, entries, headerCo
     lines: shown,
     totalLines,
     headerCount,
+    otherFormat,
     timeRange,
     orphanLines: first !== undefined && first.level === null ? first.lineCount : 0,
   };

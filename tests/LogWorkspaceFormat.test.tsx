@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { readSample } from './helpers/samples';
+import { BUILT_IN_PROFILES } from '../src/core/profiles';
 import { chooseFile, finish, setup, startAnalysis } from './helpers/workspace';
 
 const realLog = readSample('real-serilog.log');
@@ -147,6 +148,66 @@ describe('LogWorkspace format of a log that was not recognised', () => {
     // Assert
     expect(screen.getByText('1 ligne au début du fichier n’a ni date ni niveau : elle est gardée, mais ne compte jamais comme erreur.')).toBeInTheDocument();
     expect(counters()[0]).toContain('5entrées lues');
+  });
+
+  it('should say how many lines look like another format, and that they are read as the end of the entry before them', async () => {
+    // Arrange
+    setup();
+    await chooseFile(mixedLog, 'mixed.log');
+
+    // Act
+    pickFormat(CONSOLE_FORMAT);
+
+    // Assert
+    expect(
+      screen.getByText(`1 ligne du journal ressemble à un autre format (${FILE_FORMAT}) : elle est lue comme la suite de l’entrée qui la précède.`),
+    ).toBeInTheDocument();
+  });
+
+  it('should say it for each format that the lines look like, in the plural', async () => {
+    // Arrange
+    setup();
+    await chooseFile(mixedLog, 'mixed.log');
+    pickFormat(CONSOLE_FORMAT);
+
+    // Act
+    pickFormat(FILE_FORMAT);
+
+    // Assert
+    expect(
+      screen.getByText(`4 lignes du journal ressemblent à un autre format (${CONSOLE_FORMAT}) : elles sont lues comme la suite de l’entrée qui les précède.`),
+    ).toBeInTheDocument();
+  });
+
+  it('should say nothing about another format when no line looks like one', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(realLog, 'real.log');
+
+    // Assert
+    expect(screen.queryByText(/ressemble.* à un autre format/)).not.toBeInTheDocument();
+  });
+
+  it('should say the lines are those of the beginning when only the beginning of a big file was read', async () => {
+    // Arrange
+    const mixed = new TextEncoder().encode(mixedLog);
+    const consoleProfile = BUILT_IN_PROFILES.find((profile) => profile.id === 'serilog-console');
+    if (consoleProfile === undefined) {
+      throw new Error('the console profile is missing');
+    }
+    setup({ readHead: () => Promise.resolve({ detection: { status: 'unrecognized', reason: 'x' }, head: mixed, complete: false }) });
+    const big = new File(['x'], 'big.log');
+    Object.defineProperty(big, 'size', { value: 300 * 1024 * 1024 });
+    fireEvent.change(screen.getByLabelText('Choisir un fichier'), { target: { files: [big] } });
+    await screen.findByRole('button', { name: 'Choisir un autre journal' });
+
+    // Act
+    pickFormat(CONSOLE_FORMAT);
+
+    // Assert
+    expect(screen.getByText(/1 ligne du début ressemble à un autre format/)).toBeInTheDocument();
   });
 
   it('should say that the preview is read with the format picked, which is not the same as recognised', async () => {

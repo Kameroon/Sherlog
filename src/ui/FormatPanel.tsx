@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { BUILT_IN_PROFILES } from '../core/profiles';
+import type { OtherFormatLines } from '../core/previewHead';
 import type { LogProfile } from '../core/profiles';
 
 interface FormatPanelProps {
@@ -13,11 +14,15 @@ interface FormatPanelProps {
   orphanLines: number;
   /** `true` when no line of the beginning is an entry header of the format. */
   readsNothing: boolean;
+  /** Lines that look like another known format, to point out a log that mixes layouts. */
+  otherFormat: OtherFormatLines;
+  /** `true` when the lines are those of the whole log, not only of its beginning. */
+  complete: boolean;
   onChange: (profile: LogProfile) => void;
 }
 
 /** The format the log is read with, a way to pick another one, and what that means for what follows. */
-export function FormatPanel({ profile, recognised, unrecognisedReason, orphanLines, readsNothing, onChange }: FormatPanelProps) {
+export function FormatPanel({ profile, recognised, unrecognisedReason, orphanLines, readsNothing, otherFormat, complete, onChange }: FormatPanelProps) {
   const selectId = useId();
 
   return (
@@ -62,6 +67,13 @@ export function FormatPanel({ profile, recognised, unrecognisedReason, orphanLin
       {readsNothing && (
         <p className="notice notice-warning" role="status">
           Aucune ligne du début ne correspond à ce format : choisissez-en un autre.
+        </p>
+      )}
+      {otherFormat.lines > 0 && (
+        <p className="small-note is-warning">
+          {otherFormat.lines > 1
+            ? `${otherFormat.lines} lignes du ${complete ? 'journal' : 'début'} ressemblent à un autre format (${otherFormat.labels.join(' ; ')}) : elles sont lues comme la suite de l’entrée qui les précède.`
+            : `1 ligne du ${complete ? 'journal' : 'début'} ressemble à un autre format (${otherFormat.labels.join(' ; ')}) : elle est lue comme la suite de l’entrée qui la précède.`}
         </p>
       )}
       {orphanLines > 0 && (

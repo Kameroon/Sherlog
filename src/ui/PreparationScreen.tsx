@@ -131,6 +131,8 @@ export function PreparationScreen({
             unrecognisedReason={unrecognisedReason}
             orphanLines={preview?.orphanLines ?? 0}
             readsNothing={readsNothing}
+            otherFormat={preview?.otherFormat ?? { lines: 0, labels: [] }}
+            complete={complete}
             onChange={onProfileChange}
           />
           {profile !== null && counts !== null && (
