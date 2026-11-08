@@ -14,9 +14,11 @@ import { connect } from './cdp.mjs';
 import { generateLog } from './generateLog.mjs';
 
 const BIG_LOG_MEGABYTES = 64;
+const MANY_ERRORS_MEGABYTES = 14;
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
 const results = [];
+const metrics = {};
 const check = (name, passed, detail = '') => {
   results.push({ name, passed, detail });
 };
@@ -159,6 +161,16 @@ async function run(cdp, appUrl, dataDir) {
     evaluate(
       `(() => { const label = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Format du journal'); const select = document.getElementById(label.htmlFor); const option = [...select.options].find((candidate) => candidate.textContent === ${JSON.stringify(optionText)}); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, option.value); select.dispatchEvent(new Event('change', { bubbles: true })); })()`,
     );
+  const optionCount = () => count('[role=listbox] [role=option]');
+  const selectOption = (index) =>
+    evaluate(`document.querySelectorAll('[role=listbox] [role=option]')[${index}].click()`);
+  /** Presses a key on the error list the way a keyboard user would, and waits for the next two frames to be drawn. */
+  const pressOnList = (key) =>
+    evaluate(
+      `(async () => { const list = document.querySelector('[role=listbox]'); list.focus(); const start = performance.now(); list.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true })); await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); return performance.now() - start; })()`,
+    );
+  const activePosition = () =>
+    evaluate(`Number(document.getElementById(document.querySelector('[role=listbox]').getAttribute('aria-activedescendant'))?.getAttribute('aria-posinset') ?? 0)`);
   const isDisabled = (text) => evaluate(`[...document.querySelectorAll('button')].find((button) => button.textContent.includes(${JSON.stringify(text)}))?.disabled ?? null`);
   const chooseFile = async (path) => {
     const { root: documentRoot } = await cdp.send('DOM.getDocument', { depth: 0 });
@@ -206,9 +218,9 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse du fichier réel', 20000);
   check('sans règle, le fichier réel donne 21 entrées, 3 erreurs, 1 empreinte', (await text('.result-sentence')) === '21 entrées lues, 3 erreurs (1 distincte).', await text('.result-sentence'));
 
-  await click('Voir le texte');
+  await selectOption(0);
   await waitFor(`!!document.querySelector('.entry-text')`, 'le texte relu');
-  check('le texte de l’entrée est relu depuis le fichier', (await text('.entry-text')).includes(`Executed endpoint 'HTTP: GET /health'`), await text('.entry-text'));
+  check('le texte de l’erreur est relu depuis le fichier', (await text('.entry-text')).includes(`Executed endpoint 'HTTP: GET /health'`), await text('.entry-text'));
 
   // 2b. A period of times of day on the real sample, still on screen after its analysis.
   for (const [label, value] of [['Heure de début', '12'], ['Minutes de début', '06'], ['Heure de fin', '12'], ['Minutes de fin', '06']]) {
@@ -311,7 +323,47 @@ async function run(cdp, appUrl, dataDir) {
   const bigCounters = await counters();
   const bigCountersExpected = [`${fr(expected.entries)} entrées lues`, `${fr(expected.health)} écartées par vos réglages`, `${fr(expected.entries - expected.health)} prêtes à analyser`];
   check('le gros fichier donne les compteurs exacts avec la règle', same(bigCounters, bigCountersExpected), `obtenu ${bigCounters.join(' | ')}, attendu ${bigCountersExpected.join(' | ')}`);
-  check('au plus 200 lignes sont affichées', (await evaluate(`document.querySelectorAll('.error-row').length`)) === Math.min(200, expected.errors));
+  const bigOptions = await optionCount();
+  const bigSetSize = await evaluate(`Number(document.querySelector('[role=listbox] [role=option]').getAttribute('aria-setsize'))`);
+  check('la liste dit sa taille entière et ne met qu’une fraction des lignes dans la page', bigSetSize === expected.errors && bigOptions < 400, `${bigOptions} lignes dans la page pour ${bigSetSize}`);
+  check('les erreurs identiques portent un badge « ×N »', (await evaluate(`document.querySelector('[role=listbox] [role=option]').textContent`)).includes('identiques'));
+  const toEnd = await pressOnList('End');
+  check('Fin va à la dernière erreur, qui est alors dans la page', (await activePosition()) === expected.errors && (await evaluate(`!!document.getElementById(document.querySelector('[role=listbox]').getAttribute('aria-activedescendant'))`)), `${Math.round(toEnd)} ms`);
+  await pressOnList('Enter');
+  await waitFor(`!!document.querySelector('.entry-text')`, 'le texte de la dernière erreur');
+  check('Entrée ouvre le détail de la dernière erreur, avec sa stack', (await text('.error-detail h2')).startsWith('Détail de l’erreur') && (await text('.entry-text')).includes('System.TimeoutException'), await text('.error-detail h2'));
+  await pressOnList('Home');
+  check('Début revient à la première erreur', (await activePosition()) === 1);
+
+  // 3b. More errors than are recorded: every one of the 100 000 first is in the list, the page holds a fraction of them.
+  const many = join(dataDir, 'many-errors.log');
+  const manyExpected = await generateLog(many, MANY_ERRORS_MEGABYTES, 'errors');
+  await click('Choisir un autre journal');
+  await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix du fichier de nombreuses erreurs');
+  await chooseFile(many);
+  await waitFor(hasButton('Analyser ce journal'), 'la reconnaissance du fichier de nombreuses erreurs');
+  await click('Analyser ce journal');
+  await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse de nombreuses erreurs', 120000);
+  const doneAt = performance.now();
+  await waitFor(`document.querySelectorAll('[role=listbox] [role=option]').length > 0`, 'la première ligne de la liste');
+  metrics.firstRowAfterDoneMs = Math.round(performance.now() - doneAt);
+  const manySetSize = await evaluate(`Number(document.querySelector('[role=listbox] [role=option]').getAttribute('aria-setsize'))`);
+  metrics.recordedErrors = manySetSize;
+  metrics.optionsInPage = await optionCount();
+  metrics.nodesInPage = await evaluate(`document.querySelectorAll('*').length`);
+  check('au-delà de la limite, la liste porte les 100 000 premières erreurs', manyExpected.errors > 100000 && manySetSize === 100000, `${manyExpected.errors} erreurs, ${manySetSize} dans la liste`);
+  check('100 000 erreurs laissent moins de 400 lignes et 5 000 nœuds dans la page', metrics.optionsInPage < 400 && metrics.nodesInPage < 5000, `${metrics.optionsInPage} lignes, ${metrics.nodesInPage} nœuds`);
+  metrics.endKeyMs = Math.round(await pressOnList('End'));
+  check('Fin saute à la 100 000e erreur', (await activePosition()) === 100000);
+  metrics.pageUpKeyMs = Math.round(await pressOnList('PageUp'));
+  metrics.scrollToMiddleMs = Math.round(
+    await evaluate(
+      `(async () => { const list = document.querySelector('[role=listbox]'); const start = performance.now(); list.scrollTop = list.scrollHeight / 2; await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); return performance.now() - start; })()`,
+    ),
+  );
+  const middle = await evaluate(`[...document.querySelectorAll('[role=listbox] [role=option]')].map((option) => Number(option.getAttribute('aria-posinset')))`);
+  check('au milieu de l’ascenseur, la page montre les lignes du milieu de la liste', middle.some((position) => position > 40000 && position < 60000), `${Math.min(...middle)} à ${Math.max(...middle)}`);
+  metrics.heapMB = await evaluate(`Math.round(performance.memory.usedJSHeapSize / 1048576)`);
 
   // 4. Pasted text with markup: shown as text, never interpreted.
   await click('Choisir un autre journal');
@@ -325,7 +377,7 @@ async function run(cdp, appUrl, dataDir) {
   await click('Analyser ce journal');
   await waitFor(hasText('Analyse terminée'), 'l’analyse du texte collé', 20000);
   check('le texte collé donne 2 entrées, 1 erreur', (await text('.result-sentence')) === '2 entrées lues, 1 erreur (1 distincte).', await text('.result-sentence'));
-  check('le balisage collé reste du texte', !(await evaluate(`!!document.querySelector('.error-row img')`)) && (await text('.error-first-line')).includes('<img src=x'));
+  check('le balisage collé reste du texte', !(await evaluate(`!!document.querySelector('[role=option] img')`)) && (await text('.error-first-line')).includes('<img src=x'));
 
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 }
@@ -339,6 +391,7 @@ try {
 for (const { name, passed, detail } of results) {
   console.log(`${passed ? 'OK  ' : 'ÉCHEC'} ${name}${detail === '' || passed ? '' : ` — ${detail}`}`);
 }
+console.log(`\nMesures : ${JSON.stringify(metrics)}`);
 const failed = results.filter((result) => !result.passed).length;
 console.log(failed === 0 ? `\n${results.length} vérifications réussies.` : `\n${failed} vérification(s) en échec sur ${results.length}.`);
 process.exit(failed === 0 ? 0 : 1);
