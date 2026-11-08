@@ -16,8 +16,8 @@ export default defineConfig([
     },
   },
   {
-    // Configuration files run in Node and are not part of the TypeScript project.
-    files: ['**/*.js'],
+    // Configuration files and scripts run in Node and are not part of the TypeScript project.
+    files: ['**/*.{js,mjs}'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
   },

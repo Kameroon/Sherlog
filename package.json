@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
+    "e2e": "node scripts/e2e/run.mjs",
+    "serve:dist": "node scripts/serve-dist.mjs",
     "audit": "npm audit --audit-level=high"
   },
   "dependencies": {

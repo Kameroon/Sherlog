@@ -75,3 +75,76 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('child content')).toBeInTheDocument();
   });
 });
+
+describe('ErrorBoundary on a panel', () => {
+  it('should show a short fallback in place of the panel, not the page fallback, when a child throws', () => {
+    // Arrange
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    // Act
+    render(
+      <ErrorBoundary scope="panel">
+        <Bomb shouldThrow />
+      </ErrorBoundary>,
+    );
+
+    // Assert
+    expect(screen.getByRole('alert')).toHaveTextContent('Ce panneau n’a pas pu s’afficher');
+    expect(screen.queryByText('Une erreur est survenue')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+  });
+
+  it('should not display the error message, to avoid leaking log content', () => {
+    // Arrange
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    // Act
+    render(
+      <ErrorBoundary scope="panel">
+        <Bomb shouldThrow />
+      </ErrorBoundary>,
+    );
+
+    // Assert
+    expect(screen.queryByText(/rendering failure/)).not.toBeInTheDocument();
+  });
+
+  it('should leave what is around it in place when its child throws', () => {
+    // Arrange
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    // Act
+    render(
+      <>
+        <p>the list</p>
+        <ErrorBoundary scope="panel">
+          <Bomb shouldThrow />
+        </ErrorBoundary>
+      </>,
+    );
+
+    // Assert
+    expect(screen.getByText('the list')).toBeInTheDocument();
+  });
+
+  it('should render the children again when the user retries after the cause is gone', () => {
+    // Arrange
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { rerender } = render(
+      <ErrorBoundary scope="panel">
+        <Bomb shouldThrow />
+      </ErrorBoundary>,
+    );
+    rerender(
+      <ErrorBoundary scope="panel">
+        <Bomb shouldThrow={false} />
+      </ErrorBoundary>,
+    );
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+
+    // Assert
+    expect(screen.getByText('child content')).toBeInTheDocument();
+  });
+});

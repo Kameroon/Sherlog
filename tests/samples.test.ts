@@ -1,28 +1,11 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { fingerprint } from '../src/core/fingerprint';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
-import { DEFAULT_PROFILE, matchHeader } from '../src/core/profiles';
+import { CONSOLE_PROFILE, DEFAULT_PROFILE, matchHeader } from '../src/core/profiles';
 import { errorEntries, parseBytes } from './helpers/parseLog';
 import type { ParsedLog } from './helpers/parseLog';
-
-/** Reads a sample with LF line endings, whatever the checkout converted them to. */
-function readSample(name: string): string {
-  const path = fileURLToPath(new URL(`../samples/${name}`, import.meta.url));
-  return readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
-}
-
-function utf16(text: string, order: 'le' | 'be'): Uint8Array {
-  const bytes: number[] = order === 'le' ? [0xff, 0xfe] : [0xfe, 0xff];
-  for (let index = 0; index < text.length; index += 1) {
-    const unit = text.charCodeAt(index);
-    bytes.push(...(order === 'le' ? [unit & 0xff, unit >> 8] : [unit >> 8, unit & 0xff]));
-  }
-  return Uint8Array.from(bytes);
-}
-
-const utf8 = (text: string): Uint8Array => new TextEncoder().encode(text);
+import { readSample, utf16, utf8 } from './helpers/samples';
 
 function summaryOf({ detection, entries }: ParsedLog) {
   return {
@@ -34,12 +17,14 @@ function summaryOf({ detection, entries }: ParsedLog) {
 
 const summarize = (bytes: Uint8Array, chunkSize?: number) => summaryOf(parseBytes(bytes, chunkSize));
 
-// Reference results of samples/README.md (entries and errors; fingerprints belong to step 3).
+// Reference results of samples/README.md (profile, entries and errors; fingerprints are checked further down).
 const references = [
   { file: 'sample.log', profile: 'serilog-file', entries: 14, errors: 5 },
   { file: 'serilog-realistic.log', profile: 'serilog-file', entries: 17, errors: 9 },
   { file: 'serilog-console.log', profile: 'serilog-console', entries: 5, errors: 3 },
   { file: 'serilog-pieges.log', profile: 'serilog-file', entries: 7, errors: 5 },
+  // The only real sample: a Docker console output, counted by hand before the parser was run on it.
+  { file: 'real-serilog.log', profile: 'serilog-console', entries: 21, errors: 3 },
 ];
 
 describe('reference samples', () => {
@@ -49,6 +34,34 @@ describe('reference samples', () => {
 
     // Assert
     expect(result).toEqual({ profile: reference.profile, entries: reference.entries, errors: reference.errors });
+  });
+
+  // Real extract that mixes three layouts (SPEC §8 point 4, still undecided): this records what happens today.
+  it('should not recognise the real mixed-formats sample, since its first line carries a level the console profile does not read', () => {
+    // Act
+    const result = summarize(utf8(readSample('real-mixed-formats.log')));
+
+    // Assert
+    expect(result).toEqual({ profile: 'unrecognized', entries: 0, errors: 0 });
+  });
+
+  // What a manual choice of format gives on that real extract: no format reads all of it, and the console format
+  // swallows the dated line into the entry before it. Recorded, not endorsed: the case is still open.
+  it('should read the real mixed-formats sample as 5 entries with the console format, the dated line joining the warning before it', () => {
+    // Arrange
+    const bytes = utf8(readSample('real-mixed-formats.log'));
+
+    // Act
+    const { entries } = parseBytes(bytes, bytes.length, CONSOLE_PROFILE);
+
+    // Assert
+    expect(entries.map((entry) => ({ level: entry.level, lineCount: entry.lineCount }))).toEqual([
+      { level: null, lineCount: 1 },
+      { level: 'WRN', lineCount: 2 },
+      { level: 'INF', lineCount: 1 },
+      { level: 'ERR', lineCount: 3 },
+      { level: 'INF', lineCount: 1 },
+    ]);
   });
 
   it('should not recognise any line of the console sample with the default profile', () => {
@@ -77,6 +90,44 @@ describe('reference samples', () => {
 
     // Assert
     expect(errorEntries(entries).every((entry) => ['ERR', 'FTL'].includes(entry.level ?? ''))).toBe(true);
+  });
+});
+
+describe('fingerprints of the reference samples', () => {
+  /** Index of the first error that has the same fingerprint, for every error in reading order. */
+  function groupsOf(file: string): number[] {
+    const { detection, entries } = parseBytes(utf8(readSample(file)));
+    if (detection.status !== 'detected') {
+      throw new Error(`${file}: no profile detected`);
+    }
+    const keys = errorEntries(entries).map((entry) => fingerprint(entry, detection.profile));
+    return keys.map((key) => [...new Set(keys)].indexOf(key));
+  }
+
+  // Reference results of samples/README.md ("Empreintes distinctes"); the groups give the detail by error.
+  const fingerprintReferences = [
+    { file: 'sample.log', distinct: 4, groups: [0, 0, 1, 2, 3] },
+    { file: 'serilog-realistic.log', distinct: 7, groups: [0, 1, 1, 2, 3, 4, 0, 5, 6] },
+    { file: 'serilog-console.log', distinct: 2, groups: [0, 0, 1] },
+    { file: 'serilog-pieges.log', distinct: 3, groups: [0, 1, 1, 2, 2] },
+    // The three health-check errors only differ by the correlation GUID written in brackets in the message.
+    { file: 'real-serilog.log', distinct: 1, groups: [0, 0, 0] },
+  ];
+
+  it.each(fingerprintReferences)('should find $distinct distinct fingerprints when parsing $file', (reference) => {
+    // Act
+    const groups = groupsOf(reference.file);
+
+    // Assert
+    expect(new Set(groups).size).toBe(reference.distinct);
+  });
+
+  it.each(fingerprintReferences)('should group the identical errors of $file as documented', (reference) => {
+    // Act
+    const groups = groupsOf(reference.file);
+
+    // Assert
+    expect(groups).toEqual(reference.groups);
   });
 });
 

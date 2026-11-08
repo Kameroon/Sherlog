@@ -13,7 +13,7 @@ const fileLines = [
 const consoleLines = ['[08:12:01 INF] Started', '[08:16:10 ERR] Timeout', 'System.TimeoutException: timed out'];
 
 function profileWith(id: string, header: RegExp): LogProfile {
-  return { id, label: id, header, limited: false };
+  return { id, label: id, header, limited: false, libraryPrefixes: [] };
 }
 
 describe('detectProfile', () => {

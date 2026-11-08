@@ -1,0 +1,21 @@
+[12:05:38 INF] [33ffff3c-406e-439e-a215-5710920fb4e8] Setting HTTP status code 200.
+[12:05:38 INF] [33ffff3c-406e-439e-a215-5710920fb4e8] Writing value of type '<>f__AnonymousType18`4' as Json.
+[12:05:38 ERR] [33ffff3c-406e-439e-a215-5710920fb4e8] Executed endpoint 'HTTP: GET /health'
+[12:05:38 INF] [33ffff3c-406e-439e-a215-5710920fb4e8] Request finished HTTP/1.1 GET http://localhost:8080/health - 200 null application/json; charset=utf-8 0.7792ms
+[12:06:09 INF] [7ecb1df3-8db1-4137-8038-9584ac6f3083] Request starting HTTP/1.1 GET http://localhost:8080/health - null null
+[12:06:09 DBG] [7ecb1df3-8db1-4137-8038-9584ac6f3083] ID de corrélation de requête résolu. CorrelationId=7ecb1df3-8db1-4137-8038-9584ac6f3083 Method=GET Path=/health
+[12:06:09 INF] [7ecb1df3-8db1-4137-8038-9584ac6f3083] Executing endpoint 'HTTP: GET /health'
+[12:06:09 INF] [7ecb1df3-8db1-4137-8038-9584ac6f3083] Setting HTTP status code 200.
+[12:06:09 INF] [7ecb1df3-8db1-4137-8038-9584ac6f3083] Writing value of type '<>f__AnonymousType18`4' as Json.
+[12:06:09 ERR] [7ecb1df3-8db1-4137-8038-9584ac6f3083] Executed endpoint 'HTTP: GET /health'
+[12:06:09 INF] [7ecb1df3-8db1-4137-8038-9584ac6f3083] Request finished HTTP/1.1 GET http://localhost:8080/health - 200 null application/json; charset=utf-8 1.7424ms
+[12:06:39 INF] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] Request starting HTTP/1.1 GET http://localhost:8080/health - null null
+[12:06:39 DBG] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] ID de corrélation de requête résolu. CorrelationId=5acb7a2e-b145-413c-9ecf-e3e4b08cf80a Method=GET Path=/health
+[12:06:39 INF] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] Executing endpoint 'HTTP: GET /health'
+[12:06:39 INF] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] Setting HTTP status code 200.
+[12:06:39 INF] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] Writing value of type '<>f__AnonymousType18`4' as Json.
+[12:06:39 ERR] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] Executed endpoint 'HTTP: GET /health'
+[12:06:39 INF] [5acb7a2e-b145-413c-9ecf-e3e4b08cf80a] Request finished HTTP/1.1 GET http://localhost:8080/health - 200 null application/json; charset=utf-8 1.1856ms
+[12:07:09 INF] [4fc6974d-4569-49a1-a6d4-7cffa3fd0f21] Request starting HTTP/1.1 GET http://localhost:8080/health - null null
+[12:07:09 DBG] [4fc6974d-4569-49a1-a6d4-7cffa3fd0f21] ID de corrélation de requête résolu. CorrelationId=4fc6974d-4569-49a1-a6d4-7cffa3fd0f21 Method=GET Path=/health
+[12:07:09 INF] [4fc6974d-4569-49a1-a6d4-7cffa3fd0f21] Executing endpoint 'HTTP: GET /health'

@@ -1,7 +1,7 @@
 # ADR-010 : Découper le flux en lignes sur les octets, avant de décoder
 
 ## Statut
-Proposé — 2026-11-07. Passe à « Accepté » avec la validation de l'étape 2 par l'auteur.
+Accepté — 2026-11-08 (étape 2 validée par l'auteur). Les points « non vérifié » restent à lever.
 
 ## Contexte
 Le parseur (étape 2) doit tenir CRLF, BOM, UTF-16 (fréquent avec la redirection PowerShell 5.1), UTF-8 coupé entre deux blocs et lignes très longues (`SPEC.md` §3). L'étape 4 relira une entrée à la demande avec `File.slice` : il faut donc, pour chaque entrée, une position **exacte en octets**.
