@@ -55,6 +55,8 @@ export interface HeadPreview {
   readonly lines: readonly PreviewLine[];
   /** Every line of the text. */
   readonly totalLines: number;
+  /** Where the text starts and ends in time, as written; `null` when no entry has a timestamp. */
+  readonly timeRange: TimeRange | null;
   /** Lines before the first header: kept, but never an error, since nothing says what level they have. */
   readonly orphanLines: number;
 }
@@ -67,6 +69,14 @@ export interface ParsedHead {
   /** Every line of the text. */
   readonly totalLines: number;
   readonly entries: readonly LogEntry[];
+  /** First and last timestamp of the text as written, to tell the user what a period can be chosen in. */
+  readonly timeRange: TimeRange | null;
+}
+
+/** The timestamps of the first and of the last entry that has one, exactly as written in the log. */
+export interface TimeRange {
+  readonly first: string;
+  readonly last: string;
 }
 
 /**
@@ -89,7 +99,11 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
   if (last !== null) {
     entries.push(last);
   }
-  return { profile, firstLines: lines.slice(0, MAX_PREVIEW_LINES), totalLines: lines.length, entries };
+  const stamps = entries.flatMap((entry) => (entry.timestamp === null ? [] : [entry.timestamp]));
+  const firstStamp = stamps[0];
+  const lastStamp = stamps.at(-1);
+  const timeRange = firstStamp === undefined || lastStamp === undefined ? null : { first: firstStamp, last: lastStamp };
+  return { profile, firstLines: lines.slice(0, MAX_PREVIEW_LINES), totalLines: lines.length, entries, timeRange };
 }
 
 /**
@@ -100,7 +114,7 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
  * @param parsed - The text, read by {@link parseHead} with the format to preview.
  * @param preparation - What to leave out.
  */
-export function previewHead({ profile, firstLines, totalLines, entries }: ParsedHead, preparation: Preparation): HeadPreview {
+export function previewHead({ profile, firstLines, totalLines, entries, timeRange }: ParsedHead, preparation: Preparation): HeadPreview {
   const filter = createEntryFilter(preparation);
   const ignoredEntries = entries.map((entry) => filter.ignores(entry));
 
@@ -130,6 +144,7 @@ export function previewHead({ profile, firstLines, totalLines, entries }: Parsed
     counts: { read: entries.length, ignored, ignoredPerRule, ignoredByPeriod, ready: entries.length - ignored, errors },
     lines: shown,
     totalLines,
+    timeRange,
     orphanLines: first !== undefined && first.level === null ? first.lineCount : 0,
   };
 }

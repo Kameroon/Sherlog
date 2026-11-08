@@ -97,6 +97,32 @@ describe('previewHead counters', () => {
   });
 });
 
+describe('previewHead time range', () => {
+  it('should give the first and the last timestamp of the text as they are written', () => {
+    // Act
+    const { timeRange } = previewHead(utf8(readSample('real-serilog.log')), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(timeRange).toEqual({ first: '12:05:38', last: '12:07:09' });
+  });
+
+  it('should give the whole timestamp, date and offset included, when the format has them', () => {
+    // Act
+    const { timeRange } = previewHead(utf8(readSample('sample.log')), DEFAULT_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(timeRange).toEqual({ first: '2026-11-04 08:12:01.123 +01:00', last: '2026-11-04 10:12:34.100 +01:00' });
+  });
+
+  it('should give nothing when no entry has a timestamp', () => {
+    // Act
+    const { timeRange } = previewHead(utf8('only a line without header\n'), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(timeRange).toBeNull();
+  });
+});
+
 describe('previewHead excerpt', () => {
   it('should number the lines from one and tell headers from the lines that continue them', () => {
     // Act
