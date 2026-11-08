@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import type { ScanResult } from '../core/scanLog';
 import type { FormatDetection } from '../sources/detectFormat';
 import { ErrorList } from './ErrorList';
@@ -34,17 +35,23 @@ function FormatNotice({ detection }: { detection: FormatDetection }) {
   }
 }
 
-function ScanSummary({ result, recorded }: { result: ScanResult; recorded: number }) {
+interface ScanSummaryProps {
+  result: ScanResult;
+  recorded: number;
+  focusTarget: (element: HTMLElement | null) => void;
+}
+
+function ScanSummary({ result, recorded, focusTarget }: ScanSummaryProps) {
   // Past the record limit the later errors were counted but not fingerprinted, so the distinct count is a minimum.
   const distinct = `${result.limitReached ? 'au moins ' : ''}${countOf(result.fingerprints.length, 'distincte', 'distinctes')}`;
   return (
     <>
-      <p className="result-title">Analyse terminée sur votre ordinateur.</p>
+      <p className="result-title" ref={focusTarget} tabIndex={-1}>
+        Analyse terminée sur votre ordinateur.
+      </p>
       <p className="result-sentence">
         {countOf(result.entries, 'entrée lue', 'entrées lues')}
-        {result.errors === 0
-          ? ', aucune erreur.'
-          : `, ${countOf(result.errors, 'erreur', 'erreurs')} (${distinct}).`}
+        {result.errors === 0 ? ', aucune erreur.' : `, ${countOf(result.errors, 'erreur', 'erreurs')} (${distinct}).`}
       </p>
       {result.errors === 0 && <p>Aucune erreur trouvée dans ce journal.</p>}
       {result.limitReached && (
@@ -71,11 +78,25 @@ function ScanSummary({ result, recorded }: { result: ScanResult; recorded: numbe
 export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
   const { state, chooseFile, chooseText, analyse, cancel, reset, readText } = useLogScan(dependencies);
 
+  // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
+  // new stage, a keyboard user lands on the page body. Not on the first render, which must not steal the focus.
+  const focusTarget = useRef<HTMLElement | null>(null);
+  const shownPhase = useRef(state.phase);
+  useEffect(() => {
+    if (shownPhase.current !== state.phase) {
+      shownPhase.current = state.phase;
+      focusTarget.current?.focus();
+    }
+  }, [state.phase]);
+  const setFocusTarget = useCallback((element: HTMLElement | null): void => {
+    focusTarget.current = element;
+  }, []);
+
   switch (state.phase) {
     case 'idle':
       return (
         <>
-          <p className="empty">
+          <p className="empty" ref={setFocusTarget} tabIndex={-1}>
             Aucune source de logs chargée pour le moment.
             <span className="cursor" aria-hidden="true" />
           </p>
@@ -84,14 +105,14 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
       );
     case 'detecting':
       return (
-        <p className="hint" role="status">
+        <p className="hint" role="status" ref={setFocusTarget} tabIndex={-1}>
           Lecture du début du journal…
         </p>
       );
     case 'failed':
       return (
         <>
-          <p className="notice notice-error" role="alert">
+          <p className="notice notice-error" role="alert" ref={setFocusTarget} tabIndex={-1}>
             {state.message}
           </p>
           <SourcePicker onFile={(file) => void chooseFile(file)} onText={(text) => void chooseText(text)} />
@@ -100,7 +121,9 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
     case 'ready':
       return (
         <section className="panel" aria-label="Journal choisi">
-          <h2>{state.name}</h2>
+          <h2 ref={setFocusTarget} tabIndex={-1}>
+            {state.name}
+          </h2>
           <FormatNotice detection={state.detection} />
           <div className="actions">
             {state.detection.status === 'detected' && (
@@ -122,9 +145,13 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
       const percent = total === 0 ? 0 : Math.floor((state.bytesRead / total) * 100);
       return (
         <section className="panel" aria-label="Analyse en cours">
-          <h2>{state.name}</h2>
-          <p role="status">
-            Analyse en cours : {percent} %, {countOf(state.records.length, 'erreur trouvée', 'erreurs trouvées')}.
+          <h2 ref={setFocusTarget} tabIndex={-1}>
+            {state.name}
+          </h2>
+          {/* Fixed text, announced once: the figures below change ten times a second and stay out of the live region. */}
+          <p role="status">Analyse en cours…</p>
+          <p>
+            {percent} %, {countOf(state.records.length, 'erreur trouvée', 'erreurs trouvées')}.
           </p>
           <progress className="progress" aria-label="Progression de l’analyse" max={total} value={state.bytesRead} />
           <div className="actions">
@@ -139,7 +166,7 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
       return (
         <section className="panel" aria-label="Résultat de l’analyse">
           <h2>{state.name}</h2>
-          <ScanSummary result={state.result} recorded={state.records.length} />
+          <ScanSummary result={state.result} recorded={state.records.length} focusTarget={setFocusTarget} />
           {state.records.length > 0 && <ErrorList records={state.records} readText={readText} />}
           <div className="actions">
             <button type="button" className="button-link" onClick={reset}>

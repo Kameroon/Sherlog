@@ -179,6 +179,77 @@ describe('LogWorkspace when the worker cannot start', () => {
   });
 });
 
+describe('LogWorkspace keyboard and screen reader', () => {
+  it('should move the focus to the file name once the format is recognised', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(consoleLog, 'app.log');
+
+    // Assert
+    expect(screen.getByRole('heading', { name: 'app.log' })).toHaveFocus();
+  });
+
+  it('should move the focus into the progress screen when the analysis starts, not leave it on the page', async () => {
+    // Arrange
+    const scanner = setup();
+
+    // Act
+    await startAnalysis(scanner);
+
+    // Assert
+    expect(screen.getByRole('heading', { name: 'app.log' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument();
+  });
+
+  it('should move the focus to the result sentence when the analysis is done', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+
+    // Act
+    finish(scanner);
+
+    // Assert
+    expect(screen.getByText('Analyse terminée sur votre ordinateur.')).toHaveFocus();
+  });
+
+  it('should move the focus to the message when the scan fails', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+
+    // Act
+    scanner.emit({ type: 'failed', message: 'Lecture impossible : boom.' });
+
+    // Assert
+    expect(screen.getByRole('alert')).toHaveFocus();
+  });
+
+  it('should not steal the focus when the page first opens', () => {
+    // Act
+    setup();
+
+    // Assert
+    expect(document.body).toHaveFocus();
+  });
+
+  it('should keep the percentage out of the live region so that a reader does not announce it ten times a second', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+
+    // Act
+    scanner.emit({ type: 'progress', bytesRead: 22 });
+
+    // Assert
+    expect(screen.getByRole('status')).toHaveTextContent('Analyse en cours');
+    expect(screen.getByRole('status')).not.toHaveTextContent('%');
+    expect(screen.getByText(new RegExp(`${Math.floor((22 / consoleLog.length) * 100)} %`))).toBeInTheDocument();
+  });
+});
+
 describe('LogWorkspace result', () => {
   it('should summarise the scan and list the errors once it is done', async () => {
     // Arrange
