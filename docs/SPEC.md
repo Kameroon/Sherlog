@@ -38,10 +38,11 @@ une analyse IA précise et un chat, avec la clé de l'utilisateur ou un modèle 
 - **Préparation avant analyse** : choisir un fichier ou coller du texte **lit** le journal dans le navigateur, sans l'analyser ni l'envoyer.
   L'utilisateur arrive sur un espace de préparation, facultatif, où il règle ce qui sera analysé, puis lance lui-même l'analyse (« Analyser ce journal »).
   Le fichier d'origine n'est jamais modifié (ADR-010) : les réglages ne changent que ce qui est retenu, affiché et envoyé. Des compteurs visibles
-  (entrées lues, écartées par les réglages, prêtes à analyser, données masquées) et un aperçu du journal préparé rendent chaque réglage vérifiable.
+  (entrées lues, écartées par les réglages, prêtes à analyser ; « données masquées » avec le masquage, étape 6) et un aperçu du journal préparé rendent chaque réglage vérifiable.
+  Tant que l'analyse n'a pas eu lieu, ces chiffres et l'aperçu portent sur **le début du fichier (1 Mio)** : exacts pour un texte collé ou un petit fichier, sinon dits « calculés sur le début » à l'écran ; l'analyse donne les chiffres exacts (ADR-012).
   Changer un réglage après l'analyse invalide le résultat affiché : l'analyse est à relancer. Outils :
   - **Format** : format reconnu affiché avec son effet (nombre d'entrées) ; lignes situées avant la première en-tête signalées ; possibilité de choisir un autre format puis de relire le fichier.
-  - **Ignorer des entrées** : règles texte (l'entrée est écartée si son texte contient la chaîne, majuscules ou non), par exemple les appels de santé `/health` ; règles vides ou en double refusées, règles supprimables.
+  - **Ignorer des entrées** : règles texte (l'entrée est écartée si son texte, pile comprise, contient la chaîne, majuscules ou non), par exemple les appels de santé `/health` ; règles vides ou en double refusées, 200 caractères et 20 règles au plus, règles supprimables. Pas d'expression régulière. Une entrée écartée est lue et comptée, mais n'est ni une erreur ni regroupée par empreinte (ADR-012).
   - **Période** : borne de début et de fin. Pour un profil à heure seule (console), sélection de l'heure et des minutes, minute de fin incluse, entrées sans heure conservées. Pour un profil avec date : à concevoir (§8).
   - **Masquer les données sensibles** : cases à cocher avec le nombre d'occurrences trouvées (voir §6) ; le texte d'origine n'est affiché qu'à la demande de l'utilisateur et reste sur cet écran.
 - **Choix explicite avant tout envoi** : après l'analyse locale, l'utilisateur coche les erreurs à faire expliquer (aucune n'est cochée d'office), consulte le texte exact qui serait envoyé,
@@ -58,6 +59,7 @@ une analyse IA précise et un chat, avec la clé de l'utilisateur ou un modèle 
 - **Chat par erreur** en streaming ; contexte = erreur + stack + lignes voisines + analyse existante. Le chat est rattaché à une erreur : pas de chat global sur l'ensemble des erreurs.
 - **Fournisseurs** : Anthropic (clé de l'utilisateur, appels directs depuis le navigateur) ou Ollama local (si l'utilisateur l'a lancé et a autorisé
   l'origine du site). Bouton « Tester la connexion ». Clé en `sessionStorage` par défaut ; « se souvenir de ma clé » optionnel avec avertissement.
+  **Ces contrôles (saisie de la clé, modèle local) ne sont visibles ou actifs qu'une fois le journal lu, préparé et analysé** : l'étape « Envoyer à l'IA » est affichée dès l'étape 4b, grisée et dite « pas encore disponible » jusqu'à l'étape 7.
 
 ## 4. Hors périmètre (exige un backend avec stockage, donc sort du cadre gratuit vérifié)
 Ingestion continue, alertes, surveillance sans page ouverte, historique serveur, partage d'analyses entre utilisateurs,
@@ -128,6 +130,6 @@ Décidé : authentification GitHub ou Microsoft, accès sur invitation (25 perso
 3. **Autres plateformes** : un connecteur n'est étudié que si une plateforme précise est utilisée ; aucune n'a été vérifiée à ce jour.
 4. **Fichiers à formats mélangés ou lignes illisibles** (par exemple des lignes `[10:32:39 BOOT INF]` au milieu d'un journal Serilog console) : la maquette refuse le fichier entier et montre la première ligne en cause.
    Pistes non tranchées : profil à plusieurs motifs, compteur de « lignes à lire autrement », choix de lire ou d'écarter ces lignes. À décider à l'étape 4b, sur un échantillon réel.
-5. **Période pour les profils avec date** : la maquette ne couvre que l'heure seule (profil console). Une période date + heure reste à concevoir.
+5. **Période pour les profils avec date** : décidé le 2026-11-08 — deux champs date + heure à la minute, heures comparées **telles qu'écrites dans le journal** (le décalage horaire, par exemple `+01:00`, est ignoré et l'écran le dit), fin incluse à la minute ; fin avant début refusée (passage de minuit non géré). À réaliser à la tranche 2 de l'étape 4b.
 6. **Entrées de santé journalisées au niveau erreur** : elles comptent comme erreurs tant que l'utilisateur n'a pas ajouté une règle « ignorer ». Faut-il proposer cette règle d'office quand `/health` apparaît dans des erreurs ? Non décidé.
 7. **Règles de masquage GUID et nom d'hôte** : absentes de la liste initiale de `redact` ; leur ajout est à valider à l'étape 6, avec leurs faux positifs.

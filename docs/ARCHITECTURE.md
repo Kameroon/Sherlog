@@ -12,6 +12,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-008** Journalisation côté client : `console` en développement uniquement, aucune télémétrie (remplace les exigences de logs des skills).
 - **ADR-009** Thème clair et sombre selon le système ; jetons et styles de base partagés (`public/login/base.css`) entre les pages publiques et l'application.
 - **ADR-010** Le flux est découpé en lignes sur les octets avant d'être décodé : positions exactes, détection de profil sans deviner, limite de conservation provisoire.
+- **ADR-012** *(proposé, étape 4b)* La préparation (règles « ignorer », bientôt période et format) est appliquée dans la passe par un filtre unique ; l'écran de préparation montre ses chiffres sur le début du fichier (1 Mio), exacts après l'analyse.
 - **ADR-011** Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
 
 ## Structure (un seul projet)
@@ -20,8 +21,8 @@ sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
-│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), Redactor — TS pur
-│  ├─ sources/   detectFormat, readEntryText, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
+│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), Redactor — TS pur
+│  ├─ sources/   readHead, readEntryText, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
 │  ├─ store/     état de session + historique local (IndexedDB)
@@ -41,7 +42,7 @@ Pas d'abstraction sans deuxième implémentation réelle. L'étape 4, première 
 Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées) → `isErrorLevel` (filtre) → `fingerprint` (clé de regroupement d'une entrée en erreur : niveau, message normalisé par `normalizeMessage`, première frame applicative par `firstApplicationFrame`).
 
 ## Flux
-1. **Collecte** : choisir un fichier ou coller du texte reconnaît le format sur le début (`detectFormat`), sans rien analyser ; « Analyser ce journal » lance `Blob` → worker (`scanLog` : découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et table des empreintes en état de session.
+1. **Collecte** : choisir un fichier ou coller du texte reconnaît le format sur le début (`readHead`, dont les octets sont gardés) et ouvre l'espace de préparation (compteurs et aperçu calculés sur ce début par `previewHead`), sans rien analyser ; « Analyser ce journal » lance `Blob` → worker (`scanLog` : découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et table des empreintes en état de session.
    Le worker ne conserve que des positions et métadonnées (voir « Mémoire » au §3 de `SPEC.md`) ; le texte est relu par `readEntryText` (`Blob.slice`) à l'affichage du détail et à l'analyse.
    Pour le collage et les résultats Azure, le texte reste en mémoire. Le worker est annulable et terminable (regex de profil saisie par l'utilisateur).
 2. **Analyse** : erreur (occurrence la plus récente de son empreinte) + contexte → `redact` → aperçu → `AiProvider` → JSON validé, rattaché à l'empreinte.

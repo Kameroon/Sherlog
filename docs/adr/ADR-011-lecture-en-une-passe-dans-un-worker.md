@@ -8,7 +8,7 @@ L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fich
 
 ## Décision
 - **Une source est un `Blob`** : un `File` en est un, et le texte collé devient `new Blob([texte])`. L'interface `LogSource` esquissée dans `ARCHITECTURE.md` n'est pas écrite : une seule implémentation réelle (YAGNI). Elle reviendra si deux sources distinctes l'exigent (étapes 10a à 10c).
-- **Choisir un fichier ne lit que son début** (`DETECTION_HEAD_BYTES` = 1 Mio) pour reconnaître le format et l'encodage (`src/sources/detectFormat.ts`). Rien n'est conservé ni analysé. Un format JSON ou non reconnu est affiché avec sa raison ; le choix manuel est l'étape 4b.
+- **Choisir un fichier ne lit que son début** (`HEAD_BYTES` = 1 Mio) pour reconnaître le format et l'encodage (`src/sources/readHead.ts`, d'abord nommé `detectFormat`). Rien n'est analysé ; depuis l'ADR-012, ces octets sont gardés pour l'écran de préparation. Un format JSON ou non reconnu est affiché avec sa raison ; le choix manuel est l'étape 4b.
 - **L'analyse est une seule passe, lancée par « Analyser ce journal »**, dans un worker (`src/core/scanLog.ts` pour la logique, `src/workers/` pour la coque). Le profil reconnu est passé par son identifiant ; il n'y a donc aucune fenêtre de lignes à garder dans la passe.
 - **Par erreur, on garde une position, pas un texte** : `offset`, `length`, horodatage, niveau, `lineCount`, première ligne coupée à 300 caractères (marquée `…` à l'écran) et l'identifiant de son empreinte. Les clés d'empreinte sont dédoublonnées (table clé → identifiant). Le texte se relit avec `Blob.slice` (`src/sources/readEntryText.ts`).
 - **Annulation = `worker.terminate()`** ; le worker est aussi terminé à la fin, au retour au choix et au démontage de la page. Les erreurs partent par lots de 500 et la progression au plus toutes les 100 ms.
@@ -23,7 +23,7 @@ L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fich
 | `MAX_FIRST_LINE_CHARS` | 300 | longueur de première ligne gardée dans un enregistrement |
 | `MAX_DISPLAYED_ERRORS` | 200 | lignes affichées (la liste n'est virtualisée qu'à l'étape 5) |
 | `MAX_RETAINED_BYTES` | 1 Mio (inchangé) | texte gardé par ligne ou par entrée (ADR-010) |
-| `DETECTION_HEAD_BYTES` | 1 Mio | début lu pour reconnaître le format |
+| `HEAD_BYTES` | 1 Mio | début lu pour reconnaître le format (et, ADR-012, calculer l'aperçu de la préparation) |
 | `MAX_MESSAGE_KEY_CHARS` | 1 000 | message normalisé gardé dans une clé d'empreinte |
 | `MAX_ENTRY_TEXT_BYTES` | 1 Mio | texte relu pour une entrée affichée |
 
