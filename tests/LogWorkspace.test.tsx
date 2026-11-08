@@ -270,6 +270,33 @@ describe('LogWorkspace reading an entry again', () => {
     expect(screen.getByRole('button', { name: /Masquer le texte/ })).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('should say that only the beginning is shown when the entry is bigger than the limit', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+    finish(scanner, [{ ...errorRecord, length: 3 * 1024 * 1024 }]);
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: /Voir le texte/ }));
+
+    // Assert
+    expect(await screen.findByText(/Cette entrée fait 3 Mio : seul son début \(1 Mio\) est affiché/)).toBeInTheDocument();
+  });
+
+  it('should not warn about a cut when the whole entry is shown', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+    finish(scanner);
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: /Voir le texte/ }));
+    await screen.findByLabelText(/Texte de l’entrée/);
+
+    // Assert
+    expect(screen.queryByText(/seul son début/)).not.toBeInTheDocument();
+  });
+
   it('should tell the user to choose the file again when it can no longer be read', async () => {
     // Arrange
     const scanner = setup();

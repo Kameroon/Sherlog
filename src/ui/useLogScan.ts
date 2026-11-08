@@ -3,7 +3,7 @@ import type { ErrorRecord, ScanResult } from '../core/scanLog';
 import { detectFormat } from '../sources/detectFormat';
 import type { FormatDetection } from '../sources/detectFormat';
 import { readEntryText } from '../sources/readEntryText';
-import type { EntryPosition } from '../sources/readEntryText';
+import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import { readFailureMessage } from '../sources/readFailure';
 import type { ScanMessage, StartScan } from '../workers/scanProtocol';
 import { startScanWorker } from '../workers/startScanWorker';
@@ -156,7 +156,7 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
   }, [stopScan]);
 
   const readText = useCallback(
-    (position: EntryPosition): Promise<string> => {
+    (position: EntryPosition): Promise<EntryText> => {
       if (state.phase !== 'analysed' || state.result.encoding === null) {
         return Promise.reject(new Error('aucun journal analysé'));
       }

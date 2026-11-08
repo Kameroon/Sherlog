@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { ErrorRecord } from '../core/scanLog';
-import type { EntryPosition } from '../sources/readEntryText';
+import { MAX_ENTRY_TEXT_BYTES } from '../sources/readEntryText';
+import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import { readFailureMessage } from '../sources/readFailure';
-import { formatCount } from './format';
+import { formatCount, formatSize } from './format';
 
 /**
  * Rows shown at once. The list is not virtualised yet (step 5): showing every error of a big file would freeze
@@ -10,20 +11,21 @@ import { formatCount } from './format';
  */
 export const MAX_DISPLAYED_ERRORS = 200;
 
-type EntryText =
+/** What the row shows of its entry: nothing yet, a read in progress, the text, or why it could not be read. */
+type EntryView =
   | { readonly status: 'closed' }
   | { readonly status: 'loading' }
-  | { readonly status: 'open'; readonly text: string }
+  | ({ readonly status: 'open' } & EntryText)
   | { readonly status: 'failed'; readonly message: string };
 
 interface ErrorRowProps {
   record: ErrorRecord;
   position: number;
-  readText: (position: EntryPosition) => Promise<string>;
+  readText: (position: EntryPosition) => Promise<EntryText>;
 }
 
 function ErrorRow({ record, position, readText }: ErrorRowProps) {
-  const [entry, setEntry] = useState<EntryText>({ status: 'closed' });
+  const [entry, setEntry] = useState<EntryView>({ status: 'closed' });
   const textId = `entry-text-${position}`;
   const isOpen = entry.status === 'open';
 
@@ -34,8 +36,8 @@ function ErrorRow({ record, position, readText }: ErrorRowProps) {
     }
     setEntry({ status: 'loading' });
     readText(record).then(
-      (text) => {
-        setEntry({ status: 'open', text });
+      (read) => {
+        setEntry({ status: 'open', ...read });
       },
       (error: unknown) => {
         setEntry({ status: 'failed', message: readFailureMessage(error) });
@@ -61,6 +63,11 @@ function ErrorRow({ record, position, readText }: ErrorRowProps) {
           <span className="visually-hidden"> de l’entrée {position}</span>
         </button>
       </div>
+      {entry.status === 'open' && entry.cut && (
+        <p className="notice notice-warning">
+          Cette entrée fait {formatSize(record.length)} : seul son début ({formatSize(MAX_ENTRY_TEXT_BYTES)}) est affiché.
+        </p>
+      )}
       {entry.status === 'open' && (
         <pre id={textId} className="entry-text" role="region" aria-label={`Texte de l’entrée ${position}`} tabIndex={0}>
           {entry.text}
@@ -77,7 +84,7 @@ function ErrorRow({ record, position, readText }: ErrorRowProps) {
 
 interface ErrorListProps {
   records: readonly ErrorRecord[];
-  readText: (position: EntryPosition) => Promise<string>;
+  readText: (position: EntryPosition) => Promise<EntryText>;
 }
 
 /** Plain list of the errors found: when, how bad, first line, and the whole text on demand. Text only, never markup. */

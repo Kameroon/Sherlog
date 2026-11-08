@@ -203,9 +203,9 @@ describe('useLogScan', () => {
     scanner.emit({ type: 'done', result });
 
     // Act
-    const text = await hook.current.readText(record);
+    const entry = await hook.current.readText(record);
 
     // Assert
-    expect(text).toBe('[08:16:10 ERR] Failed');
+    expect(entry).toEqual({ text: '[08:16:10 ERR] Failed', cut: false });
   });
 });

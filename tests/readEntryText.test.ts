@@ -26,10 +26,69 @@ describe('readEntryText', () => {
     const blob = new Blob([bytes as BlobPart]);
 
     // Act
-    const texts = await Promise.all(records.map((record) => readEntryText(blob, record, encoding)));
+    const texts = (await Promise.all(records.map((record) => readEntryText(blob, record, encoding)))).map((entry) => entry.text);
 
     // Assert
     expect(texts).toEqual(expected);
+  });
+
+  const blobOf = (bytes: Uint8Array): Blob => new Blob([bytes as BlobPart]);
+
+  it('should not cut the text when the entry fits the limit exactly', async () => {
+    // Act
+    const entry = await readEntryText(blobOf(utf8('abcd')), { offset: 0, length: 4 }, 'utf-8', 4);
+
+    // Assert
+    expect(entry).toEqual({ text: 'abcd', cut: false });
+  });
+
+  it('should read only the beginning and say so when the entry is longer than the limit', async () => {
+    // Act
+    const entry = await readEntryText(blobOf(utf8('abcdefghij\n')), { offset: 0, length: 11 }, 'utf-8', 4);
+
+    // Assert
+    expect(entry).toEqual({ text: 'abcd', cut: true });
+  });
+
+  it('should read no more than the limit from the source when the entry is far longer', async () => {
+    // Arrange
+    const requested: [number, number][] = [];
+    const source = {
+      slice: (start: number, end: number) => {
+        requested.push([start, end]);
+        return { arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) };
+      },
+    } as unknown as Blob;
+
+    // Act
+    await readEntryText(source, { offset: 100, length: 200 * 1024 * 1024 }, 'utf-8', 1024);
+
+    // Assert
+    expect(requested).toEqual([[100, 1124]]);
+  });
+
+  it('should not leave a broken character at the cut when a UTF-8 character is cut in the middle', async () => {
+    // Arrange: "é" takes two bytes and the limit falls after the first one.
+    const entry = await readEntryText(blobOf(utf8('aé\n')), { offset: 0, length: 4 }, 'utf-8', 2);
+
+    // Assert
+    expect(entry).toEqual({ text: 'a', cut: true });
+  });
+
+  it('should not break the text when the limit falls in the middle of a UTF-16 code unit', async () => {
+    // Arrange: byte order mark (2 bytes), "a" (2 bytes), then half of "b".
+    const entry = await readEntryText(blobOf(utf16('abcd', 'le')), { offset: 0, length: 10 }, 'utf-16le', 5);
+
+    // Assert
+    expect(entry).toEqual({ text: 'a', cut: true });
+  });
+
+  it('should not leave half of a surrogate pair when the limit falls between the two units', async () => {
+    // Arrange: byte order mark (2 bytes), then the two units of an emoji; the limit keeps only the first unit.
+    const entry = await readEntryText(blobOf(utf16('😀', 'le')), { offset: 0, length: 6 }, 'utf-16le', 4);
+
+    // Assert
+    expect(entry).toEqual({ text: '', cut: true });
   });
 
   it('should reject when the source cannot be read any more', async () => {
