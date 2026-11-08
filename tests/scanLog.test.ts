@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { MAX_MESSAGE_KEY_CHARS } from '../src/core/fingerprint';
 import { scanLog } from '../src/core/scanLog';
 import type { ErrorRecord, ScanOptions, ScanResult } from '../src/core/scanLog';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
@@ -219,6 +220,18 @@ describe('scanLog limits', () => {
 
     // Assert
     expect(records[0]).toMatchObject({ firstLine: '[08:16:10 ERR] ', firstLineCut: true });
+  });
+
+  it('should keep each fingerprint key short when the error lines are very long', async () => {
+    // Arrange
+    const lines = ['a', 'b', 'c'].map((letter) => `[08:16:10 ERR] ${letter}${'x'.repeat(100_000)}\n`).join('');
+
+    // Act
+    const { result } = await scan(utf8(lines), CONSOLE_PROFILE);
+
+    // Assert
+    expect(result.fingerprints).toHaveLength(3);
+    expect(result.fingerprints.every((key) => key.length <= MAX_MESSAGE_KEY_CHARS + 'ERR\n\n'.length)).toBe(true);
   });
 
   it('should count the entries whose text was too long to keep as truncated', async () => {

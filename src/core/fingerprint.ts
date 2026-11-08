@@ -1,6 +1,14 @@
 import type { LogEntry } from './entryAssembler';
 import { matchHeader } from './profiles';
 import type { LogProfile } from './profiles';
+import { truncateText } from './text';
+
+/**
+ * Longest normalised message kept in a key. A key is held in memory for every distinct error, and a log line can be
+ * about 1 MiB: without a limit, many different huge lines would keep as much memory as the file. Two messages that
+ * are the same on their first characters are therefore the same error (SPEC §5).
+ */
+export const MAX_MESSAGE_KEY_CHARS = 1000;
 
 /**
  * Rules applied in this order. The order matters: a URL, an e-mail or a temporary path is replaced whole before
@@ -102,7 +110,7 @@ export function firstApplicationFrame(text: string, libraryPrefixes: readonly st
 }
 
 /**
- * Grouping key of an entry: its level, its normalised message and its first application frame, joined with
+ * Grouping key of an entry: its level, its normalised message (cut at {@link MAX_MESSAGE_KEY_CHARS}) and its first application frame, joined with
  * line breaks (none of the three parts can contain one). It is the string itself, not a hash, so that `core`
  * stays synchronous and free of Web APIs (SPEC §5). Two entries with the same key are the same error.
  *
@@ -115,5 +123,5 @@ export function firstApplicationFrame(text: string, libraryPrefixes: readonly st
 export function fingerprint(entry: LogEntry, profile: LogProfile): string {
   const message = matchHeader(profile, entry.firstLine)?.message ?? entry.firstLine;
   const frame = firstApplicationFrame(entry.text, profile.libraryPrefixes) ?? '';
-  return [(entry.level ?? '').toUpperCase(), normalizeMessage(message), frame].join('\n');
+  return [(entry.level ?? '').toUpperCase(), truncateText(normalizeMessage(message), MAX_MESSAGE_KEY_CHARS), frame].join('\n');
 }

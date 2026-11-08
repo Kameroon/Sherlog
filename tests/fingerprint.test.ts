@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { firstApplicationFrame, fingerprint, normalizeMessage } from '../src/core/fingerprint';
+import { firstApplicationFrame, fingerprint, MAX_MESSAGE_KEY_CHARS, normalizeMessage } from '../src/core/fingerprint';
 import { createCustomProfile, DEFAULT_PROFILE } from '../src/core/profiles';
 import type { LogProfile } from '../src/core/profiles';
 import { errorEntries, parseBytes } from './helpers/parseLog';
@@ -254,6 +254,36 @@ describe('fingerprint', () => {
 
     // Assert
     expect(second).toBe(first);
+  });
+
+  it('should keep the key short when the message is far longer than the limit', () => {
+    // Act
+    const [key] = fingerprintsOf([header('08:16:10', 'ERR', 'x'.repeat(1024 * 1024))]);
+
+    // Assert
+    expect(key).toBe(`ERR\n${'x'.repeat(MAX_MESSAGE_KEY_CHARS)}\n`);
+  });
+
+  it('should give the same fingerprint when two messages differ only after the limit', () => {
+    // Arrange
+    const common = 'y'.repeat(MAX_MESSAGE_KEY_CHARS);
+
+    // Act
+    const [first, second] = fingerprintsOf([header('08:16:10', 'ERR', `${common} alpha`), header('08:16:11', 'ERR', `${common} beta`)]);
+
+    // Assert
+    expect(second).toBe(first);
+  });
+
+  it('should give different fingerprints when two long messages differ before the limit', () => {
+    // Arrange
+    const tail = 'z'.repeat(MAX_MESSAGE_KEY_CHARS);
+
+    // Act
+    const [first, second] = fingerprintsOf([header('08:16:10', 'ERR', `alpha ${tail}`), header('08:16:11', 'ERR', `beta ${tail}`)]);
+
+    // Assert
+    expect(second).not.toBe(first);
   });
 
   it('should keep the header text of the first line when the profile has no message group', () => {

@@ -5,6 +5,7 @@ import { isErrorLevel } from './levels';
 import { createLineSplitter } from './lineSplitter';
 import type { SourceLine, TextEncoding } from './lineSplitter';
 import type { LogProfile } from './profiles';
+import { truncateText } from './text';
 
 /**
  * Most error entries kept for one scan. Provisional: SPEC §3 wants the thresholds fixed by a measurement on a
@@ -69,20 +70,11 @@ export interface ScanResult {
   readonly fingerprints: readonly string[];
 }
 
-/** Cuts a string to `limit` UTF-16 units without leaving half of a surrogate pair at the end. */
-function cutForDisplay(text: string, limit: number): string {
-  if (text.length <= limit) {
-    return text;
-  }
-  const last = text.charCodeAt(limit - 1);
-  const splitsPair = last >= 0xd800 && last <= 0xdbff;
-  return text.slice(0, splitsPair ? limit - 1 : limit);
-}
-
 /**
  * Reads a whole source once: splits it into lines, groups them into entries with `profile`, and records
  * the position, level and fingerprint of every error. Memory stays proportional to the number of recorded
- * errors, not to the size of the source, because entry texts are dropped as soon as they are read.
+ * errors, not to the size of the source: entry texts are dropped as soon as they are read, the first line
+ * kept in a record is short, and a fingerprint key is capped (`MAX_MESSAGE_KEY_CHARS`).
  *
  * @param chunks - The source as blocks of bytes, e.g. `blob.stream()`; blocks may be cut anywhere.
  *   A plain iterable is accepted too, for a source that is already in memory.
@@ -128,7 +120,7 @@ export async function scanLog(
       length: entry.length,
       timestamp: entry.timestamp,
       level,
-      firstLine: cutForDisplay(entry.firstLine, maxFirstLineChars),
+      firstLine: truncateText(entry.firstLine, maxFirstLineChars),
       firstLineCut: entry.firstLine.length > maxFirstLineChars,
       lineCount: entry.lineCount,
       fingerprintId,
