@@ -87,5 +87,5 @@ Appel Anthropic par `fetch` + lecture SSE manuelle (pas de SDK), validation de l
 MSAL.js : mesuré à l'étape 1 à 68,74 Ko gzip (`@azure/msal-browser` 5.28.0), soit environ 139 Ko avec le JavaScript de l'application, sous le budget (ADR-004) ; il n'est ajouté qu'à l'étape 10c. Les prompts `.md` sont embarqués au build (`?raw`) : le bénéfice est la lisibilité et le diff, pas l'absence de rebuild.
 
 ## Écrans
-Une page principale : sources, liste d'erreurs, panneau de détail avec onglets Analyse et Chat ; une page Paramètres (fournisseur, clé).
+Une page principale : sources, liste d'erreurs virtualisée par blocs (ADR-013), panneau de détail avec onglets Analyse et Chat (le détail existe depuis l'étape 5, les onglets arrivent aux étapes 8 et 9) ; une page Paramètres (fournisseur, clé).
 Conception et accessibilité : `frontend-architect`.

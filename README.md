@@ -2,7 +2,7 @@
 
 Application web 100 % côté navigateur qui lit des logs, isole uniquement les erreurs, puis propose une analyse par IA et un chat pour chacune.
 
-> **État : étapes 0 à 4b de la feuille de route terminées.** Sherlog lit un fichier ou du texte collé dans le navigateur, reconnaît son format, permet de préparer le journal (écarter des entrées par règle de texte ou hors d'une période, compteurs et aperçu calculés sur le début du fichier), puis, sur demande, liste les erreurs (position, niveau, première ligne, texte complet relu à la demande). Le choix du format se fait parmi les formats intégrés ; un journal à formats mélangés est signalé (lignes qui ressemblent à un autre format), pas relu autrement. Pas encore : masquage, analyse par IA. Rien n'est envoyé.
+> **État : étapes 0 à 4b de la feuille de route terminées ; étape 5 (liste et détail des erreurs) en cours, tranche 1 prête sur la branche `feat/etape-5`.** Sherlog lit un fichier ou du texte collé dans le navigateur, reconnaît son format, permet de préparer le journal (écarter des entrées par règle de texte ou hors d'une période, compteurs et aperçu calculés sur le début du fichier), puis, sur demande, liste les erreurs (position, niveau, première ligne, texte complet relu à la demande). Le choix du format se fait parmi les formats intégrés ; un journal à formats mélangés est signalé (lignes qui ressemblent à un autre format), pas relu autrement. Pas encore : masquage, analyse par IA. Rien n'est envoyé.
 
 ## Pourquoi ce projet existe
 Retrouver la cause d'une erreur dans des fichiers de logs de plusieurs centaines de Mo est long. Sherlog extrait les erreurs de façon déterministe (sans IA), puis demande une analyse

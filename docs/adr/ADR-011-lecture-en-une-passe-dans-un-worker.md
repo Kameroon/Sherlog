@@ -21,7 +21,7 @@ L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fich
 |---|---|---|
 | `MAX_ERROR_RECORDS` | 100 000 | erreurs enregistrées ; au-delà elles sont comptées, pas enregistrées |
 | `MAX_MESSAGE_CHARS` | 300 | longueur du message gardé dans un enregistrement (ce qui suit l'horodatage et le niveau ; avant l'étape 5 : la première ligne entière, `MAX_FIRST_LINE_CHARS`) |
-| `MAX_DISPLAYED_ERRORS` | 200 | lignes affichées (la liste n'est virtualisée qu'à l'étape 5) |
+| `MAX_DISPLAYED_ERRORS` | *supprimé* | était 200 lignes affichées ; remplacé à l'étape 5 par la liste virtualisée (ADR-013), qui montre toutes les erreurs enregistrées |
 | `MAX_RETAINED_BYTES` | 1 Mio (inchangé) | texte gardé par ligne ou par entrée (ADR-010) |
 | `HEAD_BYTES` | 1 Mio | début lu pour reconnaître le format (et, ADR-012, calculer l'aperçu de la préparation) |
 | `MAX_MESSAGE_KEY_CHARS` | 1 000 | message normalisé gardé dans une clé d'empreinte |

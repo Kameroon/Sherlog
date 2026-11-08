@@ -25,7 +25,7 @@ La CSP interdit les styles en ligne : tout passe par des fichiers CSS.
 - `/login/base.css` est une dépendance de l'application : si ce chemin cessait d'être accessible aux personnes connectées, l'application s'afficherait sans ses jetons.
   `tests/staticwebapp-config.test.ts` vérifie que les pages publiques ne chargent que des feuilles existantes sous `/login/` et que l'application charge ce fichier.
 - Toute couleur nouvelle passe par un jeton défini dans les deux thèmes, avec le contraste mesuré (WCAG AA) consigné dans l'en-tête du fichier.
-- Ces jetons sont le point de départ du jeu de jetons prévu à l'étape 5 : l'étape 5 les étend, elle ne repart pas de zéro.
+- Ces jetons sont le point de départ du jeu de jetons prévu à l'étape 5 : l'étape 5 les étend, elle ne repart pas de zéro. **Étendus le 2026-11-08 (étape 5, tranche 1)** : `--color-error-surface`, `--color-selected`, `--color-badge` (clair et sombre, contrastes mesurés dans l'en-tête de `base.css`) et `--row-height` ; voir l'ADR-013.
 
 ## Vérification
 - Rendu contrôlé en local (build servi par un serveur temporaire) dans les deux thèmes : connexion, accès refusé, application avec identité.
