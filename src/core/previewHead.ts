@@ -60,7 +60,10 @@ export interface HeadPreview {
 /** The text read as entries of a profile: what a preparation is then applied to, as often as the user changes it. */
 export interface ParsedHead {
   readonly profile: LogProfile;
-  readonly lines: readonly SourceLine[];
+  /** Only the lines the preview shows: a text of half a million lines must not keep half a million objects. */
+  readonly firstLines: readonly SourceLine[];
+  /** Every line of the text. */
+  readonly totalLines: number;
   readonly entries: readonly LogEntry[];
 }
 
@@ -84,7 +87,7 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
   if (last !== null) {
     entries.push(last);
   }
-  return { profile, lines, entries };
+  return { profile, firstLines: lines.slice(0, MAX_PREVIEW_LINES), totalLines: lines.length, entries };
 }
 
 /**
@@ -95,7 +98,7 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
  * @param parsed - The text, read by {@link parseHead} with the format to preview.
  * @param preparation - What to leave out.
  */
-export function previewHead({ profile, lines, entries }: ParsedHead, preparation: Preparation): HeadPreview {
+export function previewHead({ profile, firstLines, totalLines, entries }: ParsedHead, preparation: Preparation): HeadPreview {
   const filter = createEntryFilter(preparation);
   const ignoredEntries = entries.map((entry) => filter.ignores(entry));
 
@@ -104,7 +107,7 @@ export function previewHead({ profile, lines, entries }: ParsedHead, preparation
 
   // Entries are contiguous: one walk forward gives the entry of every line.
   let current = 0;
-  const shown = lines.slice(0, MAX_PREVIEW_LINES).map((line, index): PreviewLine => {
+  const shown = firstLines.map((line, index): PreviewLine => {
     while (current + 1 < entries.length && line.offset >= (entries[current + 1]?.offset ?? Number.POSITIVE_INFINITY)) {
       current += 1;
     }
@@ -124,7 +127,7 @@ export function previewHead({ profile, lines, entries }: ParsedHead, preparation
   return {
     counts: { read: entries.length, ignored, ignoredPerRule, ready: entries.length - ignored, errors },
     lines: shown,
-    totalLines: lines.length,
+    totalLines,
     orphanLines: first !== undefined && first.level === null ? first.lineCount : 0,
   };
 }
