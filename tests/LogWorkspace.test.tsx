@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { LogWorkspace } from '../src/ui/LogWorkspace';
 import { MAX_DISPLAYED_ERRORS } from '../src/ui/ErrorList';
@@ -165,8 +165,10 @@ describe('LogWorkspace keyboard and screen reader', () => {
     // Act
     await chooseFile(consoleLog, 'app.log');
 
-    // Assert
-    expect(screen.getByRole('heading', { name: 'app.log' })).toHaveFocus();
+    // Assert: the focus is moved by an effect, which can run a moment after the screen appears.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'app.log' })).toHaveFocus();
+    });
   });
 
   it('should move the focus into the progress screen when the analysis starts, not leave it on the page', async () => {
