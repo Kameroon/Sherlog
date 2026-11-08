@@ -291,23 +291,48 @@ describe('ErrorDetail neighbour lines', () => {
     expect(screen.getByRole('button', { name: 'Voir les lignes autour' })).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('should drop an answer that arrives after the lines were hidden', async () => {
-    // Arrange
-    let resolve: (lines: NeighbourLines) => void = () => undefined;
-    const late = new Promise<NeighbourLines>((done) => {
-      resolve = done;
+  it('should keep the lines of the newer error when the answer of an older one arrives last', async () => {
+    // Arrange: the same panel stays mounted (same key) while its error changes, so only the guard can drop the old answer.
+    let resolveOlder: (lines: NeighbourLines) => void = () => undefined;
+    const older = new Promise<NeighbourLines>((done) => {
+      resolveOlder = done;
     });
-    render(<ErrorDetail record={record(0)} position={1} readText={read} readNeighbours={() => late} />);
+    const readNeighbours = (position: EntryPosition) => (position.offset === 0 ? older : Promise.resolve(neighbours({ before: ['newer line'] })));
+    const { rerender } = render(<ErrorDetail key="same" record={record(0)} position={1} readText={read} readNeighbours={readNeighbours} />);
     show();
-    fireEvent.click(screen.getByRole('button', { name: 'Masquer les lignes autour' }));
+    rerender(<ErrorDetail key="same" record={record(100)} position={2} readText={read} readNeighbours={readNeighbours} />);
+    await screen.findByLabelText('Lignes avant l’erreur 2');
 
     // Act
     await act(async () => {
-      resolve(neighbours({ before: ['too late'] }));
-      await late;
+      resolveOlder(neighbours({ before: ['older line'] }));
+      await older;
     });
 
     // Assert
-    expect(screen.queryByText('too late')).not.toBeInTheDocument();
+    expect(screen.queryByText('older line')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Lignes avant l’erreur 2')).toHaveTextContent('newer line');
+  });
+
+  it('should keep the failure of the newer error when an older read fails last', async () => {
+    // Arrange
+    let rejectOlder: (error: unknown) => void = () => undefined;
+    const older = new Promise<NeighbourLines>((_done, fail) => {
+      rejectOlder = fail;
+    });
+    const readNeighbours = (position: EntryPosition) => (position.offset === 0 ? older : Promise.resolve(neighbours({ before: ['newer line'] })));
+    const { rerender } = render(<ErrorDetail key="same" record={record(0)} position={1} readText={read} readNeighbours={readNeighbours} />);
+    show();
+    rerender(<ErrorDetail key="same" record={record(100)} position={2} readText={read} readNeighbours={readNeighbours} />);
+    await screen.findByLabelText('Lignes avant l’erreur 2');
+
+    // Act
+    await act(async () => {
+      rejectOlder(new DOMException('gone', 'NotFoundError'));
+      await older.catch(() => undefined);
+    });
+
+    // Assert
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
