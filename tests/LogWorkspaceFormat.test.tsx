@@ -53,7 +53,7 @@ describe('LogWorkspace format of a recognised log', () => {
     pickFormat(FILE_FORMAT);
 
     // Assert
-    expect(screen.getByText(/Aucune ligne du début ne correspond à ce format/)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/Aucune ligne du début ne correspond à ce format/);
     expect(screen.getByRole('button', { name: 'Analyser ce journal' })).toBeDisabled();
     expect(document.querySelectorAll('.excerpt li').length).toBeGreaterThan(0);
   });

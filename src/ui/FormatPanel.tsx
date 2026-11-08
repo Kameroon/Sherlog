@@ -59,7 +59,11 @@ export function FormatPanel({ profile, recognised, unrecognisedReason, orphanLin
         </select>
       </div>
       {profile !== null && <p className="small-note">Ce n’est pas le bon format ? Choisissez-en un autre : l’aperçu est lu de nouveau avec lui.</p>}
-      {readsNothing && <p className="notice notice-warning">Aucune ligne du début ne correspond à ce format : choisissez-en un autre.</p>}
+      {readsNothing && (
+        <p className="notice notice-warning" role="status">
+          Aucune ligne du début ne correspond à ce format : choisissez-en un autre.
+        </p>
+      )}
       {orphanLines > 0 && (
         <p className="small-note is-warning">
           {orphanLines > 1
