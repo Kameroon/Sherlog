@@ -41,6 +41,8 @@ export interface PreviewCounts {
   readonly ignored: number;
   /** For each « ignore » rule, in order, the entries it matches. */
   readonly ignoredPerRule: readonly number[];
+  /** Entries outside the period, whether or not a rule also matches them. */
+  readonly ignoredByPeriod: number;
   /** `read - ignored`: what the analysis would look at. */
   readonly ready: number;
   /** Error entries among the ready ones. */
@@ -102,7 +104,7 @@ export function previewHead({ profile, firstLines, totalLines, entries }: Parsed
   const filter = createEntryFilter(preparation);
   const ignoredEntries = entries.map((entry) => filter.ignores(entry));
 
-  const { ignored, ignoredPerRule } = filter.counts();
+  const { ignored, ignoredPerRule, ignoredByPeriod } = filter.counts();
   const errors = entries.filter((entry, index) => ignoredEntries[index] === false && isErrorLevel(entry.level)).length;
 
   // Entries are contiguous: one walk forward gives the entry of every line.
@@ -125,7 +127,7 @@ export function previewHead({ profile, firstLines, totalLines, entries }: Parsed
 
   const [first] = entries;
   return {
-    counts: { read: entries.length, ignored, ignoredPerRule, ready: entries.length - ignored, errors },
+    counts: { read: entries.length, ignored, ignoredPerRule, ignoredByPeriod, ready: entries.length - ignored, errors },
     lines: shown,
     totalLines,
     orphanLines: first !== undefined && first.level === null ? first.lineCount : 0,

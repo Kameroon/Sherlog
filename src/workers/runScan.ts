@@ -1,4 +1,4 @@
-import { createEntryFilter } from '../core/preparation';
+import { createEntryFilter, validatePeriod } from '../core/preparation';
 import { BUILT_IN_PROFILES } from '../core/profiles';
 import { scanLog } from '../core/scanLog';
 import { blobChunks } from '../sources/blobChunks';
@@ -19,6 +19,13 @@ export async function runScan(request: ScanRequest, post: (message: ScanMessage)
   const profile = BUILT_IN_PROFILES.find((candidate) => candidate.id === request.profileId);
   if (profile === undefined) {
     post({ type: 'failed', message: `Format inconnu : ${request.profileId}.` });
+    return;
+  }
+
+  // A period the screen should have refused is not scanned without it: that would give figures nobody asked for.
+  const periodProblem = validatePeriod(request.preparation.period);
+  if (periodProblem !== null) {
+    post({ type: 'failed', message: periodProblem });
     return;
   }
 

@@ -6,9 +6,10 @@ import { BUILT_IN_PROFILES, CONSOLE_PROFILE, DEFAULT_PROFILE } from '../src/core
 import type { LogProfile } from '../src/core/profiles';
 import { MAX_PREVIEW_LINES, MAX_PREVIEW_LINE_CHARS, parseHead, previewHead as previewOf } from '../src/core/previewHead';
 import { scanLog } from '../src/core/scanLog';
+import { parseBytes } from './helpers/parseLog';
 import { inBlocks, readSample, utf8 } from './helpers/samples';
 
-const preparationOf = (...ignoreTexts: string[]): Preparation => ({ ignoreTexts });
+const preparationOf = (...ignoreTexts: string[]): Preparation => ({ ...EMPTY_PREPARATION, ignoreTexts });
 const previewHead = (bytes: Uint8Array, profile: LogProfile, preparation: Preparation) => previewOf(parseHead(bytes, profile), preparation);
 
 describe('previewHead counters', () => {
@@ -17,7 +18,7 @@ describe('previewHead counters', () => {
     const { counts } = previewHead(utf8(readSample('real-serilog.log')), CONSOLE_PROFILE, EMPTY_PREPARATION);
 
     // Assert
-    expect(counts).toEqual({ read: 21, ignored: 0, ignoredPerRule: [], ready: 21, errors: 3 });
+    expect(counts).toEqual({ read: 21, ignored: 0, ignoredPerRule: [], ignoredByPeriod: 0, ready: 21, errors: 3 });
   });
 
   it('should count the entries left out by a rule and what remains', () => {
@@ -25,7 +26,7 @@ describe('previewHead counters', () => {
     const { counts } = previewHead(utf8(readSample('real-serilog.log')), CONSOLE_PROFILE, preparationOf('/health'));
 
     // Assert
-    expect(counts).toEqual({ read: 21, ignored: 15, ignoredPerRule: [15], ready: 6, errors: 0 });
+    expect(counts).toEqual({ read: 21, ignored: 15, ignoredPerRule: [15], ignoredByPeriod: 0, ready: 6, errors: 0 });
   });
 
   it('should count nothing for an empty text', () => {
@@ -59,9 +60,35 @@ describe('previewHead counters', () => {
       read: scanned.entries,
       ignored: scanned.ignored,
       ignoredPerRule: scanned.ignoredPerRule,
+      ignoredByPeriod: 0,
       ready: scanned.entries - scanned.ignored,
       errors: scanned.errors,
     });
+  });
+
+  // The middle entry of each sample gives an end bound that really cuts the log (a time of day, or a date with a time).
+  it.each(references)('should give the same counters as the scan when a period cuts $file', async ({ file, profile }) => {
+    // Arrange
+    const bytes = utf8(readSample(file));
+    const timestamps = parseBytes(bytes, bytes.length, profile).entries.flatMap((entry) => (entry.timestamp === null ? [] : [entry.timestamp]));
+    const middle = timestamps[Math.floor(timestamps.length / 2)] ?? '';
+    const to = profile.limited ? middle.slice(0, 5) : `${middle.slice(0, 10)}T${middle.slice(11, 16)}`;
+    const preparation: Preparation = { ...preparationOf('health'), period: { from: '', to } };
+
+    // Act
+    const { counts } = previewHead(bytes, profile, preparation);
+    const scanned = await scanLog(inBlocks(bytes, 7), { profile, filter: createEntryFilter(preparation) }, { onErrors: () => undefined, onProgress: () => undefined });
+
+    // Assert
+    expect(counts).toEqual({
+      read: scanned.entries,
+      ignored: scanned.ignored,
+      ignoredPerRule: scanned.ignoredPerRule,
+      ignoredByPeriod: scanned.ignoredByPeriod,
+      ready: scanned.entries - scanned.ignored,
+      errors: scanned.errors,
+    });
+    expect(scanned.ignoredByPeriod).toBeGreaterThan(0);
   });
 
   it('should have a profile for every sample it is compared on', () => {

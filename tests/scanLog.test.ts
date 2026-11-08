@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { MAX_MESSAGE_KEY_CHARS } from '../src/core/fingerprint';
-import { createEntryFilter } from '../src/core/preparation';
+import { EMPTY_PREPARATION, createEntryFilter } from '../src/core/preparation';
 import { scanLog } from '../src/core/scanLog';
 import type { ErrorRecord, ScanOptions, ScanResult } from '../src/core/scanLog';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
@@ -249,7 +249,7 @@ describe('scanLog limits', () => {
 
 describe('scanLog with entries left out by the user', () => {
   const scanWithout = (bytes: Uint8Array, profile: LogProfile, ignoreTexts: string[], blockSize = bytes.length, options: Partial<ScanOptions> = {}) =>
-    scan(bytes, profile, blockSize, { ...options, filter: createEntryFilter({ ignoreTexts }) });
+    scan(bytes, profile, blockSize, { ...options, filter: createEntryFilter({ ...EMPTY_PREPARATION, ignoreTexts }) });
 
   it('should leave out the 15 of 21 entries of the real sample that mention /health so that no error remains', async () => {
     // Act
@@ -315,5 +315,41 @@ describe('scanLog with entries left out by the user', () => {
 
     // Assert
     expect({ ignored: result.ignored, ignoredPerRule: result.ignoredPerRule }).toEqual({ ignored: 0, ignoredPerRule: [] });
+  });
+});
+
+describe('scanLog with a period', () => {
+  const realLog = () => utf8(readSample('real-serilog.log'));
+  const scanDuring = (from: string, to: string, blockSize?: number) =>
+    scan(realLog(), CONSOLE_PROFILE, blockSize, { filter: createEntryFilter({ ...EMPTY_PREPARATION, period: { from, to } }) });
+
+  it('should leave out the entries outside the period and count the errors of the others only', async () => {
+    // Act: the sample has 4 entries at 12:05, 14 at 12:06 and 3 at 12:07; 2 of the 3 errors are at 12:06.
+    const { result } = await scanDuring('12:06', '12:06');
+
+    // Assert
+    expect({ entries: result.entries, ignored: result.ignored, ignoredByPeriod: result.ignoredByPeriod, errors: result.errors }).toEqual({
+      entries: 21,
+      ignored: 7,
+      ignoredByPeriod: 7,
+      errors: 2,
+    });
+  });
+
+  it('should give the same result whatever the size of the blocks it reads', async () => {
+    // Act
+    const whole = await scanDuring('12:06', '12:06');
+    const byte = await scanDuring('12:06', '12:06', 1);
+
+    // Assert
+    expect(byte.result).toEqual(whole.result);
+  });
+
+  it('should report nothing left out by a period when there is no filter', async () => {
+    // Act
+    const { result } = await scan(realLog(), CONSOLE_PROFILE);
+
+    // Assert
+    expect(result.ignoredByPeriod).toBe(0);
   });
 });

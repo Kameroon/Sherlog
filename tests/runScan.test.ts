@@ -59,12 +59,28 @@ describe('runScan', () => {
 
   it('should leave out the entries of the preparation and report how many when a rule is given', async () => {
     // Act
-    const messages = await run(blobOf(readSample('real-serilog.log')), 'serilog-console', undefined, { ignoreTexts: ['/health'] });
+    const messages = await run(blobOf(readSample('real-serilog.log')), 'serilog-console', undefined, { ...EMPTY_PREPARATION, ignoreTexts: ['/health'] });
 
     // Assert
     const errors = messages.flatMap((message) => (message.type === 'errors' ? message.records : []));
     expect(errors).toHaveLength(0);
-    expect(messages.at(-1)).toMatchObject({ type: 'done', result: { entries: 21, ignored: 15, ignoredPerRule: [15], errors: 0 } });
+    expect(messages.at(-1)).toMatchObject({ type: 'done', result: { entries: 21, ignored: 15, ignoredPerRule: [15], ignoredByPeriod: 0, errors: 0 } });
+  });
+
+  it('should leave out the entries outside the period when one is given', async () => {
+    // Act
+    const messages = await run(blobOf(readSample('real-serilog.log')), 'serilog-console', undefined, { ...EMPTY_PREPARATION, period: { from: '12:06', to: '12:06' } });
+
+    // Assert
+    expect(messages.at(-1)).toMatchObject({ type: 'done', result: { entries: 21, ignored: 7, ignoredByPeriod: 7, errors: 2 } });
+  });
+
+  it('should refuse a period that is not valid with the reason, instead of scanning without it', async () => {
+    // Act
+    const messages = await run(blobOf(readSample('real-serilog.log')), 'serilog-console', undefined, { ...EMPTY_PREPARATION, period: { from: '22:00', to: '02:00' } });
+
+    // Assert
+    expect(messages).toEqual([{ type: 'failed', message: 'La fin doit suivre le début : un passage de minuit n’est pas géré.' }]);
   });
 
   it('should send a failed message naming the profile when the profile id is unknown', async () => {

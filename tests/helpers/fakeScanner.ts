@@ -23,6 +23,7 @@ export const scanResult: ScanResult = {
   entries: 2,
   ignored: 0,
   ignoredPerRule: [],
+  ignoredByPeriod: 0,
   errors: 1,
   truncatedEntries: 0,
   limitReached: false,

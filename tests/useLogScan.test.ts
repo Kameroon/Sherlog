@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { FormatDetection, HeadRead } from '../src/sources/readHead';
 import type { StartScan } from '../src/workers/scanProtocol';
+import { EMPTY_PREPARATION } from '../src/core/preparation';
 import { useLogScan } from '../src/ui/useLogScan';
 import { consoleLog, errorRecord as record, fakeScanner, scanResult as result } from './helpers/fakeScanner';
 
@@ -233,14 +234,14 @@ describe('useLogScan', () => {
 });
 
 describe('useLogScan preparation', () => {
-  const health = { ignoreTexts: ['/health'] };
+  const health = { ...EMPTY_PREPARATION, ignoreTexts: ['/health'] };
 
   it('should keep the beginning of the source and start with nothing left out when a file is chosen', async () => {
     // Act
     const { result: hook } = await chooseRecognised();
 
     // Assert
-    expect(hook.current.state).toMatchObject({ phase: 'ready', complete: true, preparation: { ignoreTexts: [] } });
+    expect(hook.current.state).toMatchObject({ phase: 'ready', complete: true, preparation: EMPTY_PREPARATION });
     expect(hook.current.state.phase === 'ready' && new TextDecoder().decode(hook.current.state.head)).toBe(consoleLog);
   });
 
@@ -325,7 +326,7 @@ describe('useLogScan preparation', () => {
     });
 
     // Assert
-    expect(hook.current.state).toMatchObject({ phase: 'analysing', preparation: { ignoreTexts: [] } });
+    expect(hook.current.state).toMatchObject({ phase: 'analysing', preparation: EMPTY_PREPARATION });
   });
 
   it('should start again from nothing left out when another log is chosen', async () => {
@@ -339,6 +340,6 @@ describe('useLogScan preparation', () => {
     await act(() => hook.current.chooseFile(fileOf(consoleLog, 'other.log')));
 
     // Assert
-    expect(hook.current.state).toMatchObject({ phase: 'ready', name: 'other.log', preparation: { ignoreTexts: [] } });
+    expect(hook.current.state).toMatchObject({ phase: 'ready', name: 'other.log', preparation: EMPTY_PREPARATION });
   });
 });

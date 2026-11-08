@@ -67,6 +67,8 @@ export interface ScanResult {
   readonly ignored: number;
   /** For each rule of the filter, the entries it matches (an entry matched by two rules counts for both). */
   readonly ignoredPerRule: readonly number[];
+  /** Entries outside the period of the filter, whether or not a rule also matches them. */
+  readonly ignoredByPeriod: number;
   /** Every error entry kept by the filter, including those past the record limit. */
   readonly errors: number;
   /** Entries whose text was too long to keep: their beginning is kept, their position stays exact. */
@@ -173,13 +175,14 @@ export async function scanLog(
   take(assembler.finish());
   flush();
 
-  const { ignored, ignoredPerRule } = filter?.counts() ?? { ignored: 0, ignoredPerRule: [] };
+  const { ignored, ignoredPerRule, ignoredByPeriod } = filter?.counts() ?? { ignored: 0, ignoredPerRule: [], ignoredByPeriod: 0 };
   return {
     bytes,
     encoding: splitter.encoding,
     entries,
     ignored,
     ignoredPerRule,
+    ignoredByPeriod,
     errors,
     truncatedEntries,
     limitReached: errors > recorded,
