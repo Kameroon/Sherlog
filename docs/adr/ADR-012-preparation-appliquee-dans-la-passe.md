@@ -1,7 +1,7 @@
 # ADR-012 : La préparation est appliquée dans la passe d'analyse ; l'écran la montre sur le début du fichier
 
 ## Statut
-Proposé — 2026-11-08 (tranches 1 à 3 de l'étape 4b : règles « Ignorer », compteurs, aperçu, période, format). Passe à « Accepté » avec la validation de l'étape 4b par l'auteur.
+Accepté — 2026-11-08 (étape 4b validée par l'auteur : règles « Ignorer », compteurs, aperçu, période, format). Les points « non vérifié » ci-dessous restent à lever.
 
 ## Contexte
 La maquette « F · Préparer » garde tout le journal en mémoire (20 Mo au plus) et recalcule compteurs et aperçu à chaque réglage. L'application lit des fichiers de plusieurs centaines de Mo et ne garde que des positions (ADR-011) : recalculer sur tout le fichier à chaque réglage exigerait une lecture complète de plus à chaque fois, ce que l'étape 4 avait écarté.
