@@ -8,6 +8,14 @@
  * Light and dark follow the operating system. Contrast measured against WCAG AA:
  *   light: text 16.7:1, muted 7.1:1, accent 5.5:1 (white on accent 5.9:1), control border 4.4:1
  *   dark:  text 16.0:1, muted 7.7:1, accent 8.0:1 (dark on accent 8.8:1), control border 3.5:1
+ * Surfaces of the error list (step 5), text on each:
+ *   light: error-surface  text 15.7:1, muted 6.7:1, error 5.5:1
+ *          selected       text 15.1:1, muted 6.4:1, accent 5.0:1
+ *          badge          text 14.5:1, muted 6.2:1
+ *   dark:  error-surface  text 14.3:1, muted 7.5:1, error 6.3:1
+ *          selected       text 11.1:1, muted 5.9:1, accent 6.1:1
+ *          badge          text 10.9:1, muted 5.7:1
+ * Every colour is a token defined in both themes; none is written in a style rule.
  */
 :root {
   color-scheme: light dark;
@@ -24,6 +32,9 @@
   --color-error: #be123c;
   --color-warning: #b45309;
   --color-ok: #047857;
+  --color-error-surface: #fdecef;
+  --color-selected: #e0eef9;
+  --color-badge: #e2e8f0;
 
   --glow-accent: rgb(3 105 161 / 0.1);
   --glow-violet: rgb(124 58 237 / 0.08);
@@ -39,6 +50,8 @@
   --space-2: 1rem;
   --space-3: 1.5rem;
   --space-4: 2.5rem;
+  /* Height of a row of the error list: every row has it, which is what lets the list skip the rows out of sight. */
+  --row-height: 2.75rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -55,6 +68,9 @@
     --color-error: #fb7185;
     --color-warning: #fbbf24;
     --color-ok: #34d399;
+    --color-error-surface: #2b1626;
+    --color-selected: #17324d;
+    --color-badge: #263150;
 
     --glow-accent: rgb(56 189 248 / 0.16);
     --glow-violet: rgb(124 58 237 / 0.14);

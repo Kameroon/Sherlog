@@ -5,6 +5,7 @@ import { isErrorLevel } from './levels';
 import { createLineSplitter } from './lineSplitter';
 import type { SourceLine, TextEncoding } from './lineSplitter';
 import type { EntryFilter } from './preparation';
+import { matchHeader } from './profiles';
 import type { LogProfile } from './profiles';
 import { truncateText } from './text';
 
@@ -14,8 +15,8 @@ import { truncateText } from './text';
  */
 export const MAX_ERROR_RECORDS = 100_000;
 
-/** Longest first line kept in a record, in UTF-16 units. The whole line is read again on demand. */
-export const MAX_FIRST_LINE_CHARS = 300;
+/** Longest message kept in a record, in UTF-16 units. The whole entry is read again on demand. */
+export const MAX_MESSAGE_CHARS = 300;
 
 /** Errors sent to the callback at once, so that a long scan shows its first results early. */
 export const ERROR_BATCH_SIZE = 500;
@@ -31,10 +32,13 @@ export interface ErrorRecord {
   readonly length: number;
   readonly timestamp: string | null;
   readonly level: string;
-  /** First line of the entry, cut at {@link ScanOptions.maxFirstLineChars}. */
-  readonly firstLine: string;
-  /** `true` when `firstLine` is shorter than the real first line. */
-  readonly firstLineCut: boolean;
+  /**
+   * What follows the timestamp and the level on the first line of the entry (the whole first line when the format has
+   * no message part), cut at {@link ScanOptions.maxMessageChars}. The timestamp and the level are kept apart.
+   */
+  readonly message: string;
+  /** `true` when `message` is shorter than the real message. */
+  readonly messageCut: boolean;
   readonly lineCount: number;
   /** Index in {@link ScanResult.fingerprints}; errors with the same id are the same error. */
   readonly fingerprintId: number;
@@ -43,7 +47,7 @@ export interface ErrorRecord {
 export interface ScanOptions {
   readonly profile: LogProfile;
   readonly maxErrorRecords?: number;
-  readonly maxFirstLineChars?: number;
+  readonly maxMessageChars?: number;
   readonly batchSize?: number;
   /** Leaves entries out: an entry it ignores is counted as read, but it is neither an error nor fingerprinted. */
   readonly filter?: EntryFilter;
@@ -97,7 +101,7 @@ export async function scanLog(
 ): Promise<ScanResult> {
   const { profile } = options;
   const maxErrorRecords = options.maxErrorRecords ?? MAX_ERROR_RECORDS;
-  const maxFirstLineChars = options.maxFirstLineChars ?? MAX_FIRST_LINE_CHARS;
+  const maxMessageChars = options.maxMessageChars ?? MAX_MESSAGE_CHARS;
   const batchSize = options.batchSize ?? ERROR_BATCH_SIZE;
   const { filter } = options;
 
@@ -125,13 +129,14 @@ export async function scanLog(
       fingerprintId = fingerprintIds.size;
       fingerprintIds.set(key, fingerprintId);
     }
+    const message = matchHeader(profile, entry.firstLine)?.message ?? entry.firstLine;
     batch.push({
       offset: entry.offset,
       length: entry.length,
       timestamp: entry.timestamp,
       level,
-      firstLine: truncateText(entry.firstLine, maxFirstLineChars),
-      firstLineCut: entry.firstLine.length > maxFirstLineChars,
+      message: truncateText(message, maxMessageChars),
+      messageCut: message.length > maxMessageChars,
       lineCount: entry.lineCount,
       fingerprintId,
     });

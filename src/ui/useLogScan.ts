@@ -7,6 +7,8 @@ import { readHead } from '../sources/readHead';
 import type { FormatDetection, HeadRead } from '../sources/readHead';
 import { readEntryText } from '../sources/readEntryText';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
+import { readNeighbourLines } from '../sources/readNeighbourLines';
+import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { readFailureMessage, startFailureMessage } from '../sources/readFailure';
 import type { ScanMessage, StartScan } from '../workers/scanProtocol';
 import { startScanWorker } from '../workers/startScanWorker';
@@ -207,5 +209,15 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
     [state],
   );
 
-  return { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText };
+  const readNeighbours = useCallback(
+    (position: EntryPosition): Promise<NeighbourLines> => {
+      if (state.phase !== 'analysed' || state.result.encoding === null) {
+        return Promise.reject(new Error('aucun journal analysé'));
+      }
+      return readNeighbourLines(state.source, position, state.result.encoding);
+    },
+    [state],
+  );
+
+  return { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText, readNeighbours };
 }

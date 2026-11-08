@@ -34,7 +34,7 @@ une analyse IA précise et un chat, avec la clé de l'utilisateur ou un modèle 
   Robustesse : fins de ligne CRLF, BOM, UTF-16 (fréquent avec la redirection PowerShell 5.1), UTF-8 coupé entre deux blocs, entrées très longues.
   **Mémoire** : par entrée en erreur, seuls position, longueur, horodatage, niveau, première ligne et empreinte sont conservés ; le détail complet et les lignes voisines
   sont relus à la demande depuis le fichier choisi. Aucune troncature silencieuse : toute limite atteinte (entrée trop longue, fichier modifié ou illisible depuis le chargement,
-  résultat Azure plafonné) est signalée à l'écran. Les seuils sont fixés par une mesure sur un gros fichier généré, pas posés à l'avance : valeurs retenues et chiffres dans l'ADR-011 (100 000 erreurs enregistrées, 200 lignes affichées tant que la liste n'est pas virtualisée).
+  résultat Azure plafonné) est signalée à l'écran. Les seuils sont fixés par une mesure sur un gros fichier généré, pas posés à l'avance : valeurs retenues et chiffres dans l'ADR-011 (100 000 erreurs enregistrées, toutes listées : la liste est virtualisée depuis l'étape 5, ADR-013).
 - **Préparation avant analyse** : choisir un fichier ou coller du texte **lit** le journal dans le navigateur, sans l'analyser ni l'envoyer.
   L'utilisateur arrive sur un espace de préparation, facultatif, où il règle ce qui sera analysé, puis lance lui-même l'analyse (« Analyser ce journal »).
   Le fichier d'origine n'est jamais modifié (ADR-010) : les réglages ne changent que ce qui est retenu, affiché et envoyé. Des compteurs visibles
@@ -50,7 +50,7 @@ une analyse IA précise et un chat, avec la clé de l'utilisateur ou un modèle 
 - **Erreurs uniquement** : `ERROR`, `ERR`, `FATAL`, `FTL`, `CRITICAL` (configurables ; `ERR` et `FTL` sont les abréviations Serilog).
   **Multi-lignes** : l'exception qui suit le message appartient à son en-tête.
 - **Empreinte et entrées identiques** : chaque entrée en erreur reçoit une empreinte ; les entrées identiques sont signalées par un badge « ×N identiques » (avec première et dernière apparition) et partagent la même analyse et le même statut (Nouveau / Analysé / Ignoré / Résolu).
-- **Liste des erreurs, vue à plat** : une ligne par entrée de log en erreur ; tri, filtres, recherche plein texte, détail avec stack complète. Seules les entrées en erreur sont affichées ; les lignes voisines n'apparaissent que dans l'aperçu de ce qui est envoyé au modèle. Pas de vue regroupée : le badge « ×N identiques » est triable.
+- **Liste des erreurs, vue à plat** : une ligne par entrée de log en erreur ; tri, filtres, recherche plein texte, détail avec stack complète. Seules les entrées en erreur sont affichées dans la liste ; les lignes voisines n'apparaissent qu'**à la demande dans le détail** (« Voir les lignes autour », 10 lignes avant et après, relues dans le fichier) et dans l'aperçu de ce qui est envoyé au modèle. Pas de vue regroupée : le badge « ×N identiques » est triable.
 - **Partie 1 utilisable seule** : aucune clé IA n'est nécessaire pour récupérer et afficher les erreurs.
 
 ### Partie 2 — Analyse IA et chat

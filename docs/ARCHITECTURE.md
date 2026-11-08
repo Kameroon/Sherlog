@@ -22,7 +22,7 @@ sherlog/
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), Redactor — TS pur
-│  ├─ sources/   readHead, readEntryText, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
+│  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
 │  ├─ store/     état de session + historique local (IndexedDB)
@@ -34,7 +34,7 @@ Outillage : Vite, TypeScript strict, ESLint, Vitest. Pas de bibliothèque d'éta
 ## Abstractions
 ```ts
 // Étape 4 : une source est un `Blob` (un `File`, ou du texte collé) — pas d'interface `LogSource` tant qu'une 2e source distincte n'existe pas (ADR-011).
-//   lecture en flux : `blobChunks(blob)` ; relecture à la demande : `readEntryText(blob, { offset, length }, encoding)`, offset et length en octets.
+//   lecture en flux : `blobChunks(blob)` ; relecture à la demande : `readEntryText(blob, { offset, length }, encoding)`, offset et length en octets ; lignes autour d'une entrée : `readNeighbourLines(blob, { offset, length }, encoding)` (10 lignes de part et d'autre, fenêtre de 64 Kio par côté).
 interface AiProvider { stream(messages: Message[]): AsyncIterable<string> }  // anthropic, ollama
 function redact(text: string, rules: RedactionRules): string  // pur
 ```
@@ -87,5 +87,5 @@ Appel Anthropic par `fetch` + lecture SSE manuelle (pas de SDK), validation de l
 MSAL.js : mesuré à l'étape 1 à 68,74 Ko gzip (`@azure/msal-browser` 5.28.0), soit environ 139 Ko avec le JavaScript de l'application, sous le budget (ADR-004) ; il n'est ajouté qu'à l'étape 10c. Les prompts `.md` sont embarqués au build (`?raw`) : le bénéfice est la lisibilité et le diff, pas l'absence de rebuild.
 
 ## Écrans
-Une page principale : sources, liste d'erreurs, panneau de détail avec onglets Analyse et Chat ; une page Paramètres (fournisseur, clé).
+Une page principale : sources, liste d'erreurs virtualisée par blocs (ADR-013), panneau de détail avec onglets Analyse et Chat (le détail existe depuis l'étape 5, les onglets arrivent aux étapes 8 et 9) ; une page Paramètres (fournisseur, clé).
 Conception et accessibilité : `frontend-architect`.

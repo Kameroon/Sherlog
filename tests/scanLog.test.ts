@@ -5,7 +5,7 @@ import { EMPTY_PREPARATION, createEntryFilter } from '../src/core/preparation';
 import { scanLog } from '../src/core/scanLog';
 import type { ErrorRecord, ScanOptions, ScanResult } from '../src/core/scanLog';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
-import { BUILT_IN_PROFILES, CONSOLE_PROFILE, DEFAULT_PROFILE } from '../src/core/profiles';
+import { BUILT_IN_PROFILES, CONSOLE_PROFILE, DEFAULT_PROFILE, createCustomProfile } from '../src/core/profiles';
 import type { LogProfile } from '../src/core/profiles';
 import { errorEntries, parseBytes } from './helpers/parseLog';
 import { inBlocks, readSample, utf16, utf8 } from './helpers/samples';
@@ -199,28 +199,50 @@ describe('scanLog limits', () => {
     expect(result.limitReached).toBe(false);
   });
 
-  it('should cut a long first line for display and say so when the line exceeds the display limit', async () => {
+  it('should cut a long message for display and say so when the message exceeds the display limit', async () => {
     // Act
     const { records } = await scan(utf8(`[08:16:10 ERR] ${'x'.repeat(40)}\n[08:16:11 ERR] short\n`), CONSOLE_PROFILE, undefined, {
-      maxFirstLineChars: 20,
+      maxMessageChars: 20,
     });
 
     // Assert
-    expect(records.map(({ firstLine, firstLineCut }) => ({ length: firstLine.length, firstLineCut }))).toEqual([
-      { length: 20, firstLineCut: true },
-      { length: '[08:16:11 ERR] short'.length, firstLineCut: false },
+    expect(records.map(({ message, messageCut }) => ({ length: message.length, messageCut }))).toEqual([
+      { length: 20, messageCut: true },
+      { length: 'short'.length, messageCut: false },
     ]);
   });
 
+  it('should keep only what follows the timestamp and the level as the message, which the row already shows apart', async () => {
+    // Act
+    const { records } = await scan(utf8(readSample('sample.log')), DEFAULT_PROFILE);
+
+    // Assert
+    expect(records[0]).toMatchObject({ timestamp: '2026-11-04 08:16:10.332 +01:00', level: 'ERR', message: 'Timeout after 30012 ms while calling PaymentGateway for order 8841' });
+  });
+
+  it('should keep the whole first line as the message when the format has no message part', async () => {
+    // Arrange
+    const custom = createCustomProfile('^(?<level>ERR) .*$');
+    if (custom.status !== 'ok') {
+      throw new Error(custom.reason);
+    }
+
+    // Act
+    const { records } = await scan(utf8('ERR something broke\n'), custom.profile);
+
+    // Assert
+    expect(records[0]).toMatchObject({ message: 'ERR something broke', messageCut: false });
+  });
+
   it('should not split a surrogate pair when the cut falls in the middle of a character', async () => {
-    // Arrange: the emoji (two UTF-16 units) starts at index 15, the last index before the limit of 16.
+    // Arrange: the emoji (two UTF-16 units) starts at index 0 of the message, the last index before the limit of 1.
     const bytes = utf8('[08:16:10 ERR] 😀 broken\n');
 
     // Act
-    const { records } = await scan(bytes, CONSOLE_PROFILE, undefined, { maxFirstLineChars: 16 });
+    const { records } = await scan(bytes, CONSOLE_PROFILE, undefined, { maxMessageChars: 1 });
 
     // Assert
-    expect(records[0]).toMatchObject({ firstLine: '[08:16:10 ERR] ', firstLineCut: true });
+    expect(records[0]).toMatchObject({ message: '', messageCut: true });
   });
 
   it('should keep each fingerprint key short when the error lines are very long', async () => {

@@ -8,9 +8,10 @@ const ERROR_EVERY = 20;
 /**
  * @param {string} path - File to write.
  * @param {number} megabytes - Approximate size.
+ * @param {'mixed' | 'errors'} [kind] - `mixed`: one entry in twenty is an error with a stack. `errors`: every entry is a one-line error.
  * @returns {Promise<{ bytes: number, entries: number, errors: number, distinct: number, health: number }>}
  */
-export async function generateLog(path, megabytes) {
+export async function generateLog(path, megabytes, kind = 'mixed') {
   const target = megabytes * 1024 * 1024;
   const stream = createWriteStream(path);
 
@@ -52,9 +53,9 @@ export async function generateLog(path, megabytes) {
   while (bytes < target) {
     let block = '';
     for (let i = 0; i < 2000 && bytes < target; i += 1, entries += 1) {
-      const isError = entries % ERROR_EVERY === 0;
+      const isError = kind === 'errors' || entries % ERROR_EVERY === 0;
       const text = isError
-        ? `${stamp()} [ERR] ${errorMessages[errors % errorMessages.length]()}\n${stack}\n`
+        ? `${stamp()} [ERR] ${errorMessages[errors % errorMessages.length]()}\n${kind === 'errors' ? '' : `${stack}\n`}`
         : `${stamp()} [INF] ${infoMessages[entries % infoMessages.length]()}\n`;
       errors += isError ? 1 : 0;
       health += text.includes('/health') ? 1 : 0;

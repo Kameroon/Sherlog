@@ -127,7 +127,8 @@
   background: var(--color-surface);
 }
 
-.error-fallback h1 {
+.error-fallback h1,
+.error-fallback h2 {
   margin-top: 0;
   color: var(--color-error);
 }
@@ -288,47 +289,6 @@ button:disabled {
   width: 100%;
   height: 0.75rem;
   accent-color: var(--color-accent);
-}
-
-.error-list {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.error-row {
-  padding: 0.6rem 0.9rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-control);
-}
-
-.error-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.error-time,
-.error-level {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-}
-
-.error-level {
-  color: var(--color-error);
-  font-weight: 700;
-}
-
-.error-first-line {
-  flex: 1 1 20rem;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
 }
 
 .entry-text {
@@ -634,7 +594,7 @@ button:disabled {
 }
 
 .excerpt .is-error {
-  background: rgb(251 113 133 / 0.14);
+  background: var(--color-error-surface);
   box-shadow: inset 3px 0 0 var(--color-error);
 }
 
@@ -686,4 +646,132 @@ button:disabled {
 
 .period-word {
   font-weight: 600;
+}
+
+/* ---- Error list and its detail ---- */
+
+.results-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 64rem) {
+  .results-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.error-list {
+  height: min(70vh, 38rem);
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.error-list:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.error-chunk {
+  display: block;
+}
+
+/* Same height as a block of rows (50 rows, see ROWS_PER_CHUNK): the page keeps its length while the rows are out of sight. */
+.error-chunk-empty {
+  height: calc(var(--row-height) * 50);
+}
+
+.error-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: var(--row-height);
+  padding: 0 0.9rem;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-line);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.error-option:hover {
+  background: var(--color-surface-raised);
+}
+
+.error-option.is-selected {
+  background: var(--color-selected);
+  box-shadow: inset 4px 0 0 var(--color-accent);
+}
+
+/* Where the keys act: shown while the list has the focus, so that a keyboard user always sees it. */
+.error-list:focus-visible .error-option.is-active {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.error-time,
+.error-level {
+  flex: none;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.error-level {
+  color: var(--color-error);
+  font-weight: 700;
+}
+
+.error-first-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.badge {
+  flex: none;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-badge);
+  color: var(--color-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.error-detail {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.error-detail h2,
+.error-detail p {
+  margin: 0;
+}
+
+.error-meta {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.neighbours,
+.neighbour-lines,
+.neighbour-side {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.neighbour-side h3 {
+  margin: 0;
+  font-size: 0.9375rem;
 }
