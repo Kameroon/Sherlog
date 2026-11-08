@@ -17,7 +17,13 @@ interface PreparationScreenProps {
   head: Uint8Array;
   /** `true` when `head` is the whole source. */
   complete: boolean;
-  profile: LogProfile;
+  /** The format the log is read with; `null` when none was recognised and none was picked yet. */
+  profile: LogProfile | null;
+  /** The format the detection recognised, if any. */
+  recognised: LogProfile | null;
+  /** Why no format was recognised, when that is the case. */
+  unrecognisedReason: string | null;
+  onProfileChange: (profile: LogProfile) => void;
   preparation: Preparation;
   onPreparationChange: (preparation: Preparation) => void;
   /** The exact figures of the last analysis, shown instead of the figures computed on the beginning. */
@@ -32,8 +38,9 @@ interface PreparationScreenProps {
 }
 
 /**
- * Where the user prepares a log before analysing it: what was read, the settings, a preview of the log as these settings
- * leave it. Figures come from the beginning of the source until an analysis gives the exact ones.
+ * Where the user prepares a log before analysing it: what was read, the format, the settings, a preview of the log as
+ * these settings leave it. Figures come from the beginning of the source until an analysis gives the exact ones.
+ * Without a format there is nothing to read the log with: only the choice of a format is shown.
  */
 export function PreparationScreen({
   name,
@@ -41,6 +48,9 @@ export function PreparationScreen({
   head,
   complete,
   profile,
+  recognised,
+  unrecognisedReason,
+  onProfileChange,
   preparation,
   onPreparationChange,
   result,
@@ -49,23 +59,26 @@ export function PreparationScreen({
   onReset,
   titleRef,
 }: PreparationScreenProps) {
-  // Reading the text is the costly part: done once, then each change of a rule only filters the entries again.
-  const parsed = useMemo(() => parseHead(head, profile), [head, profile]);
-  const preview = useMemo(() => previewHead(parsed, preparation), [parsed, preparation]);
+  // Reading the text is the costly part: done once per format, then each change of a rule only filters the entries again.
+  const parsed = useMemo(() => (profile === null ? null : parseHead(head, profile)), [head, profile]);
+  const preview = useMemo(() => (parsed === null ? null : previewHead(parsed, preparation)), [parsed, preparation]);
+
   const counts =
-    result === null
-      ? preview.counts
-      : {
+    result !== null
+      ? {
           read: result.entries,
           ignored: result.ignored,
           ignoredPerRule: result.ignoredPerRule,
           ignoredByPeriod: result.ignoredByPeriod,
           ready: result.entries - result.ignored,
-        };
+        }
+      : (preview?.counts ?? null);
   // A period that cannot be used is shown with its reason and not applied; the analysis waits until it is fixed.
   const periodProblem = validatePeriod(preparation.period);
   const forTheBeginning = result === null && !complete;
-  const nothingLeft = result === null && counts.read > 0 && counts.ready === 0;
+  const nothingLeft = result === null && counts !== null && counts.read > 0 && counts.ready === 0;
+  const readsNothing = preview !== null && preview.headerCount === 0;
+  const cannotAnalyse = profile === null || readsNothing || periodProblem !== null || (nothingLeft && complete);
 
   return (
     <section aria-label="Préparation du journal">
@@ -76,69 +89,80 @@ export function PreparationScreen({
           </h2>
           <span className="chip">Lu sur cet ordinateur</span>
         </div>
-        <ul className="counters" aria-label="Chiffres" aria-live="polite">
-          <li className="counter">
-            <strong>{formatCount(counts.read)}</strong>
-            <span>{counts.read > 1 ? 'entrées lues' : 'entrée lue'}</span>
-          </li>
-          <li className="counter">
-            <strong>{formatCount(counts.ignored)}</strong>
-            <span>{counts.ignored > 1 ? 'écartées par vos réglages' : 'écartée par vos réglages'}</span>
-          </li>
-          <li className="counter is-ok">
-            <strong>{formatCount(counts.ready)}</strong>
-            <span>{counts.ready > 1 ? 'prêtes à analyser' : 'prête à analyser'}</span>
-          </li>
-        </ul>
-        {result !== null && <p className="small-note">Chiffres exacts de l’analyse.</p>}
-        {forTheBeginning && (
-          <p className="small-note">
-            Chiffres calculés sur le début du fichier ({formatSize(head.length)} sur {formatSize(source.size)}) : les chiffres exacts viennent avec l’analyse.
-          </p>
-        )}
-        {nothingLeft && complete && (
-          <p className="notice notice-warning">Rien à analyser : toutes les entrées sont écartées par vos réglages.</p>
-        )}
-        {nothingLeft && !complete && (
-          <p className="notice notice-warning">
-            Aucune entrée du début ne reste avec ces réglages. Le reste du fichier n’a pas été lu : lancez l’analyse pour le savoir.
-          </p>
+        {counts !== null && (
+          <>
+            <ul className="counters" aria-label="Chiffres" aria-live="polite">
+              <li className="counter">
+                <strong>{formatCount(counts.read)}</strong>
+                <span>{counts.read > 1 ? 'entrées lues' : 'entrée lue'}</span>
+              </li>
+              <li className="counter">
+                <strong>{formatCount(counts.ignored)}</strong>
+                <span>{counts.ignored > 1 ? 'écartées par vos réglages' : 'écartée par vos réglages'}</span>
+              </li>
+              <li className="counter is-ok">
+                <strong>{formatCount(counts.ready)}</strong>
+                <span>{counts.ready > 1 ? 'prêtes à analyser' : 'prête à analyser'}</span>
+              </li>
+            </ul>
+            {result !== null && <p className="small-note">Chiffres exacts de l’analyse.</p>}
+            {forTheBeginning && (
+              <p className="small-note">
+                Chiffres calculés sur le début du fichier ({formatSize(head.length)} sur {formatSize(source.size)}) : les chiffres exacts viennent avec l’analyse.
+              </p>
+            )}
+            {nothingLeft && complete && (
+              <p className="notice notice-warning">Rien à analyser : toutes les entrées sont écartées par vos réglages.</p>
+            )}
+            {nothingLeft && !complete && (
+              <p className="notice notice-warning">
+                Aucune entrée du début ne reste avec ces réglages. Le reste du fichier n’a pas été lu : lancez l’analyse pour le savoir.
+              </p>
+            )}
+          </>
         )}
       </div>
 
       <div className="prep-layout">
         <div className="prep-tools">
-          <FormatPanel profile={profile} orphanLines={preview.orphanLines} />
-          <IgnoreTool
-            preparation={preparation}
-            onChange={onPreparationChange}
-            counts={counts.ignoredPerRule}
-            countsAreForTheBeginning={forTheBeginning}
+          <FormatPanel
+            profile={profile}
+            recognised={recognised}
+            unrecognisedReason={unrecognisedReason}
+            orphanLines={preview?.orphanLines ?? 0}
+            readsNothing={readsNothing}
+            onChange={onProfileChange}
           />
-          <PeriodTool
-            preparation={preparation}
-            onChange={onPreparationChange}
-            withDate={!profile.limited}
-            range={preview.timeRange}
-            forTheBeginning={!complete}
-            ignoredByPeriod={counts.ignoredByPeriod}
-            problem={periodProblem}
-          />
+          {profile !== null && counts !== null && (
+            <>
+              <IgnoreTool
+                preparation={preparation}
+                onChange={onPreparationChange}
+                counts={counts.ignoredPerRule}
+                countsAreForTheBeginning={forTheBeginning}
+              />
+              <PeriodTool
+                preparation={preparation}
+                onChange={onPreparationChange}
+                withDate={!profile.limited}
+                range={preview?.timeRange ?? null}
+                forTheBeginning={!complete}
+                ignoredByPeriod={counts.ignoredByPeriod}
+                problem={periodProblem}
+              />
+            </>
+          )}
         </div>
-        <PreparedPreview preview={preview} name={name} headBytes={head.length} sourceBytes={source.size} complete={complete} />
+        {preview !== null && (
+          <PreparedPreview preview={preview} name={name} headBytes={head.length} sourceBytes={source.size} complete={complete} />
+        )}
       </div>
 
       <div className="actions">
         {onAnalyse !== undefined && (
           <Tip text="Lance l’analyse sur votre ordinateur avec les réglages ci-dessus et liste les erreurs. Rien n’est envoyé sur Internet.">
             {(describedBy) => (
-              <button
-                type="button"
-                className="button-primary"
-                aria-describedby={describedBy}
-                disabled={(nothingLeft && complete) || periodProblem !== null}
-                onClick={onAnalyse}
-              >
+              <button type="button" className="button-primary" aria-describedby={describedBy} disabled={cannotAnalyse} onClick={onAnalyse}>
                 Analyser ce journal
               </button>
             )}

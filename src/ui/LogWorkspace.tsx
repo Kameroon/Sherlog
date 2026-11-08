@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Preparation } from '../core/preparation';
+import type { LogProfile } from '../core/profiles';
 import type { ScanResult } from '../core/scanLog';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import type { FormatDetection } from '../sources/readHead';
 import { ErrorList } from './ErrorList';
 import { countOf, formatCount } from './format';
 import { PreparationScreen } from './PreparationScreen';
@@ -18,18 +18,6 @@ interface LogWorkspaceProps {
   dependencies?: Partial<ScanDependencies>;
 }
 
-/** Why a log cannot be analysed: its format is not one Sherlog reads (yet). */
-function UnreadableFormat({ detection }: { detection: Exclude<FormatDetection, { status: 'detected' }> }) {
-  if (detection.status === 'structured') {
-    return <p className="notice notice-warning">Ce journal semble être du JSON, un format pas encore pris en charge.</p>;
-  }
-  return (
-    <>
-      <p className="notice notice-warning">Format non reconnu : {detection.reason}.</p>
-      <p className="hint">Ce journal ne peut pas être analysé pour l’instant : le choix manuel du format n’est pas encore disponible.</p>
-    </>
-  );
-}
 
 interface ScanSummaryProps {
   result: ScanResult;
@@ -87,7 +75,7 @@ function stepOf(phase: ScanState['phase']): StepNumber {
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
 export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
-  const { state, chooseFile, chooseText, changePreparation, analyse, cancel, reset, readText } = useLogScan(dependencies);
+  const { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText } = useLogScan(dependencies);
 
   // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
   // new stage, a keyboard user lands on the page body. Not on the first render, which must not steal the focus, and not
@@ -115,6 +103,7 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
         onFile={(file) => void chooseFile(file)}
         onText={(text) => void chooseText(text)}
         onPreparationChange={changePreparation}
+        onProfileChange={changeProfile}
         onAnalyse={analyse}
         onCancel={cancel}
         onReset={reset}
@@ -130,13 +119,14 @@ interface StageProps {
   onFile: (file: File) => void;
   onText: (text: string) => void;
   onPreparationChange: (preparation: Preparation) => void;
+  onProfileChange: (profile: LogProfile) => void;
   onAnalyse: () => void;
   onCancel: () => void;
   onReset: () => void;
   readText: (position: EntryPosition) => Promise<EntryText>;
 }
 
-function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onAnalyse, onCancel, onReset, readText }: StageProps) {
+function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onProfileChange, onAnalyse, onCancel, onReset, readText }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -165,13 +155,13 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onA
       );
     case 'ready':
     case 'analysed': {
-      if (state.detection.status !== 'detected') {
+      if (state.detection.status === 'structured') {
         return (
           <section className="panel" aria-label="Journal choisi">
             <h2 ref={setFocusTarget} tabIndex={-1}>
               {state.name}
             </h2>
-            <UnreadableFormat detection={state.detection} />
+            <p className="notice notice-warning">Ce journal semble être du JSON, un format pas encore pris en charge.</p>
             <div className="actions">
               <Tip text="Revient au choix du journal et vide le champ de texte collé.">
                 {(describedBy) => (
@@ -192,7 +182,10 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onA
             source={state.source}
             head={state.head}
             complete={state.complete}
-            profile={state.detection.profile}
+            profile={state.profile}
+            recognised={state.detection.status === 'detected' ? state.detection.profile : null}
+            unrecognisedReason={state.detection.status === 'unrecognized' ? state.detection.reason : null}
+            onProfileChange={onProfileChange}
             preparation={state.preparation}
             onPreparationChange={onPreparationChange}
             result={analysed ? state.result : null}

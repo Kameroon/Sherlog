@@ -54,7 +54,7 @@ describe('LogWorkspace choosing a source', () => {
     expect(scanner.requests).toEqual([]);
   });
 
-  it('should explain that the format is not recognised and offer no analysis when no profile reads the file', async () => {
+  it('should explain that the format is not recognised and refuse the analysis until a format is picked when no profile reads the file', async () => {
     // Arrange
     setup();
 
@@ -64,7 +64,7 @@ describe('LogWorkspace choosing a source', () => {
     // Assert
     expect(screen.getByText(/Format non reconnu/)).toBeInTheDocument();
     expect(screen.getByText(/aucun profil/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Analyser ce journal' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Analyser ce journal' })).toBeDisabled();
   });
 
   it('should say that JSON is not supported yet when the file is JSON lines', async () => {
