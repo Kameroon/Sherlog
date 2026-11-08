@@ -106,7 +106,7 @@ describe('staticwebapp.config.json access rules', () => {
     expect(config.responseOverrides['403']).toEqual({ rewrite: '/forbidden/index.html', statusCode: 403 });
   });
 
-  it.each(["default-src 'self'", "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'"])(
+  it.each(["default-src 'self'", "script-src 'self'", "style-src 'self'", "worker-src 'self'", "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'"])(
     'should declare %s in the Content-Security-Policy',
     (directive) => {
       // Arrange & Act & Assert
