@@ -52,8 +52,10 @@ export async function readNeighbourLines(
   const count = options.count ?? NEIGHBOUR_LINES;
   const maxBytes = options.maxBytes ?? MAX_NEIGHBOUR_BYTES;
 
-  const before = await readBefore(source, position.offset, encoding, count, maxBytes);
-  const after = await readAfter(source, position.offset + position.length, encoding, count, maxBytes);
+  const [before, after] = await Promise.all([
+    readBefore(source, position.offset, encoding, count, maxBytes),
+    readAfter(source, position.offset + position.length, encoding, count, maxBytes),
+  ]);
   return { before: before.lines, after: after.lines, beforeLimited: before.limited, afterLimited: after.limited };
 }
 
