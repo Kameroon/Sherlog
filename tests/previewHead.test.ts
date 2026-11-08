@@ -97,6 +97,32 @@ describe('previewHead counters', () => {
   });
 });
 
+describe('previewHead headers', () => {
+  it('should count the entry headers of the text for the format', () => {
+    // Act
+    const { headerCount } = previewHead(utf8(readSample('real-serilog.log')), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(headerCount).toBe(21);
+  });
+
+  it('should count no header when the text is read with a format that matches none of its lines', () => {
+    // Act
+    const { headerCount, counts } = previewHead(utf8(readSample('real-serilog.log')), DEFAULT_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect({ headerCount, read: counts.read }).toEqual({ headerCount: 0, read: 1 });
+  });
+
+  it('should not count the lines before the first header as headers', () => {
+    // Act
+    const { headerCount } = previewHead(utf8('Starting up\n[08:16:10 ERR] Failed\n'), CONSOLE_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect(headerCount).toBe(1);
+  });
+});
+
 describe('previewHead time range', () => {
   it('should give the first and the last timestamp of the text as they are written', () => {
     // Act
