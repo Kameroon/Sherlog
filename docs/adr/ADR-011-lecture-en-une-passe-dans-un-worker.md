@@ -13,6 +13,7 @@ L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fich
 - **Par erreur, on garde une position, pas un texte** : `offset`, `length`, horodatage, niveau, `lineCount`, première ligne coupée à 300 caractères (marquée `…` à l'écran) et l'identifiant de son empreinte. Les clés d'empreinte sont dédoublonnées (table clé → identifiant). Le texte se relit avec `Blob.slice` (`src/sources/readEntryText.ts`).
 - **Annulation = `worker.terminate()`** ; le worker est aussi terminé à la fin, au retour au choix et au démontage de la page. Les erreurs partent par lots de 500 et la progression au plus toutes les 100 ms.
 - **Flux lu avec `getReader()`**, pas par `for await` : l'itération asynchrone d'un `ReadableStream` n'existe pas dans tous les navigateurs pris en charge.
+- **Mémoire et affichage bornés, à l'audit de sécurité** : la partie « message » d'une clé d'empreinte est coupée à 1 000 caractères (sinon la mémoire suit la taille du fichier quand les lignes d'erreur sont longues et toutes différentes) ; la relecture d'une entrée (`readEntryText`) lit au plus 1 Mio et dit « Cette entrée fait N Mio : seul son début (1 Mio) est affiché » (sinon un seul vidage de plusieurs centaines de Mo après une ligne d'erreur plante l'onglet).
 - **Le worker est un script du même site** (`worker-src 'self'`, déjà dans la CSP), jamais un worker en ligne (`blob:` est interdit par la CSP).
 - **Seuils** (constantes nommées, chacune signalée à l'écran quand elle est atteinte) :
 
@@ -23,6 +24,8 @@ L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fich
 | `MAX_DISPLAYED_ERRORS` | 200 | lignes affichées (la liste n'est virtualisée qu'à l'étape 5) |
 | `MAX_RETAINED_BYTES` | 1 Mio (inchangé) | texte gardé par ligne ou par entrée (ADR-010) |
 | `DETECTION_HEAD_BYTES` | 1 Mio | début lu pour reconnaître le format |
+| `MAX_MESSAGE_KEY_CHARS` | 1 000 | message normalisé gardé dans une clé d'empreinte |
+| `MAX_ENTRY_TEXT_BYTES` | 1 Mio | texte relu pour une entrée affichée |
 
 ## Raisons
 - **100 000 enregistrements** : environ 280 octets chacun, soit 26 Mo dans le worker et autant dans la page. Sans limite, un fichier de 1 065 393 erreurs coûte 274 Mo dans le worker seul, que la page copie ensuite.
@@ -63,6 +66,15 @@ Les fichiers de mesure sont **synthétiques** (6 modèles de messages, pile de 6
 | unique 100 Mo | — | 8,4 s | 20 Mo | — |
 
 Constats du même essai : aucune erreur de CSP ni de worker ; progression croissante (30 relevés sur 300 Mo) ; rien d'analysé avant le clic ; aucun résultat après une annulation ; texte collé contenant `<img onerror=…>` affiché comme du texte, sans élément `img` dans la page ; relecture d'une entrée depuis le fichier correcte. Seule alerte : `404` sur `/.auth/me`, normal hors Azure.
+
+**Mesuré — fichiers hostiles de l'audit de sécurité (Node 22.20.0), avant puis après correction** :
+
+| Cas | Avant | Après |
+|---|---|---|
+| 200 erreurs de 1 Mio toutes différentes (200 Mo) | ≈ 200 Mio de clés gardées dans le worker (tas 605 Mo, dont ≈ 400 Mo du fichier de test lui-même) | clés ≈ 1 Ko chacune (tas 405 Mo, tout ou presque est le fichier de test) ; pic RSS 860 → 677 Mo |
+| une seule entrée de 200 Mio, relue par « Voir le texte » | 200 Mio lus et rendus ; RSS 873 Mo ; 0,33 s | 1 024 Ko rendus, `cut` vrai ; RSS 284 Mo ; instantané |
+
+Le pic de mémoire du premier cas inclut le fichier construit en mémoire par le script de mesure ; seule la différence avant/après est interprétable. Dans le navigateur, l'effet n'a pas été relevé.
 
 **Non vérifié :**
 - Firefox, Safari, Edge et Opera (le navigateur de l'auteur) : seul Chrome a été exercé ; le sélecteur de fichiers natif n'a pas été utilisé (le champ a reçu le fichier par DevTools).
