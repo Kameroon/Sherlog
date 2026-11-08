@@ -106,11 +106,12 @@ describe('ErrorDetail', () => {
 
   it('should drop the answer of an earlier read when another error is selected before it ends', async () => {
     // Arrange
+    // Same key on purpose: the panel stays mounted while its error changes, so only the guard can drop the old answer.
     const first = pendingRead();
     const second = pendingRead();
     const readText = (position: EntryPosition) => (position.offset === 0 ? first.promise : second.promise);
-    const { rerender } = render(<ErrorDetail readNeighbours={noNeighbours} key="a" record={record(0)} position={1} readText={readText} />);
-    rerender(<ErrorDetail readNeighbours={noNeighbours} key="b" record={record(100)} position={2} readText={readText} />);
+    const { rerender } = render(<ErrorDetail readNeighbours={noNeighbours} key="same" record={record(0)} position={1} readText={readText} />);
+    rerender(<ErrorDetail readNeighbours={noNeighbours} key="same" record={record(100)} position={2} readText={readText} />);
 
     // Act: the second read ends first, then the first one, late.
     await act(async () => {
@@ -129,8 +130,8 @@ describe('ErrorDetail', () => {
     // Arrange
     const first = pendingRead();
     const readText = (position: EntryPosition) => (position.offset === 0 ? first.promise : Promise.resolve({ text: 'second error', cut: false }));
-    const { rerender } = render(<ErrorDetail readNeighbours={noNeighbours} key="a" record={record(0)} position={1} readText={readText} />);
-    rerender(<ErrorDetail readNeighbours={noNeighbours} key="b" record={record(100)} position={2} readText={readText} />);
+    const { rerender } = render(<ErrorDetail readNeighbours={noNeighbours} key="same" record={record(0)} position={1} readText={readText} />);
+    rerender(<ErrorDetail readNeighbours={noNeighbours} key="same" record={record(100)} position={2} readText={readText} />);
 
     // Act
     await act(async () => {
