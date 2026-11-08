@@ -249,6 +249,7 @@ async function run(cdp, appUrl, dataDir) {
   const mixed = await counters();
   check('avec le format console choisi, l’aperçu compte 5 entrées sur les 8 lignes', mixed[0] === '5 entrées lues', mixed.join(' | '));
   check('la ligne avant la première en-tête est signalée', await evaluate(hasText('1 ligne au début du fichier n’a ni date ni niveau')));
+  check('la ligne datée est signalée comme ressemblant à un autre format', await evaluate(hasText('1 ligne du journal ressemble à un autre format')));
   check('le format est dit « choisi », pas « reconnu »', await evaluate(hasText('Format choisi : Serilog console (sans date)')));
   await click('Analyser ce journal');
   await waitFor(hasText('Analyse terminée'), 'l’analyse du journal à formats mélangés', 20000);
