@@ -1,0 +1,8 @@
+[10:32:39 BOOT INF] Démarrage de l'API...
+[10:32:41 WRN] [] Storing keys in a directory that may not be persisted.
+2026-11-07 10:32:42 +00:00 [INF] Checking whether journal table exists
+[10:32:43 INF] [] Pipeline configuré. Démarrage de l'application.
+[10:32:44 ERR] [] Échec de la connexion à la base de données.
+System.InvalidOperationException: Connection refused.
+   at Api.Data.Connection.Open() in /src/Data/Connection.cs:line 42
+[10:32:45 INF] [] Request finished HTTP/1.1 GET /health - 200

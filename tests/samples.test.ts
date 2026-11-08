@@ -36,6 +36,15 @@ describe('reference samples', () => {
     expect(result).toEqual({ profile: reference.profile, entries: reference.entries, errors: reference.errors });
   });
 
+  // Real extract that mixes three layouts (SPEC §8 point 4, still undecided): this records what happens today.
+  it('should not recognise the real mixed-formats sample, since its first line carries a level the console profile does not read', () => {
+    // Act
+    const result = summarize(utf8(readSample('real-mixed-formats.log')));
+
+    // Assert
+    expect(result).toEqual({ profile: 'unrecognized', entries: 0, errors: 0 });
+  });
+
   it('should not recognise any line of the console sample with the default profile', () => {
     // Arrange
     const lines = readSample('serilog-console.log').split('\n').filter((line) => line !== '');

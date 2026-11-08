@@ -1,8 +1,8 @@
 # Échantillons de logs
 
-**Tous ces fichiers sont synthétiques, sauf `real-serilog.log`.** Les fichiers synthétiques suivent le modèle de fichier par défaut documenté de Serilog
+**Tous ces fichiers sont synthétiques, sauf `real-serilog.log` et `real-mixed-formats.log`.** Les fichiers synthétiques suivent le modèle de fichier par défaut documenté de Serilog
 (`{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}`), mais ne proviennent d'aucune vraie application.
-`real-serilog.log` est un extrait réel (voir plus bas).
+`real-serilog.log` et `real-mixed-formats.log` sont des extraits réels (voir plus bas).
 
 Résultats de référence : ceux des quatre fichiers synthétiques sont calculés avec un prototype des règles du §5 de `docs/SPEC.md` (l'implémentation TypeScript doit les reproduire) ;
 ceux de `real-serilog.log` sont comptés à la main sur le fichier, puis confirmés par l'implémentation.
@@ -32,6 +32,7 @@ ceux de `real-serilog.log` sont comptés à la main sur le fichier, puis confirm
   avec un identifiant de corrélation entre crochets dans le message (`[33ffff3c-…]`), des appels de santé journalisés au niveau `ERR`
   (`Executed endpoint 'HTTP: GET /health'`) et un message en français au niveau `DBG`. Les trois erreurs ne diffèrent que par ce GUID : une seule empreinte.
   Il ne contient **ni stack, ni message sur plusieurs lignes, ni niveau `FTL`** : ces cas restent couverts uniquement par les échantillons synthétiques.
+- **`real-mixed-formats.log`** : **extrait réel** de 8 lignes, fourni par l'auteur, qui **mélange trois dispositions** : lignes console avec un champ en plus (`[10:32:39 BOOT INF]`), lignes console classiques (certaines avec un champ vide `[]` dans le message), et une ligne avec date et décalage (`2026-11-07 10:32:42 +00:00 [INF]`), plus une pile d'exception. Il n'a **pas de résultat de référence** : le cas est ouvert (`SPEC.md` §8 point 4). Constat vérifié aujourd'hui : la première ligne n'est lue par aucun profil, l'application répond « format non reconnu » (verrouillé par `tests/samples.test.ts`).
 
 ## À ajouter par l'auteur (non devinable)
 - Un export réel Application Insights / Log Analytics (JSON de l'API et/ou CSV du portail), avant l'étape 3b : les noms exacts des colonnes sont relevés sur cet export, jamais supposés.
