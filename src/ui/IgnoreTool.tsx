@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { addIgnoreText, removeIgnoreText } from '../core/preparation';
 import type { Preparation } from '../core/preparation';
 import { countOf } from './format';
@@ -16,6 +16,7 @@ interface IgnoreToolProps {
 /** Leaves out the entries that contain a text (for example the health calls), one rule at a time. */
 export function IgnoreTool({ preparation, onChange, counts, countsAreForTheBeginning }: IgnoreToolProps) {
   const inputId = useId();
+  const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
   const [refusal, setRefusal] = useState('');
 
@@ -46,6 +47,7 @@ export function IgnoreTool({ preparation, onChange, counts, countsAreForTheBegin
       >
         <label htmlFor={inputId}>Ignorer les entrées qui contiennent</label>
         <input
+          ref={input}
           id={inputId}
           className="text-input"
           type="text"
@@ -87,6 +89,8 @@ export function IgnoreTool({ preparation, onChange, counts, countsAreForTheBegin
                     aria-describedby={describedBy}
                     onClick={() => {
                       onChange(removeIgnoreText(preparation, index));
+                      // The button that had the focus is about to go: the field is the next place to work.
+                      input.current?.focus();
                     }}
                   >
                     Retirer

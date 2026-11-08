@@ -120,6 +120,21 @@ describe('LogWorkspace preparing', () => {
     expect(screen.queryByText(/« \/health »/)).not.toBeInTheDocument();
   });
 
+  it('should move the focus to the rule field when a rule is removed, since the button that had it is gone', async () => {
+    // Arrange
+    setup();
+    await chooseFile(realLog, 'real.log');
+    addRule('/health');
+    const remove = screen.getByRole('button', { name: 'Retirer la règle /health' });
+    remove.focus();
+
+    // Act
+    fireEvent.click(remove);
+
+    // Assert
+    expect(screen.getByLabelText('Ignorer les entrées qui contiennent')).toHaveFocus();
+  });
+
   it('should show the first lines of the log as text, never as markup', async () => {
     // Arrange
     setup();
