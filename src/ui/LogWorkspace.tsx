@@ -35,7 +35,8 @@ function FormatNotice({ detection }: { detection: FormatDetection }) {
 }
 
 function ScanSummary({ result, recorded }: { result: ScanResult; recorded: number }) {
-  const distinct = result.fingerprints.length;
+  // Past the record limit the later errors were counted but not fingerprinted, so the distinct count is a minimum.
+  const distinct = `${result.limitReached ? 'au moins ' : ''}${countOf(result.fingerprints.length, 'distincte', 'distinctes')}`;
   return (
     <>
       <p className="result-title">Analyse terminée sur votre ordinateur.</p>
@@ -43,7 +44,7 @@ function ScanSummary({ result, recorded }: { result: ScanResult; recorded: numbe
         {countOf(result.entries, 'entrée lue', 'entrées lues')}
         {result.errors === 0
           ? ', aucune erreur.'
-          : `, ${countOf(result.errors, 'erreur', 'erreurs')} (${countOf(distinct, 'distincte', 'distinctes')}).`}
+          : `, ${countOf(result.errors, 'erreur', 'erreurs')} (${distinct}).`}
       </p>
       {result.errors === 0 && <p>Aucune erreur trouvée dans ce journal.</p>}
       {result.limitReached && (

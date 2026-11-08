@@ -249,6 +249,30 @@ describe('LogWorkspace result', () => {
     expect(screen.getByText(/120.000 erreurs ont été trouvées, seules les 1 premières sont enregistrées/)).toBeInTheDocument();
   });
 
+  it('should say "at least" for the distinct errors when only the first errors were fingerprinted', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+
+    // Act
+    finish(scanner, [errorRecord], { ...scanResult, errors: 120_000, limitReached: true });
+
+    // Assert
+    expect(screen.getByText(/au moins 1 distincte/)).toBeInTheDocument();
+  });
+
+  it('should give the exact count of distinct errors when every error was fingerprinted', async () => {
+    // Arrange
+    const scanner = setup();
+    await startAnalysis(scanner);
+
+    // Act
+    finish(scanner);
+
+    // Assert
+    expect(screen.getByText(/1 erreur \(1 distincte\)/)).toBeInTheDocument();
+  });
+
   it('should warn that very long entries were only partly used to group identical errors', async () => {
     // Arrange
     const scanner = setup();
