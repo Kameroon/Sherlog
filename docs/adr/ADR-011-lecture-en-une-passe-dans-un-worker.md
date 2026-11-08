@@ -43,6 +43,9 @@ L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fich
 - **Limites visibles** : erreurs non enregistrées, lignes non affichées, entrées très longues (empreinte calculée sur leur début) sont dites à l'écran, jamais tues.
 - La page recopie la liste des enregistrements à chaque lot reçu (`useLogScan`) : acceptable à 100 000 enregistrements (mesuré ci-dessous), à revoir si la limite augmente.
 - Un fichier modifié ou déplacé après son choix donne un message clair à la relecture (`NotFoundError`, `NotReadableError`) ; la lecture en cours se termine alors en échec explicite.
+- **Un worker qui ne démarre pas devient un message** (revue de fin d'étape) : le navigateur refuse la création de façon synchrone (`SecurityError` observé dans Chrome pour une adresse hors du site) ou signale un script introuvable par un événement `error` sans texte. Les deux donnent « L'analyse n'a pas pu démarrer dans ce navigateur (nom de l'erreur) » ou « Le traitement n'a pas pu démarrer (script introuvable ou refusé) », avec retour au choix du journal ; l'écran ne reste jamais sur « Analyse en cours ».
+- Au-delà de `MAX_ERROR_RECORDS`, les erreurs suivantes sont comptées sans être empreintes : le nombre d'erreurs distinctes est alors un minimum, écrit « au moins N distinctes ».
+- Le focus clavier suit les étapes (nom du journal, résultat, message d'échec) et la zone `role="status"` ne contient qu'un texte fixe : le pourcentage, qui change dix fois par seconde, reste hors de la zone annoncée. Vérifié par tests et dans Chrome (élément ayant le focus) ; **non vérifié avec un lecteur d'écran**.
 - L'étape 4b insérera la préparation entre « prêt » et « analyse en cours » sans changer ce découpage.
 
 ## Mesuré et non vérifié
