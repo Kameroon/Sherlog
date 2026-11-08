@@ -4,11 +4,12 @@ import { createEntryFilter, EMPTY_PREPARATION } from '../src/core/preparation';
 import type { Preparation } from '../src/core/preparation';
 import { BUILT_IN_PROFILES, CONSOLE_PROFILE, DEFAULT_PROFILE } from '../src/core/profiles';
 import type { LogProfile } from '../src/core/profiles';
-import { MAX_PREVIEW_LINES, MAX_PREVIEW_LINE_CHARS, previewHead } from '../src/core/previewHead';
+import { MAX_PREVIEW_LINES, MAX_PREVIEW_LINE_CHARS, parseHead, previewHead as previewOf } from '../src/core/previewHead';
 import { scanLog } from '../src/core/scanLog';
 import { inBlocks, readSample, utf8 } from './helpers/samples';
 
 const preparationOf = (...ignoreTexts: string[]): Preparation => ({ ignoreTexts });
+const previewHead = (bytes: Uint8Array, profile: LogProfile, preparation: Preparation) => previewOf(parseHead(bytes, profile), preparation);
 
 describe('previewHead counters', () => {
   it('should count every entry as ready when nothing is left out', () => {
@@ -149,5 +150,20 @@ describe('previewHead excerpt', () => {
 
     // Assert
     expect(orphanLines).toBe(0);
+  });
+});
+
+describe('previewHead on a head that was read once', () => {
+  it('should give the figures of each preparation from the same reading of the text', () => {
+    // Arrange
+    const parsed = parseHead(utf8(readSample('real-serilog.log')), CONSOLE_PROFILE);
+
+    // Act
+    const none = previewOf(parsed, EMPTY_PREPARATION).counts;
+    const health = previewOf(parsed, preparationOf('/health')).counts;
+    const noneAgain = previewOf(parsed, EMPTY_PREPARATION).counts;
+
+    // Assert
+    expect([none.ignored, health.ignored, noneAgain.ignored]).toEqual([0, 15, 0]);
   });
 });

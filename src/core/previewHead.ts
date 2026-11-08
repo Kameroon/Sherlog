@@ -57,8 +57,19 @@ export interface HeadPreview {
   readonly orphanLines: number;
 }
 
-/** Reads the whole text as entries of `profile`, the way a scan does, but keeps every line for the preview. */
-function readEntries(bytes: Uint8Array, profile: LogProfile): { lines: readonly SourceLine[]; entries: readonly LogEntry[] } {
+/** The text read as entries of a profile: what a preparation is then applied to, as often as the user changes it. */
+export interface ParsedHead {
+  readonly profile: LogProfile;
+  readonly lines: readonly SourceLine[];
+  readonly entries: readonly LogEntry[];
+}
+
+/**
+ * Reads the whole text as entries of `profile`, the way a scan does, but keeps every line for the preview. This is
+ * the costly part (it is proportional to the number of lines): do it once per text and profile, then give the result
+ * to {@link previewHead} at each change of the preparation.
+ */
+export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
   const splitter = createLineSplitter();
   const lines = [...splitter.push(bytes), ...splitter.finish()];
   const assembler = createEntryAssembler(profile);
@@ -73,20 +84,18 @@ function readEntries(bytes: Uint8Array, profile: LogProfile): { lines: readonly 
   if (last !== null) {
     entries.push(last);
   }
-  return { lines, entries };
+  return { profile, lines, entries };
 }
 
 /**
  * What the preparation does to the beginning of a log, for the screen where the user sets it. Same rules as the
- * scan (it uses the same filter), applied to the bytes it is given: the whole text when it is short, only its
- * start when the source is big. Nothing here reads the source again, so it can be redone at every setting.
+ * scan (it uses the same filter), applied to the text it is given: the whole text when it is short, only its
+ * start when the source is big. Nothing here reads the source or the bytes again, so it can be redone at every setting.
  *
- * @param bytes - The text, as read from the source.
- * @param profile - The format to read it with.
+ * @param parsed - The text, read by {@link parseHead} with the format to preview.
  * @param preparation - What to leave out.
  */
-export function previewHead(bytes: Uint8Array, profile: LogProfile, preparation: Preparation): HeadPreview {
-  const { lines, entries } = readEntries(bytes, profile);
+export function previewHead({ profile, lines, entries }: ParsedHead, preparation: Preparation): HeadPreview {
   const filter = createEntryFilter(preparation);
   const ignoredEntries = entries.map((entry) => filter.ignores(entry));
 

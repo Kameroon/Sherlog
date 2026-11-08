@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { previewHead } from '../core/previewHead';
+import { parseHead, previewHead } from '../core/previewHead';
 import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
 import type { ScanResult } from '../core/scanLog';
@@ -47,7 +47,9 @@ export function PreparationScreen({
   onReset,
   titleRef,
 }: PreparationScreenProps) {
-  const preview = useMemo(() => previewHead(head, profile, preparation), [head, profile, preparation]);
+  // Reading the text is the costly part: done once, then each change of a rule only filters the entries again.
+  const parsed = useMemo(() => parseHead(head, profile), [head, profile]);
+  const preview = useMemo(() => previewHead(parsed, preparation), [parsed, preparation]);
   const counts =
     result === null
       ? preview.counts
@@ -64,7 +66,7 @@ export function PreparationScreen({
           </h2>
           <span className="chip">Lu sur cet ordinateur</span>
         </div>
-        <ul className="counters" aria-label="Chiffres">
+        <ul className="counters" aria-label="Chiffres" aria-live="polite">
           <li className="counter">
             <strong>{formatCount(counts.read)}</strong>
             <span>{counts.read > 1 ? 'entrées lues' : 'entrée lue'}</span>
