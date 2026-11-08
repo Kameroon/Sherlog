@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-/** Reads a sample with LF line endings, whatever the checkout converted them to. */
+/**
+ * Reads a sample with LF line endings, whatever the checkout converted them to. Relative to the project root, where
+ * Vitest runs: `import.meta.url` is not a file path under the jsdom environment.
+ */
 export function readSample(name: string): string {
-  const path = fileURLToPath(new URL(`../../samples/${name}`, import.meta.url));
-  return readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+  return readFileSync(join(process.cwd(), 'samples', name), 'utf8').replace(/\r\n/g, '\n');
 }
 
 export const utf8 = (text: string): Uint8Array => new TextEncoder().encode(text);
