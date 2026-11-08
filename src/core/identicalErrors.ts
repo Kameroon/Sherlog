@@ -7,6 +7,10 @@ export interface IdenticalErrors {
   readonly first: ErrorRecord;
   /** Last one in reading order, which is not always the latest in time: a log is not always in time order. */
   readonly last: ErrorRecord;
+  /** Position of `first` in the list of records. */
+  readonly firstIndex: number;
+  /** Position of `last` in the list of records. */
+  readonly lastIndex: number;
 }
 
 /**
@@ -16,15 +20,16 @@ export interface IdenticalErrors {
  * @returns The group of each fingerprint id that has at least one error.
  */
 export function summariseIdentical(records: readonly ErrorRecord[]): ReadonlyMap<number, IdenticalErrors> {
-  const groups = new Map<number, { count: number; first: ErrorRecord; last: ErrorRecord }>();
-  for (const record of records) {
+  const groups = new Map<number, { count: number; first: ErrorRecord; last: ErrorRecord; firstIndex: number; lastIndex: number }>();
+  records.forEach((record, index) => {
     const group = groups.get(record.fingerprintId);
     if (group === undefined) {
-      groups.set(record.fingerprintId, { count: 1, first: record, last: record });
+      groups.set(record.fingerprintId, { count: 1, first: record, last: record, firstIndex: index, lastIndex: index });
     } else {
       group.count += 1;
       group.last = record;
+      group.lastIndex = index;
     }
-  }
+  });
   return groups;
 }

@@ -45,6 +45,17 @@ describe('summariseIdentical', () => {
     expect({ first: group?.first.offset, last: group?.last.offset }).toEqual({ first: 0, last: 30 });
   });
 
+  it('should give the position in the list of the first and of the last error of a group', () => {
+    // Arrange
+    const records = [record(0, 1), record(10, 0), record(20, 1), record(30, 0), record(40, 1)];
+
+    // Act
+    const groups = summariseIdentical(records);
+
+    // Assert
+    expect([groups.get(1)?.firstIndex, groups.get(1)?.lastIndex, groups.get(0)?.firstIndex, groups.get(0)?.lastIndex]).toEqual([0, 4, 1, 3]);
+  });
+
   it('should have a group of one whose first and last error are the same one', () => {
     // Act
     const group = summariseIdentical([record(5, 7)]).get(7);
