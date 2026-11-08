@@ -27,3 +27,12 @@ export function readFailureMessage(error: unknown): string {
   }
   return `Lecture impossible : ${stringField(error, 'message') ?? 'cause inconnue'}.`;
 }
+
+/**
+ * Turns the error thrown when the worker cannot even be created (a refused script, a browser without workers)
+ * into a message for the user. Only the error's name is shown: it tells the cause without any log content.
+ */
+export function startFailureMessage(error: unknown): string {
+  const name = stringField(error, 'name');
+  return `L’analyse n’a pas pu démarrer dans ce navigateur${name === undefined ? '' : ` (${name})`}.`;
+}

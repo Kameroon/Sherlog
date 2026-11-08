@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ErrorRecord } from '../src/core/scanLog';
 import { LogWorkspace } from '../src/ui/LogWorkspace';
 import { MAX_DISPLAYED_ERRORS } from '../src/ui/ErrorList';
+import type { StartScan } from '../src/workers/scanProtocol';
 import { consoleLog, errorRecord, fakeScanner, scanResult } from './helpers/fakeScanner';
 
 function setup() {
@@ -155,6 +156,25 @@ describe('LogWorkspace analysing', () => {
 
     // Assert
     expect(screen.getByRole('alert')).toHaveTextContent('Lecture impossible : boom.');
+    expect(screen.getByLabelText('Choisir un fichier')).toBeInTheDocument();
+  });
+});
+
+describe('LogWorkspace when the worker cannot start', () => {
+  it('should say why and let the user choose again instead of staying on the progress screen', async () => {
+    // Arrange
+    const startScan: StartScan = () => {
+      throw new DOMException('refused by the policy', 'SecurityError');
+    };
+    render(<LogWorkspace dependencies={{ startScan }} />);
+    await chooseFile(consoleLog);
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Analyser ce journal' }));
+
+    // Assert
+    expect(screen.getByRole('alert')).toHaveTextContent('L’analyse n’a pas pu démarrer dans ce navigateur (SecurityError).');
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Choisir un fichier')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { FormatDetection } from '../src/sources/detectFormat';
+import type { StartScan } from '../src/workers/scanProtocol';
 import { useLogScan } from '../src/ui/useLogScan';
 import { consoleLog, errorRecord as record, fakeScanner, scanResult as result } from './helpers/fakeScanner';
 
@@ -124,6 +125,26 @@ describe('useLogScan', () => {
     // Assert
     expect(hook.current.state).toEqual({ phase: 'failed', message: 'Lecture impossible : boom.' });
     expect(scanner.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('should show why the analysis could not start when the worker cannot be created', async () => {
+    // Arrange
+    const startScan: StartScan = () => {
+      throw new DOMException('refused by the policy', 'SecurityError');
+    };
+    const { result: hook } = renderHook(() => useLogScan({ startScan }));
+    await act(() => hook.current.chooseFile(fileOf(consoleLog)));
+
+    // Act
+    act(() => {
+      hook.current.analyse();
+    });
+
+    // Assert
+    expect(hook.current.state).toEqual({
+      phase: 'failed',
+      message: 'L’analyse n’a pas pu démarrer dans ce navigateur (SecurityError).',
+    });
   });
 
   it('should return to idle and stop a running scan when the user starts over', async () => {

@@ -4,7 +4,7 @@ import { detectFormat } from '../sources/detectFormat';
 import type { FormatDetection } from '../sources/detectFormat';
 import { readEntryText } from '../sources/readEntryText';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import { readFailureMessage } from '../sources/readFailure';
+import { readFailureMessage, startFailureMessage } from '../sources/readFailure';
 import type { ScanMessage, StartScan } from '../workers/scanProtocol';
 import { startScanWorker } from '../workers/startScanWorker';
 
@@ -132,15 +132,20 @@ export function useLogScan({ startScan = startScanWorker, detect = detectFormat 
     generationRef.current += 1;
     const generation = generationRef.current;
     dispatch({ type: 'analysisStarted' });
-    stopRef.current = startScan({ source: state.source, profileId: state.detection.profile.id }, (message) => {
-      if (generation !== generationRef.current) {
-        return;
-      }
-      if (message.type === 'done' || message.type === 'failed') {
-        stopScan();
-      }
-      dispatch({ type: 'message', message });
-    });
+    try {
+      stopRef.current = startScan({ source: state.source, profileId: state.detection.profile.id }, (message) => {
+        if (generation !== generationRef.current) {
+          return;
+        }
+        if (message.type === 'done' || message.type === 'failed') {
+          stopScan();
+        }
+        dispatch({ type: 'message', message });
+      });
+    } catch (error) {
+      // The browser refuses synchronously when it cannot create the worker: without this the screen would stay on "in progress".
+      dispatch({ type: 'failed', message: startFailureMessage(error) });
+    }
   }, [state, startScan, stopScan]);
 
   const cancel = useCallback(() => {
