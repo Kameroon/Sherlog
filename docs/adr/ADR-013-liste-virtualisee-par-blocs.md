@@ -1,7 +1,7 @@
 # ADR-013 : Liste des erreurs virtualisée par blocs, sans style calculé
 
 ## Statut
-Proposé — 2026-11-08 (tranches 1 à 3 de l'étape 5 : liste, badge « ×N identiques », détail, jetons, lignes autour). Passe à « Accepté » avec la validation de l'étape 5 par l'auteur.
+Accepté — 2026-11-08, avec la validation par l'auteur des trois tranches de l'étape 5 (liste, badge « ×N identiques », détail, jetons, lignes autour).
 
 ## Contexte
 La liste de l'étape 4 n'affichait que 200 erreurs, avec un bouton « Voir le texte » dans chaque ligne (ADR-011 : « le plafond sera remplacé par la virtualisation de l'étape 5 »). L'étape 5 doit montrer **toutes** les erreurs enregistrées, jusqu'à 100 000, sans une ligne de page par erreur. Les bibliothèques de virtualisation, comme une virtualisation écrite à la main, positionnent les lignes par des styles calculés en script (`style={{ height }}`, `transform`, variables CSS) ; la règle du projet l'interdit (la CSP n'autorise pas `'unsafe-inline'`).
