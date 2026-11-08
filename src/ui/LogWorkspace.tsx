@@ -3,6 +3,7 @@ import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
 import type { ScanResult } from '../core/scanLog';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
+import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { ErrorBrowser } from './ErrorBrowser';
 import { countOf, formatCount } from './format';
 import { PreparationScreen } from './PreparationScreen';
@@ -75,7 +76,7 @@ function stepOf(phase: ScanState['phase']): StepNumber {
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
 export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
-  const { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText } = useLogScan(dependencies);
+  const { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
 
   // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
   // new stage, a keyboard user lands on the page body. Not on the first render, which must not steal the focus, and not
@@ -108,6 +109,7 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
         onCancel={cancel}
         onReset={reset}
         readText={readText}
+        readNeighbours={readNeighbours}
       />
     </>
   );
@@ -124,9 +126,10 @@ interface StageProps {
   onCancel: () => void;
   onReset: () => void;
   readText: (position: EntryPosition) => Promise<EntryText>;
+  readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
 }
 
-function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onProfileChange, onAnalyse, onCancel, onReset, readText }: StageProps) {
+function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -197,7 +200,7 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onP
           {analysed && (
             <section className="panel" aria-label="Résultat de l’analyse">
               <ScanSummary result={state.result} recorded={state.records.length} focusTarget={setFocusTarget} />
-              {state.records.length > 0 && <ErrorBrowser records={state.records} readText={readText} limitReached={state.result.limitReached} />}
+              {state.records.length > 0 && <ErrorBrowser records={state.records} readText={readText} readNeighbours={readNeighbours} limitReached={state.result.limitReached} />}
             </section>
           )}
         </>

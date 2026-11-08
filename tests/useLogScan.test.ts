@@ -232,6 +232,33 @@ describe('useLogScan', () => {
     // Assert
     expect(entry).toEqual({ text: '[08:16:10 ERR] Failed', cut: false });
   });
+
+  it('should read the lines around an error from the source once the scan is done', async () => {
+    // Arrange
+    const { result: hook, scanner } = await chooseRecognised();
+    act(() => {
+      hook.current.analyse();
+    });
+    scanner.emit({ type: 'errors', records: [record] });
+    scanner.emit({ type: 'done', result });
+
+    // Act
+    const lines = await hook.current.readNeighbours(record);
+
+    // Assert
+    expect(lines).toEqual({ before: [], after: ['[08:16:11 INF] Next'], beforeLimited: false, afterLimited: false });
+  });
+
+  it('should refuse to read the lines around an error when no log has been analysed', async () => {
+    // Arrange
+    const { result: hook } = renderHook(() => useLogScan({ startScan: fakeScanner().startScan }));
+
+    // Act
+    const lines = hook.current.readNeighbours(record);
+
+    // Assert
+    await expect(lines).rejects.toThrow('aucun journal analysé');
+  });
 });
 
 describe('useLogScan preparation', () => {
