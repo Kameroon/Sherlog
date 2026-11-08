@@ -1,7 +1,7 @@
 # ADR-013 : Liste des erreurs virtualisée par blocs, sans style calculé
 
 ## Statut
-Proposé — 2026-11-08 (tranches 1 et 2 de l'étape 5 : liste, badge « ×N identiques », détail, jetons). Passe à « Accepté » avec la validation de l'étape 5 par l'auteur. La tranche « lignes voisines » complètera cet ADR.
+Proposé — 2026-11-08 (tranches 1 à 3 de l'étape 5 : liste, badge « ×N identiques », détail, jetons, lignes autour). Passe à « Accepté » avec la validation de l'étape 5 par l'auteur.
 
 ## Contexte
 La liste de l'étape 4 n'affichait que 200 erreurs, avec un bouton « Voir le texte » dans chaque ligne (ADR-011 : « le plafond sera remplacé par la virtualisation de l'étape 5 »). L'étape 5 doit montrer **toutes** les erreurs enregistrées, jusqu'à 100 000, sans une ligne de page par erreur. Les bibliothèques de virtualisation, comme une virtualisation écrite à la main, positionnent les lignes par des styles calculés en script (`style={{ height }}`, `transform`, variables CSS) ; la règle du projet l'interdit (la CSP n'autorise pas `'unsafe-inline'`).
@@ -15,6 +15,7 @@ La liste de l'étape 4 n'affichait que 200 erreurs, avec un bouton « Voir le te
 - **Détail** : l'entrée sélectionnée est relue depuis le fichier (`readEntryText`, 1 Mio au plus, coupure dite) ; chargement, échec de lecture et réponse arrivée après un autre choix sont traités. Pour une erreur qui a des jumelles, il dit « N erreurs identiques parmi les erreurs enregistrées » (« Au moins N » quand la limite de 100 000 est atteinte) avec la première et la dernière **dans l'ordre de lecture** (heure telle qu'écrite ou « sans heure », et leur numéro dans la liste).
 - **Un détail qui plante ne prend pas la liste avec lui** : `ErrorBoundary` a une variante locale (`scope="panel"`, repli court « Ce panneau n'a pas pu s'afficher », sans le message de l'erreur ni contenu de journal) ; choisir une autre erreur repart de zéro.
 - **Annonces** : le focus reste sur la liste quand on sélectionne (pour continuer aux flèches) ; un texte caché annonce « Détail de l'erreur N affiché » une fois la lecture finie. Le texte du détail est un point d'arrêt au clavier (région nommée) juste après la liste.
+- **Lignes autour** (« Voir les lignes autour », à la demande, jamais au choix d'une erreur) : `readNeighbourLines` relit **10 lignes avant et 10 lignes après** l'entrée. Ce sont les lignes **du fichier**, quelle que soit l'entrée à laquelle elles appartiennent (autres erreurs, avertissements, pile de l'entrée précédente) ; l'écran le dit. Chaque côté est lu dans une **fenêtre de 64 Kio** (`MAX_NEIGHBOUR_BYTES`) avec `Blob.slice`, car une ligne peut être aussi longue que le fichier. La ligne que la fenêtre coupe est **écartée**, jamais montrée en partie ; si cela laisse moins de 10 lignes alors que le fichier continue, le côté concerné affiche « Lecture limitée aux 64 Kio qui précèdent / suivent l'erreur : il peut manquer des lignes ». Au bord du fichier, l'écran dit « Aucune ligne avant / après : l'erreur est au début / à la fin du journal » (pas de message de limite, rien ne manque). Le bouton montre et masque (`aria-expanded`) ; masquer pendant la lecture écarte la réponse tardive. Les lignes sont du texte (`pre`), jamais du balisage. La lecture suit l'encodage du journal (UTF-8, UTF-16 avec fenêtre alignée sur une unité de code, CRLF).
 - **Jetons** (ADR-009, étendus) : fond d'erreur, ligne sélectionnée, badge, hauteur de ligne, définis dans les deux thèmes, contrastes mesurés dans l'en-tête de `base.css`. La couleur en dur ajoutée à l'aperçu en 4b devient un jeton.
 
 ## Raisons
@@ -29,6 +30,8 @@ La liste de l'étape 4 n'affichait que 200 erreurs, avec un bouton « Voir le te
 ## Conséquences
 - Le message d'une ligne est tronqué par CSS ; la ligne n'est donc pas un moyen de lire un message de 300 caractères : c'est le détail.
 - Un bloc vide garde la hauteur d'un bloc plein : une hauteur de ligne qui changerait selon la ligne (retour à la ligne, police) casserait le saut. Elle est fixe par classe.
+- Les lignes autour ignorent la préparation (règles « Ignorer », période) : elles montrent le fichier tel qu'il est, y compris des lignes que l'utilisateur a écartées de l'analyse. Le masquage avant envoi à l'IA (étape 6) devra s'appliquer à elles aussi.
+- La fenêtre de 64 Kio est une valeur provisoire, comme les autres plafonds de lecture ; si la fenêtre commence exactement au début d'une ligne, cette ligne entière est écartée par prudence (le message de limite reste exact : des lignes peuvent manquer).
 - Hauteur totale de la liste : 100 000 lignes × 2,75 rem. À un zoom ou une taille de texte très grands (de l'ordre de 400 %), cette hauteur approche les limites de hauteur d'élément de certains navigateurs (non vérifié).
 
 ## Mesuré et non vérifié
@@ -36,9 +39,10 @@ La liste de l'étape 4 n'affichait que 200 erreurs, avec un bouton « Voir le te
 - 200 lignes et 3 544 nœuds dans la page pour 100 000 erreurs (dont 2 000 blocs vides) ; première ligne affichée dès la fin de l'analyse (1 ms) ;
 - touche Fin : 22 à 50 ms jusqu'à la 100 000e erreur dans la page ; Page ↑ : 17 à 25 ms ; saut de l'ascenseur au milieu : 49 à 53 ms (deux images dessinées comprises) ;
 - tas JavaScript de la page : 32 à 55 Mo selon le passage (ramasse-miettes) avec les 100 000 enregistrements ;
-- aucune violation de la CSP, console sans erreur.
+- aucune violation de la CSP, console sans erreur ;
+- lignes autour (même exécution, `npm run e2e`, 62 vérifications) : sur la dernière erreur du fichier de 14 Mo, 10 lignes avant, toutes des lignes du fichier ; sur un texte collé, aucune ligne avant et la ligne suivante après. Tests unitaires (Node, Vitest) : lecture identique aux lignes du fichier pour chaque erreur de l'échantillon réaliste en UTF-8, UTF-8 CRLF, UTF-16 LE et BE ; fenêtres coupées au milieu d'un caractère UTF-8 ou d'une unité UTF-16 ; une ligne plus longue que la fenêtre. Le temps de lecture n'a pas été mesuré (deux lectures de 64 Kio au plus).
 
 **Non vérifié :**
 - Firefox, Safari, Opera ; un lecteur d'écran (annonce de la ligne active, de « 12 sur 100 000 », des badges) ; la hauteur maximale d'un élément à un très grand zoom ; la liste sur un écran étroit (colonnes empilées, non essayées à la main).
-- Les annonces du lecteur d'écran du détail (« affiché », nombre d'erreurs identiques).
+- Les annonces du lecteur d'écran du détail (« affiché », nombre d'erreurs identiques) et des lignes autour (bouton déplié, lecture en cours, avertissement de limite) ; l'aspect des lignes autour à l'écran n'a pas été regardé à la main.
 - Des journaux réels volumineux.

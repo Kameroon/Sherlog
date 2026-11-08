@@ -22,7 +22,7 @@ sherlog/
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), Redactor — TS pur
-│  ├─ sources/   readHead, readEntryText, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
+│  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
 │  ├─ store/     état de session + historique local (IndexedDB)
@@ -34,7 +34,7 @@ Outillage : Vite, TypeScript strict, ESLint, Vitest. Pas de bibliothèque d'éta
 ## Abstractions
 ```ts
 // Étape 4 : une source est un `Blob` (un `File`, ou du texte collé) — pas d'interface `LogSource` tant qu'une 2e source distincte n'existe pas (ADR-011).
-//   lecture en flux : `blobChunks(blob)` ; relecture à la demande : `readEntryText(blob, { offset, length }, encoding)`, offset et length en octets.
+//   lecture en flux : `blobChunks(blob)` ; relecture à la demande : `readEntryText(blob, { offset, length }, encoding)`, offset et length en octets ; lignes autour d'une entrée : `readNeighbourLines(blob, { offset, length }, encoding)` (10 lignes de part et d'autre, fenêtre de 64 Kio par côté).
 interface AiProvider { stream(messages: Message[]): AsyncIterable<string> }  // anthropic, ollama
 function redact(text: string, rules: RedactionRules): string  // pur
 ```
