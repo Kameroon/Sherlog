@@ -1,4 +1,4 @@
-// Writes a synthetic Serilog file of about `megabytes` MiB and returns what a correct scan must find in it.
+// Writes a synthetic Serilog file of about `megabytes` MiB and returns what a correct scan must find in it, including how many entries mention `/health`.
 // Synthetic on purpose: nothing here comes from a real application. Deterministic, so the expected counts are exact.
 import { once } from 'node:events';
 import { createWriteStream } from 'node:fs';
@@ -8,7 +8,7 @@ const ERROR_EVERY = 20;
 /**
  * @param {string} path - File to write.
  * @param {number} megabytes - Approximate size.
- * @returns {Promise<{ bytes: number, entries: number, errors: number, distinct: number }>}
+ * @returns {Promise<{ bytes: number, entries: number, errors: number, distinct: number, health: number }>}
  */
 export async function generateLog(path, megabytes) {
   const target = megabytes * 1024 * 1024;
@@ -48,6 +48,7 @@ export async function generateLog(path, megabytes) {
   let bytes = 0;
   let entries = 0;
   let errors = 0;
+  let health = 0;
   while (bytes < target) {
     let block = '';
     for (let i = 0; i < 2000 && bytes < target; i += 1, entries += 1) {
@@ -56,6 +57,7 @@ export async function generateLog(path, megabytes) {
         ? `${stamp()} [ERR] ${errorMessages[errors % errorMessages.length]()}\n${stack}\n`
         : `${stamp()} [INF] ${infoMessages[entries % infoMessages.length]()}\n`;
       errors += isError ? 1 : 0;
+      health += text.includes('/health') ? 1 : 0;
       block += text;
       bytes += Buffer.byteLength(text);
     }
@@ -65,5 +67,5 @@ export async function generateLog(path, megabytes) {
   }
   stream.end();
   await once(stream, 'finish');
-  return { bytes, entries, errors, distinct: Math.min(errors, errorMessages.length) };
+  return { bytes, entries, errors, distinct: Math.min(errors, errorMessages.length), health };
 }

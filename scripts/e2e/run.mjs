@@ -137,6 +137,16 @@ async function run(cdp, appUrl, dataDir) {
   };
   const text = async (selector) => plain(await evaluate(`document.querySelector(${JSON.stringify(selector)})?.textContent ?? ''`));
   const focused = () => evaluate(`document.activeElement.tagName + ' | ' + document.activeElement.textContent.slice(0, 60)`);
+  const counters = async () =>
+    (await evaluate(`[...document.querySelectorAll('.counter')].map((counter) => counter.querySelector('strong').textContent + ' ' + counter.querySelector('span').textContent)`)).map(plain);
+  const count = (selector) => evaluate(`document.querySelectorAll(${JSON.stringify(selector)}).length`);
+  const same = (actual, expectedList) => JSON.stringify(actual) === JSON.stringify(expectedList);
+  const addRule = async (rule) => {
+    await evaluate(
+      `(() => { const field = document.querySelector('input.text-input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, ${JSON.stringify(rule)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
+    );
+    await click('Ajouter la règle');
+  };
   const chooseFile = async (path) => {
     const { root: documentRoot } = await cdp.send('DOM.getDocument', { depth: 0 });
     const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: documentRoot.nodeId, selector: 'input[type=file]' });
@@ -152,17 +162,36 @@ async function run(cdp, appUrl, dataDir) {
   check('la page s’ouvre et propose un fichier et un champ de collage', await evaluate(`!!document.querySelector('#paste-input')`));
   check('rien n’a pris le focus à l’ouverture', (await focused()).startsWith('BODY'), await focused());
 
-  // 2. A real sample: recognised on choosing, analysed only on the click.
+  // 2. A real sample: recognised on choosing, prepared, analysed only on the click.
   await chooseFile(join(root, 'samples', 'real-serilog.log'));
   await waitFor(hasText('Format reconnu'), 'la reconnaissance du format');
-  check('le format du fichier réel est reconnu', (await text('.chip')).includes('Serilog'), await text('.chip'));
+  const formatChip = await evaluate(`[...document.querySelectorAll('.chip')].map((chip) => chip.textContent).find((label) => label.startsWith('Format reconnu')) ?? ''`);
+  check('le format du fichier réel est reconnu', formatChip.includes('Serilog'), formatChip);
   check('rien n’est analysé avant le clic', !(await evaluate(hasText('Analyse terminée'))) && !(await evaluate(`!!document.querySelector('progress')`)));
   check('le focus est sur le nom du journal', (await focused()).startsWith('H2 | real-serilog.log'), await focused());
+  check('la 4e étape est affichée comme pas encore disponible', await evaluate(hasText('pas encore disponible')));
+  const before = await counters();
+  check('les compteurs sont calculés avant l’analyse', same(before, ['21 entrées lues', '0 écartée par vos réglages', '21 prêtes à analyser']), before.join(' | '));
+
+  await addRule('/health');
+  const withRule = await counters();
+  check('la règle /health écarte 15 des 21 entrées', same(withRule, ['21 entrées lues', '15 écartées par vos réglages', '6 prêtes à analyser']), withRule.join(' | '));
+  check('l’aperçu barre les 15 entrées écartées', (await count('.excerpt .is-ignored')) === 15);
+
+  await click('Analyser ce journal');
+  await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse avec la règle', 20000);
+  check('avec la règle, l’analyse ne trouve plus d’erreur', (await text('.result-sentence')) === '21 entrées lues, aucune erreur.', await text('.result-sentence'));
+  const exact = await counters();
+  check('le panneau reste affiché avec les chiffres exacts de l’analyse', same(exact, withRule) && (await evaluate(hasText('Chiffres exacts de l’analyse'))), exact.join(' | '));
+  check('le focus est sur la phrase de résultat', (await focused()).startsWith('P | Analyse terminée'), await focused());
+
+  await click('Retirer');
+  check('changer un réglage efface le résultat et le dit', !(await evaluate(hasText('Analyse terminée'))) && (await evaluate(hasText('Vous avez changé les réglages'))));
+  check('le focus passe au champ des règles quand une règle est retirée', (await focused()).startsWith('INPUT'), await focused());
 
   await click('Analyser ce journal');
   await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse du fichier réel', 20000);
-  check('le fichier réel donne 21 entrées, 3 erreurs, 1 empreinte', (await text('.result-sentence')) === '21 entrées lues, 3 erreurs (1 distincte).', await text('.result-sentence'));
-  check('le focus est sur la phrase de résultat', (await focused()).startsWith('P | Analyse terminée'), await focused());
+  check('sans règle, le fichier réel donne 21 entrées, 3 erreurs, 1 empreinte', (await text('.result-sentence')) === '21 entrées lues, 3 erreurs (1 distincte).', await text('.result-sentence'));
 
   await click('Voir le texte');
   await waitFor(`!!document.querySelector('.entry-text')`, 'le texte relu');
@@ -175,6 +204,10 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix d’un autre journal');
   await chooseFile(big);
   await waitFor(hasButton('Analyser ce journal'), 'la reconnaissance du gros fichier');
+  check('sur un gros fichier, les chiffres disent qu’ils portent sur le début', await evaluate(hasText('Chiffres calculés sur le début du fichier')));
+
+  await addRule('/health');
+  check('le compte d’une règle dit qu’il porte sur le début', (await text('.rule-count')).includes('dans le début'), await text('.rule-count'));
 
   await click('Analyser ce journal');
   await waitFor(`!!document.querySelector('progress')`, 'la barre de progression');
@@ -187,6 +220,7 @@ async function run(cdp, appUrl, dataDir) {
   check('annuler ramène au fichier reconnu en moins de 2 s', performance.now() - cancelStart < 2000, `${Math.round(performance.now() - cancelStart)} ms`);
   await sleep(1500);
   check('aucun résultat n’apparaît après une annulation', !(await evaluate(hasText('Analyse terminée'))));
+  check('annuler garde la règle', (await count('.rule')) === 1);
 
   await click('Analyser ce journal');
   await waitFor(`!!document.querySelector('progress')`, 'la barre de progression (2e analyse)');
@@ -203,6 +237,9 @@ async function run(cdp, appUrl, dataDir) {
   const bigSummary = await text('.result-sentence');
   const bigExpected = `${fr(expected.entries)} entrées lues, ${fr(expected.errors)} erreurs (${expected.distinct} distinctes).`;
   check('le gros fichier donne exactement les comptes attendus', bigSummary === bigExpected, `obtenu « ${bigSummary} », attendu « ${bigExpected} »`);
+  const bigCounters = await counters();
+  const bigCountersExpected = [`${fr(expected.entries)} entrées lues`, `${fr(expected.health)} écartées par vos réglages`, `${fr(expected.entries - expected.health)} prêtes à analyser`];
+  check('le gros fichier donne les compteurs exacts avec la règle', same(bigCounters, bigCountersExpected), `obtenu ${bigCounters.join(' | ')}, attendu ${bigCountersExpected.join(' | ')}`);
   check('au plus 200 lignes sont affichées', (await evaluate(`document.querySelectorAll('.error-row').length`)) === Math.min(200, expected.errors));
 
   // 4. Pasted text with markup: shown as text, never interpreted.
