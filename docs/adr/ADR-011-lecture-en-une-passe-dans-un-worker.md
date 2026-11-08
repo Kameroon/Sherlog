@@ -1,7 +1,7 @@
 # ADR-011 : Lire une source en une passe dans un worker, garder des positions plutôt que du texte
 
 ## Statut
-Proposé — 2026-11-07. Passe à « Accepté » avec la validation de l'étape 4 par l'auteur.
+Accepté — 2026-11-08 (étape 4 validée par l'auteur). Les points « non vérifié » ci-dessous restent à lever.
 
 ## Contexte
 L'étape 4 branche le cœur (étapes 2 et 3) sur l'application : choisir un fichier ou coller du texte, lire plusieurs centaines de Mo sans figer la page, ne pas garder le texte des entrées en mémoire, relire une entrée à la demande, signaler toute limite. La règle validée avec la maquette de préparation s'applique : **rien n'est analysé ni envoyé sans un clic de l'utilisateur** (`SPEC.md` §3).
