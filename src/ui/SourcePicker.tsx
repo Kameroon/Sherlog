@@ -1,16 +1,23 @@
 import { useState } from 'react';
+import type { StorageScope } from '../auth/storageScope';
+import { FolderSource } from './FolderSource';
+import type { FolderDependencies } from './FolderSource';
 import { Tip } from './Tip';
 
 interface SourcePickerProps {
   onFile: (file: File) => void;
   onText: (text: string) => void;
+  /** Whose kept folder this is; `null` while the identity is being read. */
+  scope?: StorageScope | null;
+  /** Replaces the folder picker and its store; used by the tests. */
+  folderDependencies?: Partial<FolderDependencies>;
 }
 
 /**
- * The two ways to give Sherlog a log: a file, or text pasted from a terminal or Docker.
+ * The ways to give Sherlog a log: a file, a folder (Chrome and Edge), or text pasted from a terminal or Docker.
  * Choosing only reads the beginning to recognise the format: nothing is analysed or sent.
  */
-export function SourcePicker({ onFile, onText }: SourcePickerProps) {
+export function SourcePicker({ onFile, onText, scope = null, folderDependencies }: SourcePickerProps) {
   const [text, setText] = useState('');
 
   return (
@@ -34,6 +41,10 @@ export function SourcePicker({ onFile, onText }: SourcePickerProps) {
         )}
       </Tip>
       <p className="hint">Le fichier est lu dans ce navigateur : il n’est ni envoyé, ni modifié.</p>
+
+      <p className="source-or">ou</p>
+
+      <FolderSource scope={scope} onFile={onFile} {...folderDependencies} />
 
       <p className="source-or">ou</p>
 

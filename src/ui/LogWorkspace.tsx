@@ -12,6 +12,7 @@ import { ErrorBrowser } from './ErrorBrowser';
 import { countOf, formatCount } from './format';
 import { PreparationScreen } from './PreparationScreen';
 import { ProviderSettings } from './ProviderSettings';
+import type { FolderDependencies } from './FolderSource';
 import type { AiDependencies } from './ProviderSettings';
 import { SourcePicker } from './SourcePicker';
 import { Steps } from './Steps';
@@ -27,6 +28,8 @@ interface LogWorkspaceProps {
   storageScope?: StorageScope | null;
   /** Replaces the storage and the network of the provider panel; used by the tests. */
   aiDependencies?: Partial<AiDependencies>;
+  /** Replaces the folder picker and its store; used by the tests. */
+  folderDependencies?: Partial<FolderDependencies>;
 }
 
 interface ScanSummaryProps {
@@ -85,7 +88,7 @@ function stepOf(state: ScanState): StepNumber {
  * The page's working area: choose a log, prepare it, analyse it on demand, read the errors.
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
-export function LogWorkspace({ dependencies, storageScope = null, aiDependencies }: LogWorkspaceProps) {
+export function LogWorkspace({ dependencies, storageScope = null, aiDependencies, folderDependencies }: LogWorkspaceProps) {
   // What the settings panel says is usable to send with; the panel only exists once errors were found.
   const [provider, setProvider] = useState<ProviderChoice | null>(null);
   const { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
@@ -113,6 +116,8 @@ export function LogWorkspace({ dependencies, storageScope = null, aiDependencies
       <Stage
         state={state}
         sendSettings={<ProviderSettings scope={storageScope} onChoiceChange={setProvider} {...aiDependencies} />}
+        storageScope={storageScope}
+        folderDependencies={folderDependencies}
         provider={provider}
         aiFetch={aiDependencies?.fetchImpl}
         siteOrigin={aiDependencies?.siteOrigin}
@@ -136,6 +141,8 @@ interface StageProps {
   state: ScanState;
   /** The provider's settings, which go in the sending panel once errors were found. */
   sendSettings: ReactNode;
+  storageScope: StorageScope | null;
+  folderDependencies: Partial<FolderDependencies> | undefined;
   /** What the user chose in those settings, once it is usable; `null` until then. */
   provider: ProviderChoice | null;
   aiFetch: typeof fetch | undefined;
@@ -153,7 +160,7 @@ interface StageProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
 }
 
-function Stage({ state, sendSettings, provider, aiFetch, siteOrigin, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
+function Stage({ state, sendSettings, storageScope, folderDependencies, provider, aiFetch, siteOrigin, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -162,7 +169,7 @@ function Stage({ state, sendSettings, provider, aiFetch, siteOrigin, setFocusTar
             Aucune source de logs chargée pour le moment.
             <span className="cursor" aria-hidden="true" />
           </p>
-          <SourcePicker onFile={onFile} onText={onText} />
+          <SourcePicker onFile={onFile} onText={onText} scope={storageScope} folderDependencies={folderDependencies} />
         </>
       );
     case 'detecting':
@@ -177,7 +184,7 @@ function Stage({ state, sendSettings, provider, aiFetch, siteOrigin, setFocusTar
           <p className="notice notice-error" role="alert" ref={setFocusTarget} tabIndex={-1}>
             {state.message}
           </p>
-          <SourcePicker onFile={onFile} onText={onText} />
+          <SourcePicker onFile={onFile} onText={onText} scope={storageScope} folderDependencies={folderDependencies} />
         </>
       );
     case 'ready':
