@@ -239,3 +239,49 @@ describe('LogWorkspace masking tool', () => {
     reads.mockRestore();
   });
 });
+
+describe('LogWorkspace foldable blocks', () => {
+  const folded = (title: string): boolean => screen.getByRole('button', { name: title }).getAttribute('aria-expanded') === 'false';
+
+  it.each(['Masquer les données sensibles', 'Aperçu du journal préparé'])('should fold and open the block "%s" with its arrow', async (title) => {
+    // Arrange
+    setup();
+    await chooseFile(sample, 'dated.log');
+    expect(folded(title)).toBe(false);
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: title }));
+    const foldedOnce = folded(title);
+    fireEvent.click(screen.getByRole('button', { name: title }));
+
+    // Assert
+    expect(foldedOnce).toBe(true);
+    expect(folded(title)).toBe(false);
+  });
+
+  it('should keep the ticked masking rules when the masking block is folded and opened again', async () => {
+    // Arrange
+    setup();
+    await chooseFile(sample, 'dated.log');
+    fireEvent.click(box('Identifiants GUID'));
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Masquer les données sensibles' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Masquer les données sensibles' }));
+
+    // Assert
+    expect((box('Identifiants GUID') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('should keep the preview in the page when the masking block is folded, so that the other block does not move', async () => {
+    // Arrange
+    setup();
+    await chooseFile(sample, 'dated.log');
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Masquer les données sensibles' }));
+
+    // Assert
+    expect(folded('Aperçu du journal préparé')).toBe(false);
+  });
+});

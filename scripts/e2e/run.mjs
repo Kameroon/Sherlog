@@ -246,6 +246,16 @@ async function run(cdp, appUrl, dataDir) {
   await click('Afficher le texte d’origine');
   check('le texte d’origine s’affiche sur demande', (await text('.excerpt')).includes('Password=S3cr3t!'));
   await click('Afficher le texte d’origine');
+  // 2d bis. The two big blocks fold: the content really leaves the page (the `hidden` attribute must not be overridden by the CSS).
+  const shown = (selector) => evaluate(`document.querySelector(${JSON.stringify(selector)}).getClientRects().length > 0`);
+  check('les deux blocs sont ouverts au départ', (await shown('.mask-rules')) && (await shown('.excerpt-scroll')));
+  await click('Masquer les données sensibles');
+  await click('Aperçu du journal préparé');
+  check('les flèches replient le masquage et l’aperçu : leur contenu quitte la page', !(await shown('.mask-rules')) && !(await shown('.excerpt-scroll')));
+  check('un bloc replié le dit à l’écran (aria-expanded=false)', (await evaluate(`document.querySelectorAll('.foldable-toggle[aria-expanded="false"]').length`)) === 2);
+  await click('Masquer les données sensibles');
+  await click('Aperçu du journal préparé');
+  check('les flèches rouvrent les deux blocs', (await shown('.mask-rules')) && (await shown('.excerpt-scroll')));
   check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('input[type=time]')`)));
   await setDateTime('Début (date et heure)', '2026-11-04T08:16');
   await setDateTime('Fin (date et heure)', '2026-11-04T08:16');

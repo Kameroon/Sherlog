@@ -1,5 +1,6 @@
 import { MAX_PREVIEW_LINES } from '../core/previewHead';
 import type { HeadPreview } from '../core/previewHead';
+import { FoldablePanel } from './FoldablePanel';
 import { formatCount, formatSize } from './format';
 
 interface PreparedPreviewProps {
@@ -34,8 +35,7 @@ export function PreparedPreview({ preview, name, headBytes, sourceBytes, complet
   const hidden = preview.totalLines - preview.lines.length;
 
   return (
-    <section className="panel prep-view" aria-labelledby="preview-title">
-      <h2 id="preview-title">Aperçu du journal préparé</h2>
+    <FoldablePanel id="preview" title="Aperçu du journal préparé" className="prep-view">
       <p className="small-note">
         {name} · {where}.{hidden > 0 ? ` Aperçu des ${MAX_PREVIEW_LINES} premières.` : ''}
       </p>
@@ -68,6 +68,6 @@ export function PreparedPreview({ preview, name, headBytes, sourceBytes, complet
         <li>Lignes barrées : écartées par vos réglages</li>
         <li>Lignes en rouge : erreurs gardées</li>
       </ul>
-    </section>
+    </FoldablePanel>
   );
 }
