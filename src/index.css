@@ -168,6 +168,71 @@
   margin: 0;
 }
 
+/* ---- Panels the user can fold ---- */
+
+.foldable-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.foldable-toggle:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-control);
+}
+
+/* A chevron drawn with two borders: it points down when the panel is open and to the right when it is folded. */
+.foldable-arrow {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+  color: var(--color-muted);
+}
+
+.foldable-arrow::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: -0.25rem;
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: rotate(45deg);
+}
+
+.foldable-toggle[aria-expanded='false'] .foldable-arrow::before {
+  margin-top: 0;
+  margin-left: -0.25rem;
+  transform: rotate(-45deg);
+}
+
+.foldable-toggle:hover .foldable-arrow {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.foldable-body {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.foldable-body[hidden] {
+  display: none;
+}
+
 .button-primary,
 .button-secondary,
 .button-link {
