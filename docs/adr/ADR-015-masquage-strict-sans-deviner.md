@@ -1,7 +1,7 @@
 # ADR-015 : Masquage par règles strictes, qui ne devinent pas
 
 ## Statut
-Proposé — 2026-11-09, tranche 1 de l'étape 6 faite (le cœur `redact`, sans interface). Passera à « Accepté » avec la validation de l'étape par l'auteur.
+Proposé — 2026-11-09, tranches 1 (le cœur `redact`) et 2 (l'outil « Masquer » de la préparation) de l'étape 6 faites. Passera à « Accepté » avec la validation de l'étape par l'auteur.
 
 ## Contexte
 Rien ne doit partir vers un fournisseur IA sans avoir été masqué (`SPEC.md` §6). Le masquage par motifs se trompe dans deux sens : il **masque ce qui n'est pas sensible** (faux positif : un numéro de version pris pour une adresse IP, un nom de fichier pris pour un e-mail) ou **laisse passer ce qui l'est** (faux négatif). L'auteur a demandé le 2026-11-09 : « pas de faux positif nulle part, dans aucun de mes projets », en validant que le masquage s'applique aussi aux lignes autour de l'erreur (ADR-013, conséquences).
@@ -23,6 +23,15 @@ Une garantie de zéro faux positif n'existe pas pour une règle qui juge un text
 - **Pas de ReDoS** : chaque motif commence après une assertion qui interdit ses propres caractères (sans elle le moteur retente depuis chaque position d'une longue suite : durée au carré), toutes les répétitions sont bornées, et douze entrées hostiles (200 000 caractères d'une même famille, motifs répétés) ont un test de durée.
 - **Étiquette sans numéro** (`[EMAIL]`, pas `[EMAIL_1]`) : deux adresses différentes donnent la même étiquette. Plus simple, au prix de ne pas montrer au modèle que deux erreurs concernent le même utilisateur.
 
+## Outil « Masquer » (tranche 2)
+- **Une carte par règle** sous les trois autres réglages, sur toute la largeur : case, étiquette, nombre d'occurrences trouvées (même quand la règle est décochée, pour voir ce qu'une case masquerait), description de ce que la règle laisse. Les options (GUID, hôte) sont dites « option » et décochées.
+- **L'état du masquage vit à côté de la préparation, pas dedans** (`ScanState.masking`, remis aux règles par défaut à chaque nouveau journal). Il ne rend donc pas le résultat obsolète : masquer change ce qui est montré et envoyé, pas quelles erreurs il y a.
+- **Aperçu masqué avant d'être coupé** : une ligne est masquée en entier puis tronquée à 300 caractères, pour qu'un secret à cheval sur la coupure ne soit pas montré en partie ; `PreviewLine.text` est ce qui s'affiche, `originalText` le texte du journal.
+- **Texte d'origine à la demande** : un bouton à bascule (`aria-pressed`) le montre dans l'aperçu ; il reste dans le composant (état local), il disparaît en quittant la préparation et n'est ni envoyé ni gardé.
+- **Compteur « données masquées »** (quatrième compteur, seulement s'il y en a) et nombres par règle : calculés sur les entrées gardées du début du fichier (1 Mio), et dits « dans le début » tant que le fichier n'est pas lu en entier. Ils ne portent pas sur tout le fichier : l'envoi masque de toute façon le texte exact qui part (tranche 3).
+- **Avertissement** quand aucune case n'est cochée : le texte est montré tel quel, et les e-mails, secrets, adresses IP et cartes seront tout de même masqués à l'envoi (`rulesForSending`).
+- **Coût** : les occurrences de chaque règle sont comptées **une fois par entrée à la lecture du début du fichier** (`ParsedHead.occurrencesByEntry`) ; changer une règle « Ignorer » ou la période ne fait que sommer ces comptes, et `redact` n'est rejoué que sur les entrées où une règle active a trouvé quelque chose.
+
 ## Raisons
 - Un faux négatif laisse partir un secret, un faux positif retire une information utile au diagnostic : les règles qui cachent des secrets sont strictes **et** cochées d'office, les identifiants qui aident à suivre une requête (GUID, hôte) sont des options.
 - Vérifier les garde-fous un par un par mutation (retirer le garde-fou, constater qu'un test échoue) est ce qui remplace une garantie impossible.
@@ -40,5 +49,7 @@ Une garantie de zéro faux positif n'existe pas pour une règle qui juge un text
 
 ## Mesuré et non vérifié
 **Mesuré** (Node, Vitest, `tests/redact.test.ts`, 96 vérifications) : les deux extraits réels (`real-serilog.log`, `real-mixed-formats.log`) sortent identiques avec les règles par défaut ; `sample.log` change deux lignes (mot de passe, e-mail), `serilog-pieges.log` quatre valeurs (deux e-mails, deux adresses IP), `serilog-realistic.log` le jeton `Authorization` seulement. Dix-neuf entrées hostiles traitées par les six règles et le comptage, mesurées à part, en 12 à 88 ms chacune (200 000 caractères d'une même famille, motifs répétés), dont douze ont un test de durée ; un mégaoctet de lignes ordinaires sous la limite de 1,5 s fixée au test. Onze garde-fous retirés un à un : chacun fait échouer au moins un test.
+
+**Mesuré, tranche 2** (Node, 1 Mio de lignes denses où chaque entrée contient une adresse e-mail et une adresse IP) : lecture du début 218 ms (49 ms avant le comptage, une fois par choix de journal ou de format), recalcul de l'aperçu 10 ms à un changement de période, 130 ms à une case de masquage cochée dans le pire cas. Chrome 156 sans interface, `npm run e2e` (73 vérifications) sur `sample.log` : le mot de passe et l'e-mail sont remplacés dans l'aperçu, le compteur dit 2 données masquées, le GUID est gardé tant que l'option n'est pas cochée, le texte d'origine s'affiche sur demande ; console sans erreur.
 
 **Non vérifié :** des journaux réels autres que les deux extraits ; des journaux hors .NET et hors anglais ; des caractères Unicode d'apparence voisine (chiffres pleine chasse, par exemple) ; la durée sur un navigateur lent.
