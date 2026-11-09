@@ -19,6 +19,8 @@ interface ErrorListProps {
   groups: ReadonlyMap<number, IdenticalErrors>;
   /** The status of each fingerprint that has one; a row shows it when it is not « new ». */
   statuses?: StatusByFingerprint;
+  /** The fingerprints the user chose to have explained: their rows say so. */
+  chosenForSending?: ReadonlySet<number>;
   /** Index of the row whose detail is shown, or `null`. */
   selected: number | null;
   onSelect: (index: number) => void;
@@ -35,7 +37,7 @@ interface ErrorListProps {
  * is always in the page), and every row says its position in the whole list. The arrows, Home, End and the page keys
  * move the active row; Enter, Space or a click select it, which is what makes its detail appear.
  */
-export function ErrorList({ records, groups, statuses = NO_STATUSES, selected, onSelect }: ErrorListProps) {
+export function ErrorList({ records, groups, statuses = NO_STATUSES, chosenForSending, selected, onSelect }: ErrorListProps) {
   const listId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const firstChunkRef = useRef<HTMLDivElement>(null);
@@ -160,6 +162,7 @@ export function ErrorList({ records, groups, statuses = NO_STATUSES, selected, o
                   <span className="visually-hidden"> identiques</span>
                 </span>
               )}
+              {chosenForSending?.has(record.fingerprintId) === true && <span className="badge badge-status">À envoyer</span>}
               <span className="error-first-line">{`${record.message}${record.messageCut ? '…' : ''}`}</span>
             </div>
           );

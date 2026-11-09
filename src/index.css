@@ -686,6 +686,39 @@ button:disabled {
   background: var(--color-selected);
 }
 
+/* ---- Errors chosen for the model ---- */
+
+.send-choice {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.send-choice p,
+.send-item p {
+  margin: 0;
+}
+
+.send-panel {
+  margin-top: var(--space-2);
+}
+
+.send-items {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.send-item {
+  display: grid;
+  gap: 0.5rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
 /* ---- Period ---- */
 
 .select {
