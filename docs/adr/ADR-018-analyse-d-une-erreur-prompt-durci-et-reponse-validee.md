@@ -1,7 +1,7 @@
 # ADR-018 : Analyse d'une erreur — prompt durci, réponse validée, rendu sûr
 
 ## Statut
-Proposé — 2026-11-09, en attente de la validation de l'étape 8 par l'auteur. Suite de l'ADR-016 (ce qui est envoyé) et de l'ADR-017 (fournisseurs et clé).
+Accepté — 2026-11-09, avec la validation de l'étape 8 par l'auteur (le contrôle manuel avec un vrai modèle reste à faire par lui, voir « Non vérifié »). Suite de l'ADR-016 (ce qui est envoyé) et de l'ADR-017 (fournisseurs et clé).
 
 ## Contexte
 L'étape 8 est la première où du texte d'un journal part vers un tiers. Un journal est une **donnée non fiable** : n'importe qui peut y faire écrire une ligne (un champ de formulaire, une URL, un en-tête). Il faut qu'une telle ligne ne puisse ni se faire passer pour les consignes données au modèle, ni modifier la forme de ce que l'application accepte en retour, ni mettre du balisage à l'écran (`SPEC.md` §6, `docs/PROMPTS.md`). La menace est la même quel que soit le fournisseur.
