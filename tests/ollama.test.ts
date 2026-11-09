@@ -234,3 +234,27 @@ describe('Ollama chat answer', () => {
     await expect(failure).resolves.toMatchObject({ kind: 'cancelled' });
   });
 });
+
+describe('Ollama system prompt', () => {
+  it('should send the instructions as a system message before the others', async () => {
+    // Arrange
+    const { fetchImpl, requests } = fakeFetch(goodStream);
+
+    // Act
+    await collect(provider(fetchImpl).stream(messages, { system: 'Be brief.' }));
+
+    // Assert
+    expect(requests[0]?.body).toEqual({ model: 'llama3:8b', messages: [{ role: 'system', content: 'Be brief.' }, ...messages], stream: true });
+  });
+
+  it('should send the messages as they are when there are no instructions', async () => {
+    // Arrange
+    const { fetchImpl, requests } = fakeFetch(goodStream);
+
+    // Act
+    await collect(provider(fetchImpl).stream(messages));
+
+    // Assert
+    expect(requests[0]?.body).toEqual({ model: 'llama3:8b', messages, stream: true });
+  });
+});

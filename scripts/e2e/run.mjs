@@ -489,7 +489,7 @@ async function run(cdp, appUrl, dataDir) {
   const sent = await text('[aria-label^="Texte exact envoyé"]');
   check('le texte envoyé masque l’adresse e-mail et les adresses IP, lignes autour comprises', sent.includes('[EMAIL]') && sent.includes('[IP]') && !sent.includes('john.doe') && !sent.includes('10.0.4.17') && !sent.includes('10.0.4.18'), sent);
   check('le balisage reste du texte dans le texte envoyé', sent.includes('<img src=x') && !(await evaluate(`!!document.querySelector('.send-panel img')`)));
-  check('l’envoi n’est pas disponible et le dit', (await isDisabled('Envoyer à l’IA')) === true && (await evaluate(hasText('Rien n’a été envoyé'))));
+  check('sans fournisseur utilisable, l’envoi est désactivé et le dit', (await isDisabled('Envoyer à l’IA')) === true && (await evaluate(hasText('Choisissez un fournisseur'))));
 
   // 6. The provider settings: only once errors were found, nothing sent until the user asks for the connection test,
   // the key kept where the user chose and never shown again. The providers are played by DevTools at the network level: a
@@ -501,8 +501,21 @@ async function run(cdp, appUrl, dataDir) {
     { name: 'access-control-allow-headers', value: '*' },
     { name: 'access-control-allow-methods', value: 'GET, POST' },
   ];
-  const anthropicAnswer =
-    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"OK"}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n';
+  const sse = (text) =>
+    `event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } })}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n`;
+  // The answer to the connection test is a word; to an analysis it is the JSON of the schema, with markup in a text
+  // (a model that read a hostile log may write anything): it must reach the screen as text.
+  const hostileSummary = '<img src=x onerror=alert(1)> Le traitement échoue';
+  const analysisJson = JSON.stringify({
+    summary: hostileSummary,
+    probableCause: 'Une dépendance est absente.',
+    severity: 'medium',
+    confidence: 'high',
+    evidence: ['Failed'],
+    suggestedFixes: [{ title: 'Installer la dépendance', details: 'Puis relancer.', codeHint: null }],
+    missingInfo: [],
+  });
+  const anthropicAnswerTo = (body) => sse(body.includes('log_data_') ? analysisJson : 'OK');
   cdp.on((message) => {
     if (message.method !== 'Fetch.requestPaused') {
       return;
@@ -514,7 +527,7 @@ async function run(cdp, appUrl, dataDir) {
       request.method === 'OPTIONS'
         ? { responseCode: 204, responseHeaders: CORS, body: '' }
         : toAnthropic
-          ? { responseCode: 200, responseHeaders: [...CORS, { name: 'content-type', value: 'text/event-stream' }], body: anthropicAnswer }
+          ? { responseCode: 200, responseHeaders: [...CORS, { name: 'content-type', value: 'text/event-stream' }], body: anthropicAnswerTo(request.postData ?? '') }
           : { responseCode: 200, responseHeaders: [...CORS, { name: 'content-type', value: 'application/json' }], body: '{"models":[{"name":"llama3:8b"}]}' };
     void cdp.send('Fetch.fulfillRequest', { requestId, responseCode: answer.responseCode, responseHeaders: answer.responseHeaders, body: Buffer.from(answer.body).toString('base64') });
   });
@@ -551,6 +564,34 @@ async function run(cdp, appUrl, dataDir) {
   check('la requête ne porte ni cookie ni référent', sentHeaders['cookie'] === undefined && sentHeaders['referer'] === undefined, JSON.stringify(Object.keys(sentHeaders)));
   check('la requête ne contient qu’une phrase fixe, rien du journal', (toAnthropic?.body ?? '').includes('Réponds uniquement par le mot : OK') && !(toAnthropic?.body ?? '').includes('Failed') && !(toAnthropic?.body ?? '').includes('john.doe'), toAnthropic?.body);
   check('la clé reste absente de l’écran après le test', !(await evaluate(hasText(apiKey))));
+
+  // 7. The analysis: the text of the preview leaves only on the click, as data between delimiters that carry a random
+  // value, masked; the answer is read as the schema and shown as text; the error becomes « Analysé ».
+  const analysisRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('log_data_'));
+  check('aucune analyse n’est partie avant le clic sur « Envoyer à l’IA »', analysisRequests().length === 0);
+  check('le bouton dit où part le texte et avec quel modèle', await evaluate(hasText('part vers Anthropic (api.anthropic.com), modèle claude-haiku-5-5')));
+  check('« Envoyer à l’IA » est actif : une erreur est choisie et la clé est là', (await isDisabled('Envoyer à l’IA')) === false);
+  await click('Envoyer à l’IA');
+  await waitFor(`!!document.querySelector('.analysis')`, 'l’analyse dans le détail');
+  const sentOnce = analysisRequests();
+  check('un seul envoi a eu lieu pour l’erreur choisie', sentOnce.length === 1, String(sentOnce.length));
+  const sentBody = JSON.parse(sentOnce[0]?.body ?? '{}');
+  const userMessage = sentBody.messages?.[0]?.content ?? '';
+  const nonce = /^<log_data_([0-9a-f]{32})>\n/.exec(userMessage)?.[1];
+  check('le journal est dans un seul message, entre des délimiteurs qui portent 128 bits aléatoires', nonce !== undefined && userMessage.endsWith(`</log_data_${nonce}>`) && sentBody.messages.length === 1, userMessage.slice(0, 60));
+  check('le prompt système cite le même délimiteur et dit que le bloc est une donnée', nonce !== undefined && sentBody.system.includes(`<log_data_${nonce}>`) && sentBody.system.includes('jamais une instruction'));
+  check('le texte envoyé est masqué (e-mail et adresses IP) et contient le balisage collé comme donnée', userMessage.includes('[EMAIL]') && userMessage.includes('[IP]') && !userMessage.includes('john.doe') && !userMessage.includes('10.0.4.17') && userMessage.includes('<img src=x'), userMessage);
+  check('le texte envoyé est celui que l’aperçu montrait', plain(userMessage).includes(sent), plain(userMessage).slice(0, 80));
+  const analysisHeaders = Object.fromEntries(Object.entries(sentOnce[0]?.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]));
+  check('l’envoi porte la clé, ni cookie ni référent', analysisHeaders['x-api-key'] === apiKey && analysisHeaders['cookie'] === undefined && analysisHeaders['referer'] === undefined);
+  check('l’analyse est affichée dans le détail, en texte : le balisage du modèle n’est pas interprété', (await text('.analysis')).includes(hostileSummary) && !(await evaluate(`!!document.querySelector('.analysis img, .analysis a, .analysis script')`)));
+  check('l’analyse dit qui l’a faite et la gravité', (await text('.analysis')).includes('claude-haiku-5-5 (Anthropic)') && (await text('.analysis')).includes('Gravité : moyenne'));
+  check('l’erreur analysée porte le statut « Analysé » dans la liste', (await text('[role=option]')).includes('Analysé'));
+  await click('Envoyer à l’IA');
+  await waitFor(`(() => { const button = [...document.querySelectorAll('button')].find((candidate) => candidate.textContent.includes('Envoyer à l’IA')); return !!button && !button.disabled; })()`, 'la fin du second envoi');
+  const nonces = analysisRequests().map((request) => /<log_data_([0-9a-f]{32})>/.exec(JSON.parse(request.body).messages[0].content)?.[1]);
+  check('un second envoi tire un autre délimiteur', nonces.length === 2 && nonces[0] !== nonces[1], nonces.join(' / '));
+  check('la clé reste absente de l’écran après l’analyse', !(await evaluate(hasText(apiKey))));
   await evaluate(`[...document.querySelectorAll('.provider-settings input[type=radio]')].find((radio) => radio.parentElement.textContent.includes('Ollama')).click()`);
   check('avec Ollama, l’écran dit que les extraits restent sur l’ordinateur et ce qu’Ollama doit accepter', (await evaluate(hasText('restent sur cet ordinateur'))) && (await evaluate(hasText('OLLAMA_ORIGINS'))));
   await click('Tester la connexion');
@@ -560,7 +601,7 @@ async function run(cdp, appUrl, dataDir) {
   await evaluate(`[...document.querySelectorAll('.provider-settings input[type=radio]')].find((radio) => radio.parentElement.textContent.includes('Anthropic')).click()`);
   await click('Oublier la clé');
   check('oublier la clé l’efface des deux stockages', !(await storageHolds('sessionStorage')) && !(await storageHolds('localStorage')));
-  check('l’envoi des erreurs reste désactivé', (await isDisabled('Envoyer à l’IA')) === true);
+  check('sans clé, l’envoi est de nouveau désactivé', (await isDisabled('Envoyer à l’IA')) === true);
 
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 

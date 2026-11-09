@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { CONNECTION_TEST_MESSAGE } from '../src/ai/anthropic';
+import type { ProviderChoice } from '../src/ai/createProvider';
 import type { StorageScope } from '../src/auth/storageScope';
 import { DEFAULT_AI_SETTINGS, loadApiKey, loadSettings, saveApiKey, saveSettings } from '../src/store/aiSettings';
 import type { AiSettings, BrowserStorages } from '../src/store/aiSettings';
@@ -19,6 +20,7 @@ interface Options {
   answer?: (request: RecordedRequest) => Response | Error | Promise<Response | Error>;
   key?: { value: string; remembered: boolean };
   settings?: AiSettings;
+  onChoiceChange?: (choice: ProviderChoice | null) => void;
 }
 
 function show(options: Options = {}) {
@@ -33,7 +35,7 @@ function show(options: Options = {}) {
     saveSettings(chosenScope.name, options.settings, storages);
   }
   const { fetchImpl, requests } = fakeFetch(options.answer ?? goodAnthropic);
-  const view = render(<ProviderSettings scope={chosenScope} storages={storages} fetchImpl={fetchImpl} siteOrigin={SITE} />);
+  const view = render(<ProviderSettings scope={chosenScope} storages={storages} fetchImpl={fetchImpl} siteOrigin={SITE} onChoiceChange={options.onChoiceChange} />);
   return { session, local, storages, requests, ...view };
 }
 
@@ -549,5 +551,109 @@ describe('ProviderSettings Ollama', () => {
     // Assert
     expect(await screen.findByRole('alert')).toHaveTextContent(/Ollama ne répond pas/);
     expect(screen.getByRole('alert')).toHaveTextContent(SITE);
+  });
+});
+
+describe('ProviderSettings choice given to the sending', () => {
+  const choices = () => {
+    const given: (ProviderChoice | null)[] = [];
+    return { given, onChoiceChange: (choice: ProviderChoice | null) => given.push(choice), last: () => given.at(-1) };
+  };
+
+  it('should give no choice until a usable key is there', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+
+    // Act
+    show({ onChoiceChange });
+
+    // Assert
+    expect(last()).toBeNull();
+  });
+
+  it('should give the key and the model once the key is typed, without saving it', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+    const { session, local } = show({ onChoiceChange });
+
+    // Act
+    typeKey();
+
+    // Assert
+    expect(last()).toEqual({ provider: 'anthropic', apiKey: KEY, model: 'claude-haiku-5-5' });
+    expect(session.dump()).toEqual({});
+    expect(local.dump()).toEqual({});
+  });
+
+  it('should give the key that was saved before', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+
+    // Act
+    show({ onChoiceChange, key: { value: KEY, remembered: false } });
+
+    // Assert
+    expect(last()).toMatchObject({ provider: 'anthropic', apiKey: KEY });
+  });
+
+  it.each([
+    ['a key that cannot be sent', () => typeKey('sk ant')],
+    ['a model name that cannot be one', () => type('Modèle Claude', 'claude sonnet')],
+  ])('should give no choice with %s', (_name, act) => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+    show({ onChoiceChange, key: { value: KEY, remembered: false } });
+
+    // Act
+    act();
+
+    // Assert
+    expect(last()).toBeNull();
+  });
+
+  it('should give the model chosen for Ollama, and no key', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+
+    // Act
+    show({ onChoiceChange, settings: { ...DEFAULT_AI_SETTINGS, provider: 'ollama', ollamaModel: 'llama3:8b' }, key: { value: KEY, remembered: false } });
+
+    // Assert
+    expect(last()).toEqual({ provider: 'ollama', apiKey: '', model: 'llama3:8b' });
+  });
+
+  it('should give no choice for Ollama until a model is chosen', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+
+    // Act
+    show({ onChoiceChange, settings: { ...DEFAULT_AI_SETTINGS, provider: 'ollama' } });
+
+    // Assert
+    expect(last()).toBeNull();
+  });
+
+  it('should give no choice any more once the key is forgotten', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+    show({ onChoiceChange, key: { value: KEY, remembered: false } });
+
+    // Act
+    click('Oublier la clé');
+
+    // Assert
+    expect(last()).toBeNull();
+  });
+
+  it('should give no choice any more when the panel goes away, so that nothing is sent with a key that is no longer on screen', () => {
+    // Arrange
+    const { onChoiceChange, last } = choices();
+    const { unmount } = show({ onChoiceChange, key: { value: KEY, remembered: false } });
+
+    // Act
+    unmount();
+
+    // Assert
+    expect(last()).toBeNull();
   });
 });

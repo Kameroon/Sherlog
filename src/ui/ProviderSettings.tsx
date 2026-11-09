@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import type { ProviderChoice } from '../ai/createProvider';
 import { isPlausibleApiKey, testAnthropicConnection } from '../ai/anthropic';
 import { failureMessage } from '../ai/failureMessage';
 import { listOllamaModels } from '../ai/ollama';
@@ -20,6 +21,11 @@ export interface AiDependencies {
 interface ProviderSettingsProps extends Partial<AiDependencies> {
   /** Whose key and settings these are; `null` while the identity is being read. */
   scope: StorageScope | null;
+  /**
+   * Told what the user chose once it is usable to send with (a key that can be sent and a model, or the model of Ollama),
+   * and `null` when it is not, or when the panel goes away: nothing is sent with a key that is no longer on screen.
+   */
+  onChoiceChange?: (choice: ProviderChoice | null) => void;
 }
 
 /** The outcome of the last connection test, or the fact that one is under way. */
@@ -50,9 +56,10 @@ interface FormProps {
   storages: BrowserStorages;
   fetchImpl: typeof fetch;
   siteOrigin: string;
+  onChoiceChange: ((choice: ProviderChoice | null) => void) | undefined;
 }
 
-function ProviderForm({ scope, storages, fetchImpl, siteOrigin }: FormProps) {
+function ProviderForm({ scope, storages, fetchImpl, siteOrigin, onChoiceChange }: FormProps) {
   const id = useId();
   // Read once when the form appears: the form is created again when the identity changes (see `ProviderSettings`).
   const [initial] = useState(() => ({ settings: loadSettings(scope.name, storages), key: loadApiKey(scope.name, storages) }));
@@ -128,6 +135,20 @@ function ProviderForm({ scope, storages, fetchImpl, siteOrigin }: FormProps) {
   const anthropic = settings.provider === 'anthropic';
   const canTest = test.status !== 'running' && (!anthropic || (isPlausibleApiKey(keyInUse) && modelIsValid));
   const canSave = typedIsUsable || (typed === '' && savedKey !== null && remember !== savedOnComputer);
+
+  // What the sending uses: only a key that can be sent and a model that can be one, or the model of Ollama.
+  const choice = useMemo<ProviderChoice | null>(() => {
+    if (settings.provider === 'ollama') {
+      return settings.ollamaModel === '' ? null : { provider: 'ollama', apiKey: '', model: settings.ollamaModel };
+    }
+    return isPlausibleApiKey(keyInUse) && modelIsValid ? { provider: 'anthropic', apiKey: keyInUse, model: settings.anthropicModel } : null;
+  }, [settings.provider, settings.ollamaModel, settings.anthropicModel, keyInUse, modelIsValid]);
+  useEffect(() => {
+    onChoiceChange?.(choice);
+    return () => {
+      onChoiceChange?.(null);
+    };
+  }, [choice, onChoiceChange]);
 
   const saveKey = (): void => {
     const key = typedIsUsable ? typed : savedKey;
@@ -335,7 +356,7 @@ function ProviderForm({ scope, storages, fetchImpl, siteOrigin }: FormProps) {
  * models installed in Ollama: no word of a log leaves the browser from here. The key is typed in a field that does not
  * show it, kept only when the user asks (for the tab, or on the computer), and never shown again.
  */
-export function ProviderSettings({ scope, storages = browserStorages, fetchImpl = fetch, siteOrigin = window.location.origin }: ProviderSettingsProps) {
+export function ProviderSettings({ scope, storages = browserStorages, fetchImpl = fetch, siteOrigin = window.location.origin, onChoiceChange }: ProviderSettingsProps) {
   if (scope === null) {
     return (
       <p className="hint" role="status">
@@ -344,5 +365,5 @@ export function ProviderSettings({ scope, storages = browserStorages, fetchImpl 
     );
   }
   // Keyed by the identity: another identity starts from its own key and settings, never from the previous one's.
-  return <ProviderForm key={scope.name} scope={scope} storages={storages} fetchImpl={fetchImpl} siteOrigin={siteOrigin} />;
+  return <ProviderForm key={scope.name} scope={scope} storages={storages} fetchImpl={fetchImpl} siteOrigin={siteOrigin} onChoiceChange={onChoiceChange} />;
 }

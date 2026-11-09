@@ -4,14 +4,23 @@ import type { StorageScope } from '../src/auth/storageScope';
 import { LogWorkspace } from '../src/ui/LogWorkspace';
 import { chooseFile, finish, startAnalysis } from './helpers/workspace';
 import { consoleLog, fakeScanner, scanResult } from './helpers/fakeScanner';
-import { eventStream, fakeFetch } from './helpers/fakeFetch';
+import { anthropicEvent, eventStream, fakeFetch, textDelta } from './helpers/fakeFetch';
 import { MemoryStorage } from './helpers/memoryStorage';
 
 const scope: StorageScope = { name: 'github/1', identified: true };
+const analysis = {
+  summary: 'Le traitement a échoué.',
+  probableCause: 'Une dépendance est absente.',
+  severity: 'medium',
+  confidence: 'high',
+  evidence: ['Failed'],
+  suggestedFixes: [{ title: 'Installer la dépendance', details: 'Puis relancer.', codeHint: null }],
+  missingInfo: [],
+};
 
 function setupWithProvider(storageScope: StorageScope | null = scope) {
   const scanner = fakeScanner();
-  const { fetchImpl, requests } = fakeFetch(() => eventStream([]));
+  const { fetchImpl, requests } = fakeFetch(() => eventStream([textDelta(JSON.stringify(analysis)), anthropicEvent('message_stop', {})]));
   render(
     <LogWorkspace
       dependencies={{ startScan: scanner.startScan }}
@@ -79,7 +88,7 @@ describe('LogWorkspace provider settings', () => {
     expect(screen.queryByLabelText('Clé API Anthropic')).not.toBeInTheDocument();
   });
 
-  it('should send nothing by itself, and keep the sending of the errors disabled', async () => {
+  it('should send nothing by itself, and keep the sending disabled while no error is chosen', async () => {
     // Arrange
     const { scanner, requests } = setupWithProvider();
     await startAnalysis(scanner);
@@ -93,7 +102,7 @@ describe('LogWorkspace provider settings', () => {
     expect(within(sendPanel()).getByRole('button', { name: 'Envoyer à l’IA' })).toBeDisabled();
   });
 
-  it('should make the sending the current step once the log is analysed, and still say it cannot send', async () => {
+  it('should make the sending the current step once the log is analysed', async () => {
     // Arrange
     const { scanner } = setupWithProvider();
     await startAnalysis(scanner);
@@ -103,7 +112,8 @@ describe('LogWorkspace provider settings', () => {
 
     // Assert
     expect(steps()[3]).toHaveAttribute('aria-current', 'step');
-    expect(steps()[3]).toHaveTextContent(/envoi n’est pas encore disponible/);
+    expect(steps()[3]).not.toHaveTextContent(/pas encore disponible/);
+    expect(steps()[3]).not.toHaveClass('is-unavailable');
     expect(steps()[2]).toHaveClass('is-done');
   });
 
@@ -118,5 +128,40 @@ describe('LogWorkspace provider settings', () => {
     // Assert
     expect(steps()[2]).toHaveAttribute('aria-current', 'step');
     expect(steps()[3]).toHaveTextContent(/pas encore disponible/);
+  });
+});
+
+describe('LogWorkspace analysis of an error', () => {
+  it('should go from the key typed to the analysis shown, with one request to the provider', async () => {
+    // Arrange
+    const { scanner, requests } = setupWithProvider();
+    await startAnalysis(scanner);
+    finish(scanner);
+    fireEvent.change(await screen.findByLabelText('Clé API Anthropic'), { target: { value: 'sk-ant-test-0123456789' } });
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Erreurs' })).getAllByRole('option')[0] as HTMLElement);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Faire expliquer cette erreur par l’IA' }));
+
+    // Act
+    fireEvent.click(within(sendPanel()).getByRole('button', { name: 'Envoyer à l’IA' }));
+
+    // Assert
+    expect(await screen.findByText('Le traitement a échoué.')).toBeInTheDocument();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe('https://api.anthropic.com/v1/messages');
+    expect(JSON.stringify(requests[0]?.body)).toContain('Failed');
+  });
+
+  it('should not allow sending before the provider is usable, and say so', async () => {
+    // Arrange
+    const { scanner, requests } = setupWithProvider();
+    await startAnalysis(scanner);
+    finish(scanner);
+    fireEvent.click(within(await screen.findByRole('listbox', { name: 'Erreurs' })).getAllByRole('option')[0] as HTMLElement);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Faire expliquer cette erreur par l’IA' }));
+
+    // Assert
+    expect(within(sendPanel()).getByRole('button', { name: 'Envoyer à l’IA' })).toBeDisabled();
+    expect(within(sendPanel()).getByText(/Choisissez un fournisseur/)).toBeInTheDocument();
+    expect(requests).toHaveLength(0);
   });
 });
