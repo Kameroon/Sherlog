@@ -34,6 +34,11 @@ const position = (option: HTMLElement) => Number(option.getAttribute('aria-posin
 const shownPositions = () => screen.queryAllByRole('option').map(position);
 const active = (list: HTMLElement) => document.getElementById(list.getAttribute('aria-activedescendant') ?? '');
 
+// The tests of this file render lists of ten to a hundred thousand errors in jsdom: each takes seconds, and on a busy
+// machine (the whole suite running in parallel) the default limit of 5 s is not enough. The limit is not a measure of
+// speed (the e2e check is).
+vi.setConfig({ testTimeout: 30_000 });
+
 describe('ErrorList windowing', () => {
   it('should put every row in the page when there are few errors', () => {
     // Act

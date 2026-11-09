@@ -1,3 +1,4 @@
+import { storageScopeOf } from './auth/storageScope';
 import { useClientPrincipal } from './auth/useClientPrincipal';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { IdentityBar } from './ui/IdentityBar';
@@ -21,7 +22,7 @@ export function App() {
           </h1>
           <p>Sherlog isole les erreurs de vos journaux et vous explique chacune d’elles.</p>
         </section>
-        <LogWorkspace />
+        <LogWorkspace storageScope={storageScopeOf(principalState)} />
       </main>
     </ErrorBoundary>
   );

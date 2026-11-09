@@ -490,7 +490,84 @@ async function run(cdp, appUrl, dataDir) {
   check('le texte envoyé masque l’adresse e-mail et les adresses IP, lignes autour comprises', sent.includes('[EMAIL]') && sent.includes('[IP]') && !sent.includes('john.doe') && !sent.includes('10.0.4.17') && !sent.includes('10.0.4.18'), sent);
   check('le balisage reste du texte dans le texte envoyé', sent.includes('<img src=x') && !(await evaluate(`!!document.querySelector('.send-panel img')`)));
   check('l’envoi n’est pas disponible et le dit', (await isDisabled('Envoyer à l’IA')) === true && (await evaluate(hasText('Rien n’a été envoyé'))));
+
+  // 6. The provider settings: only once errors were found, nothing sent until the user asks for the connection test,
+  // the key kept where the user chose and never shown again. The providers are played by DevTools at the network level: a
+  // request that reaches it has passed the CSP of production, and nothing leaves the machine.
+  const apiKey = 'sk-ant-e2e-0123456789';
+  const providerRequests = [];
+  const CORS = [
+    { name: 'access-control-allow-origin', value: '*' },
+    { name: 'access-control-allow-headers', value: '*' },
+    { name: 'access-control-allow-methods', value: 'GET, POST' },
+  ];
+  const anthropicAnswer =
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"OK"}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n';
+  cdp.on((message) => {
+    if (message.method !== 'Fetch.requestPaused') {
+      return;
+    }
+    const { requestId, request } = message.params;
+    providerRequests.push({ url: request.url, method: request.method, headers: request.headers, body: request.postData ?? '' });
+    const toAnthropic = request.url.startsWith('https://api.anthropic.com/');
+    const answer =
+      request.method === 'OPTIONS'
+        ? { responseCode: 204, responseHeaders: CORS, body: '' }
+        : toAnthropic
+          ? { responseCode: 200, responseHeaders: [...CORS, { name: 'content-type', value: 'text/event-stream' }], body: anthropicAnswer }
+          : { responseCode: 200, responseHeaders: [...CORS, { name: 'content-type', value: 'application/json' }], body: '{"models":[{"name":"llama3:8b"}]}' };
+    void cdp.send('Fetch.fulfillRequest', { requestId, responseCode: answer.responseCode, responseHeaders: answer.responseHeaders, body: Buffer.from(answer.body).toString('base64') });
+  });
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: 'https://api.anthropic.com/*' }, { urlPattern: 'http://localhost:11434/*' }] });
+
+  check('les réglages du fournisseur sont dans le panneau d’envoi une fois les erreurs trouvées', await evaluate(`!!document.querySelector('.send-panel .provider-settings')`));
+  check('la clé se saisit dans un champ masqué que le navigateur ne remplit pas', await evaluate(`(() => { const field = document.querySelector('.provider-settings input[type=password]'); return !!field && field.autocomplete === 'off'; })()`));
+  check('le modèle proposé au départ est Haiku 5.5', (await evaluate(`document.querySelector('.provider-settings input[type=text]').value`)) === 'claude-haiku-5-5');
+  await setDateTime('Clé API Anthropic', apiKey);
+  check('saisir la clé n’envoie rien', providerRequests.length === 0);
+  await click('Enregistrer la clé');
+  const storageHolds = (area) => evaluate(`JSON.stringify(Object.entries(${area})).includes(${JSON.stringify(apiKey)})`);
+  check('la clé est gardée pour l’onglet, pas sur l’ordinateur', (await storageHolds('sessionStorage')) && !(await storageHolds('localStorage')));
+  check('la clé n’est plus affichée une fois enregistrée', !(await evaluate(hasText(apiKey))) && (await evaluate(`document.querySelector('.provider-settings input[type=password]').value === ''`)));
+  // The local server gives a made-up identity (`/.auth/me`), so remembering the key is offered: it warns first, keeps one copy, and goes back.
+  const remember = () => evaluate(`document.querySelector('.provider-settings input[type=checkbox]').click()`);
+  check('avec une identité, « me souvenir de ma clé » est proposé', (await evaluate(`document.querySelector('.provider-settings input[type=checkbox]').disabled`)) === false);
+  await remember();
+  check('mémoriser la clé avertit qu’elle reste dans le navigateur', await evaluate(hasText('lisible par tout script de cette page')));
+  await click('Enregistrer la clé');
+  check('mémorisée, la clé est sur l’ordinateur et plus dans l’onglet', (await storageHolds('localStorage')) && !(await storageHolds('sessionStorage')));
+  check('les clés écrites portent l’identité de l’utilisateur', await evaluate(`Object.keys(localStorage).some((name) => name.startsWith('sherlog:') && name.endsWith(':api-key') && name.length > 'sherlog::api-key'.length)`));
+  check('les réglages enregistrés ne contiennent pas la clé', !(await evaluate(`Object.entries(localStorage).filter(([name]) => name.endsWith(':ai-settings')).some(([, value]) => value.includes(${JSON.stringify(apiKey)}))`)));
+  await remember();
+  await click('Enregistrer la clé');
+  check('revenir à « cet onglet » efface la copie de l’ordinateur', (await storageHolds('sessionStorage')) && !(await storageHolds('localStorage')));
+  check('enregistrer la clé n’envoie rien', providerRequests.length === 0);
+  await click('Tester la connexion');
+  await waitFor(hasText('Connexion réussie'), 'le test de connexion Anthropic');
+  const toAnthropic = providerRequests.find((request) => request.method === 'POST' && request.url === 'https://api.anthropic.com/v1/messages');
+  check('le test atteint Anthropic sous la CSP de production, par une requête POST', toAnthropic !== undefined);
+  const sentHeaders = Object.fromEntries(Object.entries(toAnthropic?.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]));
+  check('la requête porte la clé et l’en-tête d’accès navigateur', sentHeaders['x-api-key'] === apiKey && sentHeaders['anthropic-dangerous-direct-browser-access'] === 'true' && sentHeaders['anthropic-version'] === '2026-10-21');
+  check('la requête ne porte ni cookie ni référent', sentHeaders['cookie'] === undefined && sentHeaders['referer'] === undefined, JSON.stringify(Object.keys(sentHeaders)));
+  check('la requête ne contient qu’une phrase fixe, rien du journal', (toAnthropic?.body ?? '').includes('Réponds uniquement par le mot : OK') && !(toAnthropic?.body ?? '').includes('Failed') && !(toAnthropic?.body ?? '').includes('john.doe'), toAnthropic?.body);
+  check('la clé reste absente de l’écran après le test', !(await evaluate(hasText(apiKey))));
+  await evaluate(`[...document.querySelectorAll('.provider-settings input[type=radio]')].find((radio) => radio.parentElement.textContent.includes('Ollama')).click()`);
+  check('avec Ollama, l’écran dit que les extraits restent sur l’ordinateur et ce qu’Ollama doit accepter', (await evaluate(hasText('restent sur cet ordinateur'))) && (await evaluate(hasText('OLLAMA_ORIGINS'))));
+  await click('Tester la connexion');
+  await waitFor(hasText('1 modèle installé'), 'la liste des modèles d’Ollama');
+  check('le test lit la liste des modèles d’Ollama sous la CSP de production', providerRequests.some((request) => request.method === 'GET' && request.url === 'http://localhost:11434/api/tags'));
+  check('aucune requête ne charge un modèle d’Ollama', !providerRequests.some((request) => request.url.includes('/api/chat')));
+  await evaluate(`[...document.querySelectorAll('.provider-settings input[type=radio]')].find((radio) => radio.parentElement.textContent.includes('Anthropic')).click()`);
+  await click('Oublier la clé');
+  check('oublier la clé l’efface des deux stockages', !(await storageHolds('sessionStorage')) && !(await storageHolds('localStorage')));
+  check('l’envoi des erreurs reste désactivé', (await isDisabled('Envoyer à l’IA')) === true);
+
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
+
+  // The CSP refuses any other address (the console then logs the refusal, which is why this comes after the check above).
+  const elsewhere = await evaluate(`fetch('https://example.com/').then(() => 'autorisée', () => 'refusée')`);
+  check('une requête vers une autre adresse est refusée par la CSP', elsewhere === 'refusée', elsewhere);
+  check('cette requête n’a atteint aucun fournisseur', !providerRequests.some((request) => request.url.includes('example.com')));
 }
 
 try {

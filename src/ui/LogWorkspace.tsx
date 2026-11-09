@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
+import type { StorageScope } from '../auth/storageScope';
 import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
 import type { RedactionRuleId } from '../core/redact';
@@ -8,6 +10,8 @@ import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { ErrorBrowser } from './ErrorBrowser';
 import { countOf, formatCount } from './format';
 import { PreparationScreen } from './PreparationScreen';
+import { ProviderSettings } from './ProviderSettings';
+import type { AiDependencies } from './ProviderSettings';
 import { SourcePicker } from './SourcePicker';
 import { Steps } from './Steps';
 import type { StepNumber } from './Steps';
@@ -18,8 +22,11 @@ import type { ScanDependencies, ScanState } from './useLogScan';
 interface LogWorkspaceProps {
   /** Replaces the worker and the format detection; used by the tests. */
   dependencies?: Partial<ScanDependencies>;
+  /** Whose key and settings the provider panel keeps; `null` while the identity is being read. */
+  storageScope?: StorageScope | null;
+  /** Replaces the storage and the network of the provider panel; used by the tests. */
+  aiDependencies?: Partial<AiDependencies>;
 }
-
 
 interface ScanSummaryProps {
   result: ScanResult;
@@ -57,9 +64,9 @@ function ScanSummary({ result, recorded, focusTarget }: ScanSummaryProps) {
   );
 }
 
-/** The step shown as current for each stage of the path from a log to its errors. */
-function stepOf(phase: ScanState['phase']): StepNumber {
-  switch (phase) {
+/** The step shown as current for each stage of the path from a log to its errors; once errors were found, the next is the sending. */
+function stepOf(state: ScanState): StepNumber {
+  switch (state.phase) {
     case 'idle':
     case 'detecting':
     case 'failed':
@@ -67,8 +74,9 @@ function stepOf(phase: ScanState['phase']): StepNumber {
     case 'ready':
       return 2;
     case 'analysing':
-    case 'analysed':
       return 3;
+    case 'analysed':
+      return state.records.length > 0 ? 4 : 3;
   }
 }
 
@@ -76,7 +84,7 @@ function stepOf(phase: ScanState['phase']): StepNumber {
  * The page's working area: choose a log, prepare it, analyse it on demand, read the errors.
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
-export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
+export function LogWorkspace({ dependencies, storageScope = null, aiDependencies }: LogWorkspaceProps) {
   const { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
 
   // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
@@ -98,9 +106,10 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
 
   return (
     <>
-      <Steps current={stepOf(state.phase)} />
+      <Steps current={stepOf(state)} />
       <Stage
         state={state}
+        sendSettings={<ProviderSettings scope={storageScope} {...aiDependencies} />}
         setFocusTarget={setFocusTarget}
         onFile={(file) => void chooseFile(file)}
         onText={(text) => void chooseText(text)}
@@ -119,6 +128,8 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
 
 interface StageProps {
   state: ScanState;
+  /** The provider's settings, which go in the sending panel once errors were found. */
+  sendSettings: ReactNode;
   setFocusTarget: (element: HTMLElement | null) => void;
   onFile: (file: File) => void;
   onText: (text: string) => void;
@@ -132,7 +143,7 @@ interface StageProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
 }
 
-function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
+function Stage({ state, sendSettings, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -213,6 +224,7 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onM
                   fileName={state.name}
                   masking={state.masking}
                   hasDate={state.profile !== null && !state.profile.limited}
+                  sendSettings={sendSettings}
                 />}
             </section>
           )}

@@ -341,6 +341,10 @@ button:disabled {
   border-left-color: var(--color-error);
 }
 
+.notice-ok {
+  border-left-color: var(--color-ok);
+}
+
 .result-title {
   color: var(--color-ink);
   font-weight: 700;
@@ -990,4 +994,48 @@ button:disabled {
 .neighbour-side h3 {
   margin: 0;
   font-size: 0.9375rem;
+}
+
+/* ---- Provider of the explanations ---- */
+
+.provider-settings {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+.provider-settings h3,
+.provider-settings p {
+  margin: 0;
+}
+
+.provider-choice {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.provider-choice legend {
+  padding: 0;
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+}
+
+.provider-option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.provider-settings .field .text-input,
+.provider-settings .field .select {
+  flex: none;
+  width: 100%;
+  max-width: 28rem;
 }

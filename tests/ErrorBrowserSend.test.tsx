@@ -371,11 +371,21 @@ describe('ErrorBrowser text that would be sent', () => {
     expect(screen.queryByLabelText('Texte exact envoyé pour l’erreur 1')).toBeNull();
   });
 
-  it('should say the provider is not chosen yet, since sending comes next', () => {
+  it('should say that sending is not available yet, since it comes with the analysis', () => {
     // Act
     show([record(0, 0)]);
 
     // Assert
-    expect(within(panel()).getByText(/fournisseur/i)).toBeInTheDocument();
+    expect(within(panel()).getByText(/l’envoi des erreurs choisies arrive avec l’analyse/)).toBeInTheDocument();
+  });
+
+  it('should show what it is given between the errors chosen and the button', () => {
+    // Arrange
+    render(
+      <ErrorBrowser records={[record(0, 0)]} readText={(position) => Promise.resolve(entryOf(position))} readNeighbours={() => Promise.resolve(noLines)} limitReached={false} sendSettings={<p>Réglages du fournisseur</p>} />,
+    );
+
+    // Assert
+    expect(within(panel()).getByText('Réglages du fournisseur')).toBeInTheDocument();
   });
 });
