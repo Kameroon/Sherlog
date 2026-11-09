@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { summariseIdentical } from '../src/core/identicalErrors';
+import { latestOccurrence, summariseIdentical } from '../src/core/identicalErrors';
 import type { ErrorRecord } from '../src/core/scanLog';
 
 const record = (offset: number, fingerprintId: number, timestamp: string | null = null): ErrorRecord => ({
@@ -84,5 +84,81 @@ describe('summariseIdentical', () => {
 
     // Assert
     expect([...groups.values()].reduce((total, group) => total + group.count, 0)).toBe(100_000);
+  });
+});
+
+describe('latestOccurrence', () => {
+  it('should give the error with the greatest time, which is not always the last one read', () => {
+    // Arrange
+    const records = [record(0, 1, '2026-11-04 09:00:00'), record(10, 1, '2026-11-04 11:00:00'), record(20, 1, '2026-11-04 10:00:00')];
+
+    // Act
+    const latest = latestOccurrence(records, 1, true);
+
+    // Assert
+    expect(latest).toEqual({ index: 1, byTime: true });
+  });
+
+  it('should compare dates before times', () => {
+    // Arrange
+    const records = [record(0, 1, '2026-11-05 01:00:00'), record(10, 1, '2026-11-04 23:00:00')];
+
+    // Act
+    const latest = latestOccurrence(records, 1, true);
+
+    // Assert
+    expect(latest?.index).toBe(0);
+  });
+
+  it('should give the last one read when the times are equal', () => {
+    // Arrange
+    const records = [record(0, 1, '2026-11-04 09:00:00'), record(10, 1, '2026-11-04 09:00:00')];
+
+    // Act
+    const latest = latestOccurrence(records, 1, true);
+
+    // Assert
+    expect(latest?.index).toBe(1);
+  });
+
+  it('should give the last one read when the format has no date, since times of day cannot be compared', () => {
+    // Arrange
+    const records = [record(0, 1, '23:00:00'), record(10, 1, '01:00:00')];
+
+    // Act
+    const latest = latestOccurrence(records, 1, false);
+
+    // Assert
+    expect(latest).toEqual({ index: 1, byTime: false });
+  });
+
+  it('should give the last one read when no occurrence has a time that can be placed', () => {
+    // Arrange
+    const records = [record(0, 1, null), record(10, 1, null)];
+
+    // Act
+    const latest = latestOccurrence(records, 1, true);
+
+    // Assert
+    expect(latest).toEqual({ index: 1, byTime: false });
+  });
+
+  it('should ignore the errors of other fingerprints', () => {
+    // Arrange
+    const records = [record(0, 1, '2026-11-04 09:00:00'), record(10, 2, '2026-11-04 12:00:00')];
+
+    // Act
+    const latest = latestOccurrence(records, 1, true);
+
+    // Assert
+    expect(latest?.index).toBe(0);
+  });
+
+  it('should give nothing for a fingerprint that has no error', () => {
+    // Act
+    const latest = latestOccurrence([record(0, 1)], 9, true);
+
+    // Assert
+    expect(latest).toBeNull();
   });
 });

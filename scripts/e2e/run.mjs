@@ -149,10 +149,6 @@ async function run(cdp, appUrl, dataDir) {
     );
     await click('Ajouter la règle');
   };
-  const setSelect = (label, value) =>
-    evaluate(
-      `(() => { const select = document.querySelector('[aria-label=${JSON.stringify(label)}]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, ${JSON.stringify(value)}); select.dispatchEvent(new Event('change', { bubbles: true })); })()`,
-    );
   const setDateTime = (label, value) =>
     evaluate(
       `(() => { const label = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === ${JSON.stringify(label)}); const input = document.getElementById(label.htmlFor); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
@@ -223,9 +219,9 @@ async function run(cdp, appUrl, dataDir) {
   check('le texte de l’erreur est relu depuis le fichier', (await text('.entry-text')).includes(`Executed endpoint 'HTTP: GET /health'`), await text('.entry-text'));
 
   // 2b. A period of times of day on the real sample, still on screen after its analysis.
-  for (const [label, value] of [['Heure de début', '12'], ['Minutes de début', '06'], ['Heure de fin', '12'], ['Minutes de fin', '06']]) {
-    await setSelect(label, value);
-  }
+  check('un format sans date propose deux champs heure', await evaluate(`document.querySelectorAll('input[type=time]').length === 2`));
+  await setDateTime('Heure de début', '12:06');
+  await setDateTime('Heure de fin', '12:06');
   check('changer la période après l’analyse efface le résultat et le dit', !(await evaluate(hasText('Analyse terminée'))) && (await evaluate(hasText('Vous avez changé les réglages'))));
   const timed = await counters();
   check('la période 12:06 à 12:06 écarte 7 des 21 entrées', same(timed, ['21 entrées lues', '7 écartées par vos réglages', '14 prêtes à analyser']), timed.join(' | '));
@@ -233,7 +229,7 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse avec la période', 20000);
   check('avec la période, l’analyse trouve 2 erreurs sur 14 entrées gardées', (await text('.result-sentence')) === '21 entrées lues, 2 erreurs (1 distincte).', await text('.result-sentence'));
   check('les chiffres exacts de la période sont ceux de l’aperçu', same(await counters(), timed));
-  await setSelect('Minutes de début', '07');
+  await setDateTime('Heure de début', '12:07');
   check('une fin avant le début est refusée avec sa raison', await evaluate(hasText('La fin doit suivre le début')));
   check('l’analyse est interdite tant que la période est invalide', (await isDisabled('Analyser ce journal')) === true);
 
@@ -242,7 +238,15 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix d’un journal daté');
   await chooseFile(join(root, 'samples', 'sample.log'));
   await waitFor(hasText('Format reconnu'), 'la reconnaissance du journal daté');
-  check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('[aria-label="Heure de début"]')`)));
+  // 2d. Masking on the dated sample, which holds a password, an address and an identifier.
+  const excerpt = await text('.excerpt');
+  check('l’aperçu remplace le mot de passe et l’adresse e-mail par leurs étiquettes', excerpt.includes('Password=[SECRET]') && excerpt.includes('[EMAIL]') && !excerpt.includes('S3cr3t!') && !excerpt.includes('john.doe@example.com'), excerpt.slice(0, 120));
+  check('le compteur annonce 2 données masquées', (await counters()).some((counter) => counter === '2 données masquées'), (await counters()).join(' | '));
+  check('le GUID n’est masqué que sur option : l’aperçu le garde', excerpt.includes('7f3c9a52-1b6e-4a0d-9b8e-2d5c1a6e44f1'));
+  await click('Afficher le texte d’origine');
+  check('le texte d’origine s’affiche sur demande', (await text('.excerpt')).includes('Password=S3cr3t!'));
+  await click('Afficher le texte d’origine');
+  check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('input[type=time]')`)));
   await setDateTime('Début (date et heure)', '2026-11-04T08:16');
   await setDateTime('Fin (date et heure)', '2026-11-04T08:16');
   const dated = await counters();
@@ -320,7 +324,8 @@ async function run(cdp, appUrl, dataDir) {
   const bigSummary = await text('.result-sentence');
   const bigExpected = `${fr(expected.entries)} entrées lues, ${fr(expected.errors)} erreurs (${expected.distinct} distinctes).`;
   check('le gros fichier donne exactement les comptes attendus', bigSummary === bigExpected, `obtenu « ${bigSummary} », attendu « ${bigExpected} »`);
-  const bigCounters = await counters();
+  // A fourth counter, « données masquées dans le début », comes with the masking: the reading counters are the first three.
+  const bigCounters = (await counters()).slice(0, 3);
   const bigCountersExpected = [`${fr(expected.entries)} entrées lues`, `${fr(expected.health)} écartées par vos réglages`, `${fr(expected.entries - expected.health)} prêtes à analyser`];
   check('le gros fichier donne les compteurs exacts avec la règle', same(bigCounters, bigCountersExpected), `obtenu ${bigCounters.join(' | ')}, attendu ${bigCountersExpected.join(' | ')}`);
   const bigOptions = await optionCount();
@@ -391,10 +396,63 @@ async function run(cdp, appUrl, dataDir) {
   check('au milieu de l’ascenseur, la page montre les lignes du milieu de la liste', middle.some((position) => position > 40000 && position < 60000), `${Math.min(...middle)} à ${Math.max(...middle)}`);
   metrics.heapMB = await evaluate(`Math.round(performance.memory.usedJSHeapSize / 1048576)`);
 
+  // 3b. Search and sort over 100 000 recorded errors: the list follows within a time a user can bear.
+  const setSearch = (value) =>
+    evaluate(
+      `(() => { const field = document.querySelector('input[type=search]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
+    );
+  const setSort = (value) =>
+    evaluate(
+      `(() => { const field = [...document.querySelectorAll('select')].find((select) => select.id.endsWith('-sort')); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    );
+  const listSize = () => evaluate(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize') ?? 0)`);
+  const firstTime = () => evaluate(`document.querySelector('[role=listbox] [role=option] .error-time')?.textContent ?? ''`);
+  // The generator cycles through six messages: the first one, which names PaymentGateway, is every sixth error.
+  const paymentErrors = Math.ceil(manySetSize / 6);
+  const searchStart = performance.now();
+  await setSearch('PaymentGateway');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${paymentErrors}`, 'la liste réduite par la recherche');
+  metrics.searchMs = Math.round(performance.now() - searchStart);
+  check('la recherche ne garde que les erreurs qui contiennent le texte', (await listSize()) === paymentErrors, `${await listSize()} lignes, ${paymentErrors} attendues`);
+  check('le nombre d’erreurs affichées est annoncé', plain(await text('.error-toolbar-count')) === `${fr(paymentErrors)} erreurs affichées sur ${fr(manySetSize)}`, await text('.error-toolbar-count'));
+  await setSearch('');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${manySetSize}`, 'la liste entière après avoir vidé la recherche');
+  // The generated times go back to midnight after 86 400 entries, so the most recent error is not the last one read.
+  const firstInReading = await firstTime();
+  const firstTimeIs = (time) => `(document.querySelector('[role=listbox] [role=option] .error-time')?.textContent ?? '') === ${JSON.stringify(time)}`;
+  const shownTimes = () => evaluate(`[...document.querySelectorAll('[role=listbox] [role=option] .error-time')].slice(0, 50).map((time) => time.textContent)`);
+  const sortStart = performance.now();
+  await setSort('time:desc');
+  await waitFor(`!(${firstTimeIs(firstInReading)})`, 'la liste triée par heure, la plus récente d’abord');
+  metrics.sortByTimeMs = Math.round(performance.now() - sortStart);
+  const newestFirst = await shownTimes();
+  check('trié par heure, la plus récente d’abord, les premières lignes ne remontent pas dans le temps', newestFirst.length === 50 && newestFirst.every((time, i) => i === 0 || time <= newestFirst[i - 1]) && newestFirst[0] > firstInReading, `${newestFirst[0]} puis ${newestFirst[49]}`);
+  check('trier laisse 100 000 erreurs dans la liste et moins de 400 lignes dans la page', (await listSize()) === manySetSize && (await optionCount()) < 400);
+  await setSort('reading:asc');
+  await waitFor(firstTimeIs(firstInReading), 'le retour à l’ordre de lecture');
+
+  // 3c. A status holds for every identical error: the first error is one of the six messages, repeated every sixth error.
+  const setSelectByLabel = (label, value) =>
+    evaluate(
+      `(() => { const caption = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === ${JSON.stringify(label)}); const field = document.getElementById(caption.htmlFor); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    );
+  await pressOnList('Home');
+  await pressOnList('Enter');
+  await waitFor(`[...document.querySelectorAll('label')].some((candidate) => candidate.textContent === 'Statut de cette erreur')`, 'le choix du statut dans le détail');
+  const statusStart = performance.now();
+  await setSelectByLabel('Statut de cette erreur', 'resolved');
+  await setSelectByLabel('Statut', 'resolved');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${paymentErrors}`, 'la liste des erreurs résolues');
+  metrics.statusAndFilterMs = Math.round(performance.now() - statusStart);
+  check('un statut vaut pour toutes les erreurs identiques, que le filtre de statut isole', (await listSize()) === paymentErrors, `${await listSize()} lignes, ${paymentErrors} attendues`);
+  check('chaque ligne résolue le dit', (await evaluate(`[...document.querySelectorAll('[role=listbox] [role=option]')].every((option) => option.textContent.includes('Résolu'))`)) === true);
+  await setSelectByLabel('Statut', '');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${manySetSize}`, 'la liste entière sans filtre de statut');
+
   // 4. Pasted text with markup: shown as text, never interpreted.
   await click('Choisir un autre journal');
   await waitFor(`!!document.querySelector('#paste-input')`, 'le champ de collage');
-  const pasted = '[08:16:10 ERR] Failed <img src=x onerror=alert(1)>\n[08:16:11 INF] Next\n';
+  const pasted = '[08:16:10 ERR] Failed <img src=x onerror=alert(1)> for john.doe@example.com from 10.0.4.17\n[08:16:11 INF] Next from 10.0.4.18\n';
   await evaluate(
     `(() => { const field = document.querySelector('#paste-input'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(pasted)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
   );
@@ -409,8 +467,19 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasButton('Voir les lignes autour'), 'le bouton des lignes autour de l’erreur collée');
   await click('Voir les lignes autour');
   await waitFor(hasText('Aucune ligne avant'), 'les lignes autour de l’erreur collée');
-  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
+  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next from 10.0.4.18' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
 
+  // 5. What would be sent: chosen by the user, masked, the lines around the error included, nothing sent.
+  check('aucune erreur n’est choisie d’office', (await evaluate(`document.querySelector('.send-panel')?.textContent.includes('Aucune erreur choisie.')`)) === true);
+  await evaluate(`[...document.querySelectorAll('label')].find((label) => label.textContent.includes('Faire expliquer cette erreur par l’IA')).querySelector('input').click()`);
+  await waitFor(`!!document.querySelector('.send-panel .send-item')`, 'l’erreur choisie dans le panneau d’envoi');
+  check('l’erreur choisie est marquée dans la liste', (await text('[role=option]')).includes('À envoyer'));
+  await click('Voir le texte exact');
+  await waitFor(`!!document.querySelector('[aria-label^="Texte exact envoyé"]')`, 'le texte exact envoyé');
+  const sent = await text('[aria-label^="Texte exact envoyé"]');
+  check('le texte envoyé masque l’adresse e-mail et les adresses IP, lignes autour comprises', sent.includes('[EMAIL]') && sent.includes('[IP]') && !sent.includes('john.doe') && !sent.includes('10.0.4.17') && !sent.includes('10.0.4.18'), sent);
+  check('le balisage reste du texte dans le texte envoyé', sent.includes('<img src=x') && !(await evaluate(`!!document.querySelector('.send-panel img')`)));
+  check('l’envoi n’est pas disponible et le dit', (await isDisabled('Envoyer à l’IA')) === true && (await evaluate(hasText('Rien n’a été envoyé'))));
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 }
 

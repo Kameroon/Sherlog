@@ -3,6 +3,8 @@ import type { ErrorRecord, ScanResult } from '../core/scanLog';
 import { EMPTY_PREPARATION, NO_PERIOD } from '../core/preparation';
 import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
+import { DEFAULT_ENABLED_RULES } from '../core/redact';
+import type { RedactionRuleId } from '../core/redact';
 import { readHead } from '../sources/readHead';
 import type { FormatDetection, HeadRead } from '../sources/readHead';
 import { readEntryText } from '../sources/readEntryText';
@@ -23,12 +25,17 @@ interface Chosen {
   /** `true` when `head` is the whole source, so that the figures computed on it are exact. */
   readonly complete: boolean;
   readonly preparation: Preparation;
+  /**
+   * The masking rules that are on. Apart from the preparation: masking changes what is shown and sent, not which
+   * errors there are, so changing it does not make a result obsolete.
+   */
+  readonly masking: ReadonlySet<RedactionRuleId>;
   /** The format the log is read with: the recognised one at first, then the user's choice; `null` until there is one. */
   readonly profile: LogProfile | null;
 }
 
-function chosenOf({ source, name, detection, head, complete, preparation, profile }: Chosen): Chosen {
-  return { source, name, detection, head, complete, preparation, profile };
+function chosenOf({ source, name, detection, head, complete, preparation, masking, profile }: Chosen): Chosen {
+  return { source, name, detection, head, complete, preparation, masking, profile };
 }
 
 /**
@@ -47,6 +54,7 @@ type Action =
   | { readonly type: 'detecting' }
   | { readonly type: 'chosen'; readonly chosen: Chosen }
   | { readonly type: 'preparationChanged'; readonly preparation: Preparation }
+  | { readonly type: 'maskingChanged'; readonly masking: ReadonlySet<RedactionRuleId> }
   | { readonly type: 'profileChanged'; readonly profile: LogProfile }
   | { readonly type: 'analysisStarted' }
   | { readonly type: 'message'; readonly message: ScanMessage }
@@ -66,6 +74,8 @@ function reducer(state: ScanState, action: Action): ScanState {
         return { phase: 'ready', settingsChanged: true, ...chosenOf(state), preparation: action.preparation };
       }
       return state.phase === 'ready' ? { ...state, preparation: action.preparation } : state;
+    case 'maskingChanged':
+      return state.phase === 'ready' || state.phase === 'analysed' ? { ...state, masking: action.masking } : state;
     case 'profileChanged': {
       // JSON is not read yet: there is no format to offer for it. The period fits the format it was set for, so it goes.
       if ((state.phase !== 'ready' && state.phase !== 'analysed') || state.detection.status === 'structured') {
@@ -141,7 +151,7 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
         const { detection, head, complete } = await read(source);
         if (generation === generationRef.current) {
           const profile = detection.status === 'detected' ? detection.profile : null;
-          dispatch({ type: 'chosen', chosen: { source, name, detection, head, complete, preparation: EMPTY_PREPARATION, profile } });
+          dispatch({ type: 'chosen', chosen: { source, name, detection, head, complete, preparation: EMPTY_PREPARATION, masking: DEFAULT_ENABLED_RULES, profile } });
         }
       } catch (error) {
         if (generation === generationRef.current) {
@@ -183,6 +193,10 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
     dispatch({ type: 'preparationChanged', preparation });
   }, []);
 
+  const changeMasking = useCallback((masking: ReadonlySet<RedactionRuleId>) => {
+    dispatch({ type: 'maskingChanged', masking });
+  }, []);
+
   const changeProfile = useCallback((profile: LogProfile) => {
     dispatch({ type: 'profileChanged', profile });
   }, []);
@@ -199,25 +213,30 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
     dispatch({ type: 'reset' });
   }, [stopScan]);
 
+  // What the readers need, not the whole state: a change of the masking makes a new state, and readers that changed
+  // with it would send every open detail and every « texte exact » to read the file again.
+  const analysedSource = state.phase === 'analysed' ? state.source : null;
+  const analysedEncoding = state.phase === 'analysed' ? state.result.encoding : null;
+
   const readText = useCallback(
     (position: EntryPosition): Promise<EntryText> => {
-      if (state.phase !== 'analysed' || state.result.encoding === null) {
+      if (analysedSource === null || analysedEncoding === null) {
         return Promise.reject(new Error('aucun journal analysé'));
       }
-      return readEntryText(state.source, position, state.result.encoding);
+      return readEntryText(analysedSource, position, analysedEncoding);
     },
-    [state],
+    [analysedSource, analysedEncoding],
   );
 
   const readNeighbours = useCallback(
     (position: EntryPosition): Promise<NeighbourLines> => {
-      if (state.phase !== 'analysed' || state.result.encoding === null) {
+      if (analysedSource === null || analysedEncoding === null) {
         return Promise.reject(new Error('aucun journal analysé'));
       }
-      return readNeighbourLines(state.source, position, state.result.encoding);
+      return readNeighbourLines(analysedSource, position, analysedEncoding);
     },
-    [state],
+    [analysedSource, analysedEncoding],
   );
 
-  return { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText, readNeighbours };
+  return { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours };
 }

@@ -1,7 +1,10 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { NO_STATUSES, statusOf } from '../core/errorStatus';
+import type { StatusByFingerprint } from '../core/errorStatus';
 import type { IdenticalErrors } from '../core/identicalErrors';
 import type { ErrorRecord } from '../core/scanLog';
+import { labelOfStatus } from './statusLabels';
 
 /** Rows in one block of the list. Only the blocks near the window hold real rows (see {@link ErrorList}). */
 export const ROWS_PER_CHUNK = 50;
@@ -14,6 +17,10 @@ interface ErrorListProps {
   records: readonly ErrorRecord[];
   /** What the errors that share a fingerprint have in common; see `summariseIdentical`. */
   groups: ReadonlyMap<number, IdenticalErrors>;
+  /** The status of each fingerprint that has one; a row shows it when it is not « new ». */
+  statuses?: StatusByFingerprint;
+  /** The fingerprints the user chose to have explained: their rows say so. */
+  chosenForSending?: ReadonlySet<number>;
   /** Index of the row whose detail is shown, or `null`. */
   selected: number | null;
   onSelect: (index: number) => void;
@@ -30,12 +37,12 @@ interface ErrorListProps {
  * is always in the page), and every row says its position in the whole list. The arrows, Home, End and the page keys
  * move the active row; Enter, Space or a click select it, which is what makes its detail appear.
  */
-export function ErrorList({ records, groups, selected, onSelect }: ErrorListProps) {
+export function ErrorList({ records, groups, statuses = NO_STATUSES, chosenForSending, selected, onSelect }: ErrorListProps) {
   const listId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const firstChunkRef = useRef<HTMLDivElement>(null);
   const [firstVisibleChunk, setFirstVisibleChunk] = useState(0);
-  const [active, setActive] = useState(0);
+  const [requestedActive, setActive] = useState(0);
   const [metrics, setMetrics] = useState({ chunkPx: ROWS_PER_CHUNK * FALLBACK_ROW_PX, viewportPx: FALLBACK_VIEWPORT_PX });
 
   // Measured, not assumed: the height of a row follows the size of the text.
@@ -53,6 +60,8 @@ export function ErrorList({ records, groups, selected, onSelect }: ErrorListProp
   }, [records.length]);
 
   const total = records.length;
+  // The list can get shorter under the active row (a status change under a filter): the row stays one of the list.
+  const active = Math.max(0, Math.min(requestedActive, total - 1));
   const chunkCount = Math.ceil(total / ROWS_PER_CHUNK);
   const rowPx = metrics.chunkPx / ROWS_PER_CHUNK;
   const lastVisibleChunk = firstVisibleChunk + Math.ceil(metrics.viewportPx / metrics.chunkPx);
@@ -146,12 +155,14 @@ export function ErrorList({ records, groups, selected, onSelect }: ErrorListProp
             >
               {record.timestamp !== null && <span className="error-time">{record.timestamp}</span>}
               <span className="error-level">{record.level}</span>
+              {statusOf(statuses, record.fingerprintId) !== 'new' && <span className="badge badge-status">{labelOfStatus(statusOf(statuses, record.fingerprintId))}</span>}
               {count > 1 && (
                 <span className="badge">
                   ×{count}
                   <span className="visually-hidden"> identiques</span>
                 </span>
               )}
+              {chosenForSending?.has(record.fingerprintId) === true && <span className="badge badge-status">À envoyer</span>}
               <span className="error-first-line">{`${record.message}${record.messageCut ? '…' : ''}`}</span>
             </div>
           );
