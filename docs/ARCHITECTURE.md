@@ -16,6 +16,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-013** Liste virtualisée par blocs, sans style calculé.
 - **ADR-015** *(proposé)* Masquage par règles strictes qui ne devinent pas (`redact`) : contexte ou contrôle exigé, options pour les identifiants, dernier filet à l'envoi, durée bornée ; outil « Masquer » de la préparation (état à côté de la préparation, texte d'origine à la demande).
 - **ADR-016** *(proposé)* Choix explicite des erreurs à envoyer (par empreinte, occurrence la plus récente) et aperçu du texte exact : masqué avant d'être coupé, coupure explicite, rien n'est envoyé.
+- **ADR-018** *(proposé)* Analyse d'une erreur : envoi sur clic du texte de l'aperçu, prompt durci (journal en données entre des délimiteurs au délimiteur aléatoire tiré par requête), réponse validée champ par champ (une relance, sinon texte brut), rendu en texte seul, statut « Analysé » ; audit de sécurité complet de l'étape 8.
 - **ADR-017** Fournisseurs d'IA (Anthropic par `fetch` et SSE, Ollama), clé de l'utilisateur (mémoire, onglet ou ordinateur, une copie, cloisonnée par identité), test de connexion sans contenu de journal, CSP limitée à deux adresses ; audit de sécurité complet de l'étape 7.
 - **ADR-014** Tri, filtres (niveau, statut), recherche et statuts par empreinte calculés sur les enregistrements en mémoire (fonctions pures de `core`), sans relire le fichier ; la recherche ne couvre pas la pile ; statuts en session.
 - **ADR-011** Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
@@ -28,7 +29,7 @@ sherlog/
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), occurrence la plus récente (identicalErrors), regroupement des identiques (identicalErrors), Redactor — TS pur
 │  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
-│  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, streamLines, serverSentEvents, errors, failureMessage ; plus tard prompts (étape 8)
+│  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, createProvider, streamLines, serverSentEvents, errors, failureMessage ; étape 8 : analysisPrompt + prompts/*.md (ressources embarquées), analysis (schéma et validation), analyseError
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
 │  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité) ; plus tard historique local (IndexedDB)
 │  └─ ui/        composants React
@@ -50,7 +51,7 @@ Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets �
 1. **Collecte** : choisir un fichier ou coller du texte reconnaît le format sur le début (`readHead`, dont les octets sont gardés) et ouvre l'espace de préparation (format, règles, période ; compteurs et aperçu calculés sur ce début par `parseHead` puis `previewHead`), sans rien analyser ; « Analyser ce journal » lance `Blob` → worker (`scanLog` : découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et table des empreintes en état de session.
    Le worker ne conserve que des positions et métadonnées (voir « Mémoire » au §3 de `SPEC.md`) ; le texte est relu par `readEntryText` (`Blob.slice`) à l'affichage du détail et à l'analyse.
    Pour le collage et les résultats Azure, le texte reste en mémoire. Le worker est annulable et terminable (regex de profil saisie par l'utilisateur).
-2. **Analyse** : erreur (occurrence la plus récente de son empreinte) + contexte → `redact` → aperçu → `AiProvider` → JSON validé, rattaché à l'empreinte.
+2. **Analyse** (étape 8) : erreur (occurrence la plus récente de son empreinte) + contexte → `buildSendPayload` (`redact` puis coupure ; même fonction que l'aperçu) → `buildAnalysisPrompt` (bloc de données au délimiteur aléatoire) → `AiProvider` → `parseAnalysis` (JSON validé, une relance, sinon texte brut dit non structuré) → rattaché à l'empreinte, en mémoire.
 3. **Chat** : historique + contexte → réponse en streaming.
 4. **Historique local** (optionnel) : écriture IndexedDB, export/import JSON.
 
@@ -92,5 +93,5 @@ Appel Anthropic par `fetch` + lecture SSE manuelle (pas de SDK), validation de l
 MSAL.js : mesuré à l'étape 1 à 68,74 Ko gzip (`@azure/msal-browser` 5.28.0), soit environ 139 Ko avec le JavaScript de l'application, sous le budget (ADR-004) ; il n'est ajouté qu'à l'étape 10c. Les prompts `.md` sont embarqués au build (`?raw`) : le bénéfice est la lisibilité et le diff, pas l'absence de rebuild.
 
 ## Écrans
-Une page principale : sources, liste d'erreurs virtualisée par blocs (ADR-013), panneau de détail avec onglets Analyse et Chat (le détail existe depuis l'étape 5, les onglets arrivent aux étapes 8 et 9) ; les réglages du fournisseur et de la clé sont un panneau de l'étape « Envoyer à l'IA », pas une page (ADR-017).
+Une page principale : sources, liste d'erreurs virtualisée par blocs (ADR-013), panneau de détail (depuis l'étape 5) où l'analyse s'affiche sous le statut (étape 8) ; les onglets Analyse et Chat n'arrivent qu'avec le chat, à l'étape 9 ; les réglages du fournisseur et de la clé sont un panneau de l'étape « Envoyer à l'IA », pas une page (ADR-017).
 Conception et accessibilité : `frontend-architect`.

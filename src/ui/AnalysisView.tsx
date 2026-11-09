@@ -83,6 +83,7 @@ export function AnalysisView({ entry, twins }: { entry: AnalysisEntry; twins: nu
         Faite par {entry.by}, à partir de l’occurrence la plus récente.
         {twins > 1 && ` Elle vaut aussi pour les ${formatCount(twins)} erreurs identiques.`}
       </p>
+      <p className="small-note">Produite par un modèle à partir d’un journal dont rien ne garantit le contenu : à vérifier avant d’agir.</p>
       {outcome.kind === 'structured' ? (
         <Structured analysis={outcome.analysis} />
       ) : (

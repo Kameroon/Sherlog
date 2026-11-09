@@ -17,6 +17,7 @@ const analysis: Analysis = {
   missingInfo: ['La configuration réseau'],
 };
 const done = (value: Analysis = analysis): AnalysisEntry => ({ status: 'done', outcome: { kind: 'structured', analysis: value }, by: 'claude-haiku-5-5 (Anthropic)' });
+const unstructured: AnalysisEntry = { status: 'done', outcome: { kind: 'unstructured', text: 'x' }, by: 'llama3:8b (Ollama)' };
 const show = (entry: AnalysisEntry, twins = 1) => render(<AnalysisView entry={entry} twins={twins} />);
 
 describe('AnalysisView structured analysis', () => {
@@ -83,6 +84,17 @@ describe('AnalysisView structured analysis', () => {
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('b')).toBeNull();
     expect(screen.getAllByText(hostile).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it.each([
+    ['a structured analysis', done()],
+    ['an unstructured answer', unstructured],
+  ])('should remind that %s is the work of a model that read an untrusted log, to check before acting', (_name, entry) => {
+    // Act
+    show(entry);
+
+    // Assert
+    expect(screen.getByText(/à vérifier avant d’agir/)).toBeInTheDocument();
   });
 
   it('should not turn a link written by the model into a link', () => {
