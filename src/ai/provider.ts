@@ -3,6 +3,9 @@ import { AiRequestError } from './errors';
 /** The two providers a user can choose from. */
 export type ProviderId = 'anthropic' | 'ollama';
 
+/** The name of each provider, for the screen. */
+export const PROVIDER_NAMES: Readonly<Record<ProviderId, string>> = { anthropic: 'Anthropic', ollama: 'Ollama' };
+
 export interface Message {
   readonly role: 'user' | 'assistant';
   readonly content: string;

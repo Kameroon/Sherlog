@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { ProviderChoice } from '../ai/createProvider';
+import { PROVIDER_NAMES } from '../ai/provider';
 import type { IdenticalErrors } from '../core/identicalErrors';
 import { latestOccurrence } from '../core/identicalErrors';
 import { REDACTION_RULES, rulesForSending } from '../core/redact';
@@ -10,6 +12,9 @@ import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import { readFailureMessage } from '../sources/readFailure';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { countOf, formatCount } from './format';
+import type { AnalysisByFingerprint, AnalysisEntry } from './analysisState';
+import { sendSourceOf } from './sendSource';
+import type { SendProgress } from './useAnalyses';
 
 /** What the panel shows of the log it reads for one error: the reads in progress, the text, or why it could not be read. */
 type Reading =
@@ -33,12 +38,22 @@ interface SendPanelProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
   onRemove: (fingerprintId: number) => void;
   onClear: () => void;
+  /** What the user chose in the settings, once it is usable; `null` until then. */
+  provider: ProviderChoice | null;
+  /** What was asked of the model for each fingerprint. */
+  analyses: AnalysisByFingerprint;
+  /** `null` when nothing is being sent. */
+  progress: SendProgress | null;
+  onSend: () => void;
+  onCancelSend: () => void;
   /** The choice of the provider and its key, shown between the errors chosen and the button. */
   children?: ReactNode;
 }
 
 interface ItemProps extends Pick<SendPanelProps, 'fileName' | 'masking' | 'countIsMinimum' | 'readText' | 'readNeighbours'> {
   record: ErrorRecord;
+  /** What was asked of the model for this error, if anything. */
+  analysis: AnalysisEntry | undefined;
   /** Number of the error in the log, from 1. */
   number: number;
   group: IdenticalErrors;
@@ -48,7 +63,7 @@ interface ItemProps extends Pick<SendPanelProps, 'fileName' | 'masking' | 'count
 }
 
 /** The text that would be sent for one error, read from the log when the user asks to see it, masked and cut like a request would. */
-function ExactText({ record, number, group, fileName, masking, countIsMinimum, readText, readNeighbours }: Omit<ItemProps, 'byTime' | 'hasDate' | 'onRemove'>) {
+function ExactText({ record, number, group, fileName, masking, countIsMinimum, readText, readNeighbours }: Omit<ItemProps, 'byTime' | 'hasDate' | 'onRemove' | 'analysis'>) {
   const [reading, setReading] = useState<Reading>({ status: 'loading' });
 
   useEffect(() => {
@@ -75,20 +90,7 @@ function ExactText({ record, number, group, fileName, masking, countIsMinimum, r
   const payload = useMemo(
     () =>
       reading.status === 'done'
-        ? buildSendPayload(
-            {
-              fileName,
-              count: group.count,
-              countIsMinimum,
-              firstSeen: group.first.timestamp,
-              lastSeen: group.last.timestamp,
-              entry: reading.entry.text,
-              entryReadLimitReached: reading.entry.cut,
-              before: reading.lines.before,
-              after: reading.lines.after,
-            },
-            masking,
-          )
+        ? buildSendPayload(sendSourceOf({ fileName, group, countIsMinimum, entry: reading.entry, lines: reading.lines }), masking)
         : null,
     [reading, fileName, group, countIsMinimum, masking],
   );
@@ -123,7 +125,7 @@ function ExactText({ record, number, group, fileName, masking, countIsMinimum, r
   );
 }
 
-function SendItem({ record, number, group, byTime, hasDate, onRemove, ...reading }: ItemProps) {
+function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, ...reading }: ItemProps) {
   const [shown, setShown] = useState(false);
   const textId = useId();
   const time = record.timestamp ?? 'sans heure';
@@ -144,6 +146,13 @@ function SendItem({ record, number, group, byTime, hasDate, onRemove, ...reading
         </button>
       </div>
       <div id={textId}>{shown && <ExactText record={record} number={number} group={group} {...reading} />}</div>
+      {analysis?.status === 'running' && <p className="small-note">Analyse en cours…</p>}
+      {analysis?.status === 'done' && <p className="small-note">Analyse reçue : elle est dans le détail de l’erreur.</p>}
+      {analysis?.status === 'failed' && (
+        <p className="notice notice-error" role="alert">
+          {analysis.message}
+        </p>
+      )}
     </li>
   );
 }
@@ -155,7 +164,7 @@ function SendItem({ record, number, group, byTime, hasDate, onRemove, ...reading
  * log as data is its work, `docs/PROMPTS.md`), and the button says so. This text is what comes from the log;
  * the instructions to the model and a random delimiter are added at sending time.
  */
-export function SendPanel({ records, groups, chosen, fileName, masking, hasDate, countIsMinimum, readText, readNeighbours, onRemove, onClear, children }: SendPanelProps) {
+export function SendPanel({ records, groups, chosen, fileName, masking, hasDate, countIsMinimum, readText, readNeighbours, onRemove, onClear, provider, analyses, progress, onSend, onCancelSend, children }: SendPanelProps) {
   const id = useId();
   const items = useMemo(
     () =>
@@ -190,6 +199,7 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
               <SendItem
                 key={item.fingerprintId}
                 record={item.record}
+                analysis={analyses.get(item.fingerprintId)}
                 number={item.number}
                 group={item.group}
                 byTime={item.byTime}
@@ -213,12 +223,26 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
         </>
       )}
       {children}
+      <p className="small-note">
+        {provider === null
+          ? 'Choisissez un fournisseur et donnez sa clé dans les réglages ci-dessus pour pouvoir envoyer.'
+          : `Au clic, le texte exact de chaque erreur choisie part vers ${provider.provider === 'anthropic' ? 'Anthropic (api.anthropic.com)' : `${PROVIDER_NAMES.ollama} sur cet ordinateur (localhost:11434)`}, modèle ${provider.model}. Rien n’est envoyé avant.`}
+      </p>
       <div className="actions">
-        <button type="button" className="button-primary" disabled>
+        <button type="button" className="button-primary" disabled={items.length === 0 || provider === null || progress !== null} onClick={onSend}>
           Envoyer à l’IA
         </button>
+        {progress !== null && (
+          <button type="button" className="button-secondary" onClick={onCancelSend}>
+            Annuler
+          </button>
+        )}
       </div>
-      <p className="small-note">Pas encore disponible : l’envoi des erreurs choisies arrive avec l’analyse. Rien n’a été envoyé.</p>
+      {progress !== null && (
+        <p className="hint" role="status">
+          {`Analyse ${formatCount(progress.done + 1)} sur ${formatCount(progress.total)}…`}
+        </p>
+      )}
     </section>
   );
 }

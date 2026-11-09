@@ -5,6 +5,7 @@ import { readAnswer } from '../src/ai/provider';
 
 async function* pieces(...texts: string[]): AsyncGenerator<string> {
   for (const text of texts) {
+    await Promise.resolve();
     yield text;
   }
 }
@@ -35,6 +36,7 @@ describe('readAnswer', () => {
     async function* endless(): AsyncGenerator<string> {
       for (;;) {
         read += 1;
+        await Promise.resolve();
         yield 'xxxx';
       }
     }
