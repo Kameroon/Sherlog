@@ -1,7 +1,7 @@
 # ADR-017 : Fournisseurs d'IA, clé de l'utilisateur et test de connexion
 
 ## Statut
-Proposé — 2026-11-09, en attente de la validation de l'étape 7 par l'auteur. Complète l'ADR-002 (qui décide le principe des appels directs) : celui-ci décide ce qui est réalisé à l'étape 7.
+Accepté — 2026-11-09, avec la validation de l'étape 7 par l'auteur. Complète l'ADR-002 (qui décide le principe des appels directs) : celui-ci décide ce qui est réalisé à l'étape 7.
 
 ## Contexte
 L'étape 7 donne à Sherlog sa première sortie réseau : un fournisseur d'IA choisi par l'utilisateur, avec sa clé (Anthropic) ou son modèle local (Ollama). Le prompt durci qui range le journal dans des données (délimiteur aléatoire, JSON validé) est l'étape 8 : tant qu'il n'existe pas, **aucun mot d'un journal ne doit partir**. Décisions de l'auteur du 2026-11-09 : réglages dans l'étape 4 plutôt qu'une page à part ; « Tester la connexion » seulement ; « se souvenir de ma clé » avec avertissement ; modèle en champ libre, Haiku 5.5 au départ, liste des modèles installés pour Ollama.
