@@ -6,15 +6,12 @@ import { AiRequestError } from '../ai/errors';
 import { failureMessage } from '../ai/failureMessage';
 import { PROVIDER_NAMES } from '../ai/provider';
 import type { IdenticalErrors } from '../core/identicalErrors';
-import { latestOccurrence } from '../core/identicalErrors';
 import type { RedactionRuleId } from '../core/redact';
 import type { ErrorRecord } from '../core/scanLog';
-import { buildSendPayload } from '../core/sendPayload';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import { readFailureMessage } from '../sources/readFailure';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
 import type { AnalysisByFingerprint, AnalysisEntry } from './analysisState';
-import { sendSourceOf } from './sendSource';
+import { readPayload } from './readPayload';
 
 /** What the analyses read of the analysis session; given afresh at each render, read when it is needed. */
 export interface AnalysesInputs {
@@ -93,26 +90,15 @@ export function useAnalyses(inputs: AnalysesInputs): Analyses {
         setProgress({ done: index, total: job.fingerprints.length });
         setEntry(fingerprintId, { status: 'running' });
         const { records, groups, fileName, hasDate, countIsMinimum, readText, readNeighbours, fetchImpl, siteOrigin } = latest.current;
-        const found = latestOccurrence(records, fingerprintId, hasDate);
-        const record = found === null ? undefined : records[found.index];
-        const group = groups.get(fingerprintId);
-        if (record === undefined || group === undefined) {
-          setEntry(fingerprintId, { status: 'failed', message: 'Cette erreur n’est plus dans la liste.' });
-          return;
-        }
-
-        let read: [EntryText, NeighbourLines];
-        try {
-          read = await Promise.all([readText(record), readNeighbours(record)]);
-        } catch (error) {
-          setEntry(fingerprintId, signal.aborted ? null : { status: 'failed', message: readFailureMessage(error) });
+        const read = await readPayload({ records, groups, fingerprintId, hasDate, fileName, countIsMinimum, readText, readNeighbours }, job.masking, signal);
+        if (!read.ok) {
+          setEntry(fingerprintId, read.aborted ? null : { status: 'failed', message: read.message });
           return;
         }
 
         try {
           // A run given up while the log was read sends nothing: the request refuses to start once cancelled.
-          const payload = buildSendPayload(sendSourceOf({ fileName, group, countIsMinimum, entry: read[0], lines: read[1] }), job.masking);
-          const outcome = await analyseError(createProvider(job.choice, fetchImpl), payload, { signal });
+          const outcome = await analyseError(createProvider(job.choice, fetchImpl), read.payload, { signal });
           if (signal.aborted) {
             // An answer that comes after the user cancelled is not kept: the screen says the run was given up.
             setEntry(fingerprintId, null);
