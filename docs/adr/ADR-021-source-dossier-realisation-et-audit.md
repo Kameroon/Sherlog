@@ -1,7 +1,7 @@
 # ADR-021 : Source « dossier » (étape 10a) — réalisation et audit du code
 
 ## Statut
-Proposé — 2026-11-09, en attente de la validation de l'étape 10a par l'auteur. Réalise la partie 10a de l'ADR-020 (audit de conception) ; 10b et 10c ne sont pas faites (voir « Ce qui reste »).
+Accepté — 2026-11-09, avec la validation de l'étape 10a par l'auteur (la boîte de dialogue réelle et l'autorisation à redonner restent à essayer par lui). Réalise la partie 10a de l'ADR-020 (audit de conception) ; 10b et 10c ne sont pas faites (voir « Ce qui reste »).
 
 ## Contexte
 L'auteur a tranché le 2026-11-09 : **un seul niveau** (Q1) et **retenir le dossier pour le relire en un clic** (Q2). Le sélecteur de dossier n'a ni réseau ni secret : c'est la sous-étape la plus sûre, et la seule des trois qui ne dépend d'aucune donnée de l'auteur.

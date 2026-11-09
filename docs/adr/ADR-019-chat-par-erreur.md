@@ -1,7 +1,7 @@
 # ADR-019 : Chat par erreur
 
 ## Statut
-Proposé — 2026-11-09, **modifié le même jour sur demande de l'auteur** (le chat n'est ouvert qu'après l'analyse du modèle ; rôle d'expert qui n'invente rien, voir « Décision »), en attente de la validation de l'étape 9. Suite de l'ADR-018 (prompt durci) et de l'ADR-017 (fournisseurs et clé).
+Accepté — 2026-11-09, avec la validation de l'étape 9 par l'auteur (le respect réel de « n'invente rien » par un vrai modèle reste à essayer par lui). Modifié le même jour sur demande de l'auteur (le chat n'est ouvert qu'après l'analyse du modèle ; rôle d'expert qui n'invente rien, voir « Décision »), en attente de la validation de l'étape 9. Suite de l'ADR-018 (prompt durci) et de l'ADR-017 (fournisseurs et clé).
 
 ## Contexte
 L'étape 9 ajoute la conversation avec le modèle à propos d'une erreur (`SPEC.md` §3, partie 2). Elle réemploie ce que l'étape 8 a posé : le journal est une donnée non fiable, il part masqué, entre des délimiteurs aléatoires, et ce que dit le modèle s'affiche comme du texte. Le chat ajoute ce que l'analyse n'avait pas : **du texte libre venu de l'utilisateur**, et **une conversation qui est renvoyée entière à chaque question**. Décision de l'auteur du 2026-11-09 : le chat **traite le retour de l'analyse faite par le modèle** ; sa fenêtre n'est donc visible qu'**une fois l'analyse faite**, pas avant. Son but : approfondir le résultat de cette analyse et chercher, dans ce qui est fourni, une suggestion de solution, **sans rien imaginer ni inventer** : un expert en ingénierie logicielle qui respecte les bonnes pratiques. (Une première version avait ouvert le chat dès l'analyse locale du journal ; c'était une mauvaise lecture d'une première consigne, corrigée ici.)
