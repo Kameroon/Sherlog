@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ProviderChoice } from '../ai/createProvider';
 import type { ReactNode } from 'react';
 import type { StorageScope } from '../auth/storageScope';
 import type { Preparation } from '../core/preparation';
@@ -85,6 +86,8 @@ function stepOf(state: ScanState): StepNumber {
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
 export function LogWorkspace({ dependencies, storageScope = null, aiDependencies }: LogWorkspaceProps) {
+  // What the settings panel says is usable to send with; the panel only exists once errors were found.
+  const [provider, setProvider] = useState<ProviderChoice | null>(null);
   const { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
 
   // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
@@ -109,7 +112,10 @@ export function LogWorkspace({ dependencies, storageScope = null, aiDependencies
       <Steps current={stepOf(state)} />
       <Stage
         state={state}
-        sendSettings={<ProviderSettings scope={storageScope} {...aiDependencies} />}
+        sendSettings={<ProviderSettings scope={storageScope} onChoiceChange={setProvider} {...aiDependencies} />}
+        provider={provider}
+        aiFetch={aiDependencies?.fetchImpl}
+        siteOrigin={aiDependencies?.siteOrigin}
         setFocusTarget={setFocusTarget}
         onFile={(file) => void chooseFile(file)}
         onText={(text) => void chooseText(text)}
@@ -130,6 +136,10 @@ interface StageProps {
   state: ScanState;
   /** The provider's settings, which go in the sending panel once errors were found. */
   sendSettings: ReactNode;
+  /** What the user chose in those settings, once it is usable; `null` until then. */
+  provider: ProviderChoice | null;
+  aiFetch: typeof fetch | undefined;
+  siteOrigin: string | undefined;
   setFocusTarget: (element: HTMLElement | null) => void;
   onFile: (file: File) => void;
   onText: (text: string) => void;
@@ -143,7 +153,7 @@ interface StageProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
 }
 
-function Stage({ state, sendSettings, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
+function Stage({ state, sendSettings, provider, aiFetch, siteOrigin, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -225,6 +235,9 @@ function Stage({ state, sendSettings, setFocusTarget, onFile, onText, onPreparat
                   masking={state.masking}
                   hasDate={state.profile !== null && !state.profile.limited}
                   sendSettings={sendSettings}
+                  provider={provider}
+                  aiFetch={aiFetch}
+                  siteOrigin={siteOrigin}
                 />}
             </section>
           )}

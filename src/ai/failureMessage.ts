@@ -1,4 +1,5 @@
 import type { AiRequestError } from './errors';
+import { PROVIDER_NAMES } from './provider';
 import type { ProviderId } from './provider';
 
 export interface FailureContext {
@@ -6,8 +7,6 @@ export interface FailureContext {
   /** The address of this site (`window.location.origin`): the one Ollama has to be told to accept. */
   readonly siteOrigin: string;
 }
-
-const PROVIDER_NAMES: Readonly<Record<ProviderId, string>> = { anthropic: 'Anthropic', ollama: 'Ollama' };
 
 /** What the provider said, for the end of a message: it is text from a third party, shown as text and never as markup. */
 function withDetail(sentence: string, failure: AiRequestError): string {

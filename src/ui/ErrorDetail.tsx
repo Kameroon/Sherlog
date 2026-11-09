@@ -7,6 +7,8 @@ import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import { readFailureMessage } from '../sources/readFailure';
 import { MAX_NEIGHBOUR_BYTES, NEIGHBOUR_LINES } from '../sources/readNeighbourLines';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
+import type { AnalysisEntry } from './analysisState';
+import { AnalysisView } from './AnalysisView';
 import { formatCount, formatSize } from './format';
 import { STATUS_CHOICES } from './statusLabels';
 
@@ -39,6 +41,8 @@ interface ErrorDetailProps {
   onStatusChange?: (status: ErrorStatus) => void;
   /** The choice to have the error explained by the model, which holds for the errors identical to it. */
   sendChoice?: SendChoice;
+  /** What the model said of the error (or is saying, or why it could not), which holds for the errors identical to it. */
+  analysis?: AnalysisEntry;
 }
 
 /** The choice to send an error, and the occurrence of its fingerprint that would be sent. */
@@ -82,8 +86,9 @@ function StatusPicker({ status, onChange, twins }: { status: ErrorStatus; onChan
           onChange(STATUS_CHOICES.find((choice) => choice.status === event.target.value)?.status ?? 'new');
         }}
       >
-        {STATUS_CHOICES.map((choice) => (
-          <option key={choice.status} value={choice.status}>
+        {/* « Analysé » is the analysis' to set, not the user's: it is shown when it is the status, and not offered otherwise. */}
+        {STATUS_CHOICES.filter((choice) => choice.status !== 'analysed' || status === 'analysed').map((choice) => (
+          <option key={choice.status} value={choice.status} disabled={choice.status === 'analysed'}>
             {choice.label}
           </option>
         ))}
@@ -268,7 +273,7 @@ function NeighbourPanel({ record, position, readNeighbours }: { record: ErrorRec
 }
 
 /** The whole text of the selected error, with its stack, read again from the file; text only, never markup. */
-export function ErrorDetail({ record, position, readText, readNeighbours, identical, countIsMinimum = false, status = 'new', onStatusChange, sendChoice }: ErrorDetailProps) {
+export function ErrorDetail({ record, position, readText, readNeighbours, identical, countIsMinimum = false, status = 'new', onStatusChange, sendChoice, analysis }: ErrorDetailProps) {
   const titleId = useId();
   return (
     <section className="error-detail" aria-labelledby={titleId}>
@@ -284,6 +289,7 @@ export function ErrorDetail({ record, position, readText, readNeighbours, identi
           {onStatusChange !== undefined && <StatusPicker status={status} onChange={onStatusChange} twins={identical?.count ?? 1} />}
           {sendChoice !== undefined && <SendChoicePicker choice={sendChoice} twins={identical?.count ?? 1} />}
           {identical !== undefined && identical.count > 1 && <IdenticalSummary identical={identical} countIsMinimum={countIsMinimum} />}
+          {analysis !== undefined && <AnalysisView entry={analysis} twins={identical?.count ?? 1} />}
           <EntryReading record={record} position={position} readText={readText} />
           <NeighbourPanel record={record} position={position} readNeighbours={readNeighbours} />
         </>

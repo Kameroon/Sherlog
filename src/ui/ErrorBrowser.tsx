@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { NO_STATUSES, statusOf, withStatus } from '../core/errorStatus';
+import type { ProviderChoice } from '../ai/createProvider';
+import { NO_STATUSES, statusOf, withAnalysis, withStatus } from '../core/errorStatus';
 import type { ErrorStatus, StatusByFingerprint } from '../core/errorStatus';
 import { DEFAULT_ERROR_VIEW, buildErrorView, distinctLevels } from '../core/errorView';
 import type { ErrorViewOptions } from '../core/errorView';
@@ -15,6 +16,7 @@ import { ErrorDetail } from './ErrorDetail';
 import { ErrorList } from './ErrorList';
 import { ErrorToolbar } from './ErrorToolbar';
 import { SendPanel } from './SendPanel';
+import { useAnalyses } from './useAnalyses';
 
 interface ErrorBrowserProps {
   records: readonly ErrorRecord[];
@@ -30,6 +32,12 @@ interface ErrorBrowserProps {
   hasDate?: boolean;
   /** The provider's settings, shown in the sending panel. */
   sendSettings?: ReactNode;
+  /** What the user chose in those settings, once it is usable; `null` until then. */
+  provider?: ProviderChoice | null;
+  /** Replaces the network of the page; used by the tests. */
+  aiFetch?: typeof fetch;
+  /** The address of this site, which a failure of Ollama tells the user to allow. */
+  siteOrigin?: string;
 }
 
 /**
@@ -39,7 +47,7 @@ interface ErrorBrowserProps {
  * kept here, for this analysis only: a new analysis mounts the browser again, with every error new. So is the choice
  * of the errors to have explained, made by fingerprint: none is chosen by default, and nothing is sent from here.
  */
-export function ErrorBrowser({ records, readText, readNeighbours, limitReached, fileName = 'journal', masking = DEFAULT_ENABLED_RULES, hasDate = true, sendSettings }: ErrorBrowserProps) {
+export function ErrorBrowser({ records, readText, readNeighbours, limitReached, fileName = 'journal', masking = DEFAULT_ENABLED_RULES, hasDate = true, sendSettings, provider = null, aiFetch, siteOrigin = window.location.origin }: ErrorBrowserProps) {
   const groups = useMemo(() => summariseIdentical(records), [records]);
   const levels = useMemo(() => distinctLevels(records), [records]);
   const [options, setOptions] = useState<ErrorViewOptions>(DEFAULT_ERROR_VIEW);
@@ -47,6 +55,20 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
   const applied = useDeferredValue(options);
   const [statuses, setStatuses] = useState<StatusByFingerprint>(NO_STATUSES);
   const [chosenForSending, setChosenForSending] = useState<ReadonlySet<number>>(new Set());
+  const { analyses, progress, send, cancel } = useAnalyses({
+    records,
+    groups,
+    fileName,
+    hasDate,
+    countIsMinimum: limitReached,
+    readText,
+    readNeighbours,
+    fetchImpl: aiFetch,
+    siteOrigin,
+    onAnalysed: (fingerprintId) => {
+      setStatuses((previous) => withAnalysis(previous, fingerprintId));
+    },
+  });
   const indices = useMemo(() => buildErrorView(records, groups, applied, statuses), [records, groups, applied, statuses]);
   const visible = useMemo(() => indices.flatMap((index) => records[index] ?? []), [indices, records]);
   const [selected, setSelected] = useState<number | null>(null);
@@ -85,6 +107,7 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
             readText={readText}
             readNeighbours={readNeighbours}
             identical={record === null ? undefined : groups.get(record.fingerprintId)}
+            analysis={record === null ? undefined : analyses.get(record.fingerprintId)}
             countIsMinimum={limitReached}
             status={record === null ? undefined : statusOf(statuses, record.fingerprintId)}
             onStatusChange={
@@ -127,6 +150,15 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
         countIsMinimum={limitReached}
         readText={readText}
         readNeighbours={readNeighbours}
+        provider={provider}
+        analyses={analyses}
+        progress={progress}
+        onSend={() => {
+          if (provider !== null) {
+            send([...chosenForSending], provider, masking);
+          }
+        }}
+        onCancelSend={cancel}
         onRemove={(fingerprintId) => {
           setChosenForSending((previous) => {
             const next = new Set(previous);

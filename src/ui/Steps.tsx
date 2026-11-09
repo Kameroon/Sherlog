@@ -11,8 +11,8 @@ interface StepsProps {
 
 /**
  * Where the user is on the way from a log to its errors and to an explanation. The last step is shown from the start so
- * that the whole path is visible; it is reached once errors were found, where the provider is chosen. Its note says what
- * cannot be done there yet: the errors are not sent before the analysis step exists.
+ * that the whole path is visible, and says it cannot be reached yet; it is reached once the analysis has found errors,
+ * which is where the provider is chosen and the errors are sent.
  */
 export function Steps({ current }: StepsProps) {
   return (
@@ -25,10 +25,10 @@ export function Steps({ current }: StepsProps) {
           <li key={label} className={done ? 'is-done' : notReached ? 'is-unavailable' : undefined} aria-current={step === current ? 'step' : undefined}>
             {label}
             {done && <span className="visually-hidden"> (terminée)</span>}
-            {step === SENDING_STEP && (
+            {notReached && (
               <>
                 {' '}
-                <span className="steps-note">{notReached ? '(pas encore disponible)' : '(l’envoi n’est pas encore disponible)'}</span>
+                <span className="steps-note">(pas encore disponible)</span>
               </>
             )}
           </li>

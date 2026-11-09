@@ -161,7 +161,7 @@ describe('ErrorBrowser status filter', () => {
 
     // Assert
     const labels = within(screen.getByRole('combobox', { name: 'Statut' })).getAllByRole('option').map((option) => option.textContent);
-    expect(labels).toEqual(['Tous', 'Nouveau', 'Ignoré', 'Résolu']);
+    expect(labels).toEqual(['Tous', 'Nouveau', 'Analysé', 'Ignoré', 'Résolu']);
   });
 
   it('should take the error out of the list but keep its detail when its new status no longer fits the filter', () => {

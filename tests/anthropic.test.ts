@@ -344,3 +344,27 @@ describe('isPlausibleApiKey', () => {
     },
   );
 });
+
+describe('Anthropic system prompt', () => {
+  it('should send the instructions as the system field, outside the messages', async () => {
+    // Arrange
+    const { fetchImpl, requests } = fakeFetch(goodStream);
+
+    // Act
+    await collect(provider(fetchImpl).stream(messages, { system: 'Be brief.' }));
+
+    // Assert
+    expect(requests[0]?.body).toEqual({ model: 'claude-haiku-5-5', max_tokens: 100, stream: true, system: 'Be brief.', messages });
+  });
+
+  it('should send no system field when there are no instructions', async () => {
+    // Arrange
+    const { fetchImpl, requests } = fakeFetch(goodStream);
+
+    // Act
+    await collect(provider(fetchImpl).stream(messages));
+
+    // Assert
+    expect(requests[0]?.body).not.toHaveProperty('system');
+  });
+});

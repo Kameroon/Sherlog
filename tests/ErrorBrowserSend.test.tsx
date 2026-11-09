@@ -69,7 +69,7 @@ describe('ErrorBrowser choice of the errors to send', () => {
     // Assert
     expect(within(panel()).getByText('Aucune erreur choisie.')).toBeInTheDocument();
     expect(within(panel()).getByRole('button', { name: 'Envoyer à l’IA' })).toBeDisabled();
-    expect(within(panel()).getByText(/Rien n’a été envoyé/)).toBeInTheDocument();
+    expect(within(panel()).getByText(/Rien n’est envoyé avant|Choisissez un fournisseur/)).toBeInTheDocument();
   });
 
   it('should offer to choose the selected error, not chosen at first', () => {
@@ -371,12 +371,12 @@ describe('ErrorBrowser text that would be sent', () => {
     expect(screen.queryByLabelText('Texte exact envoyé pour l’erreur 1')).toBeNull();
   });
 
-  it('should say that sending is not available yet, since it comes with the analysis', () => {
+  it('should say a provider is needed to send, when none is given', () => {
     // Act
     show([record(0, 0)]);
 
     // Assert
-    expect(within(panel()).getByText(/l’envoi des erreurs choisies arrive avec l’analyse/)).toBeInTheDocument();
+    expect(within(panel()).getByText(/Choisissez un fournisseur et donnez sa clé/)).toBeInTheDocument();
   });
 
   it('should show what it is given between the errors chosen and the button', () => {

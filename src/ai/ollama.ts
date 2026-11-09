@@ -101,7 +101,7 @@ export function createOllamaProvider(config: OllamaConfig): AiProvider {
         url: `${OLLAMA_URL}/api/chat`,
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: { model, messages, stream: true },
+        body: { model, messages: options.system === undefined ? messages : [{ role: 'system', content: options.system }, ...messages], stream: true },
         signal: options.signal,
         fetchImpl,
         headersTimeoutMs: config.headersTimeoutMs,

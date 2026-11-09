@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { NO_STATUSES, statusOf, withStatus } from '../src/core/errorStatus';
+import { NO_STATUSES, statusOf, withAnalysis, withStatus } from '../src/core/errorStatus';
 
 describe('statusOf', () => {
   it('should be new for an error that nobody has set a status for', () => {
@@ -55,5 +55,39 @@ describe('withStatus', () => {
 
     // Assert
     expect(next.size).toBe(0);
+  });
+});
+
+describe('withAnalysis', () => {
+  it('should mark a new error as analysed', () => {
+    // Act
+    const statuses = withAnalysis(NO_STATUSES, 7);
+
+    // Assert
+    expect(statusOf(statuses, 7)).toBe('analysed');
+  });
+
+  it.each(['ignored', 'resolved'] as const)('should keep the decision of the user when the error is %s', (status) => {
+    // Arrange
+    const decided = withStatus(NO_STATUSES, 7, status);
+
+    // Act
+    const statuses = withAnalysis(decided, 7);
+
+    // Assert
+    expect(statusOf(statuses, 7)).toBe(status);
+  });
+
+  it('should not change the other errors, nor the map it was given', () => {
+    // Arrange
+    const before = withStatus(NO_STATUSES, 1, 'resolved');
+
+    // Act
+    const after = withAnalysis(before, 2);
+
+    // Assert
+    expect(statusOf(after, 1)).toBe('resolved');
+    expect(statusOf(before, 2)).toBe('new');
+    expect(after).not.toBe(before);
   });
 });

@@ -1,8 +1,8 @@
 /**
- * What the user has decided about an error. « Analysé » (SPEC §3) is not here: it is set by the analysis of step 8,
- * not by the user, and has nothing to show before it.
+ * The status of an error. The user sets « new », « ignored » and « resolved »; « analysed » is set by the analysis of
+ * step 8 (`withAnalysis`), never offered as a choice, and never over a decision of the user.
  */
-export type ErrorStatus = 'new' | 'ignored' | 'resolved';
+export type ErrorStatus = 'new' | 'analysed' | 'ignored' | 'resolved';
 
 /** The status of each fingerprint that has one; a fingerprint that is not in it is new. */
 export type StatusByFingerprint = ReadonlyMap<number, ErrorStatus>;
@@ -25,4 +25,12 @@ export function withStatus(statuses: StatusByFingerprint, fingerprintId: number,
     next.set(fingerprintId, status);
   }
   return next;
+}
+
+/**
+ * Marks a fingerprint as analysed once the model has answered for it. An error the user has ignored or resolved stays
+ * so: the analysis does not undo a decision.
+ */
+export function withAnalysis(statuses: StatusByFingerprint, fingerprintId: number): StatusByFingerprint {
+  return statusOf(statuses, fingerprintId) === 'new' ? withStatus(statuses, fingerprintId, 'analysed') : new Map(statuses);
 }
