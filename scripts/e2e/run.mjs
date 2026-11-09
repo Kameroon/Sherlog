@@ -426,6 +426,24 @@ async function run(cdp, appUrl, dataDir) {
   await setSort('reading:asc');
   await waitFor(firstTimeIs(firstInReading), 'le retour à l’ordre de lecture');
 
+  // 3c. A status holds for every identical error: the first error is one of the six messages, repeated every sixth error.
+  const setSelectByLabel = (label, value) =>
+    evaluate(
+      `(() => { const caption = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === ${JSON.stringify(label)}); const field = document.getElementById(caption.htmlFor); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    );
+  await pressOnList('Home');
+  await pressOnList('Enter');
+  await waitFor(`[...document.querySelectorAll('label')].some((candidate) => candidate.textContent === 'Statut de cette erreur')`, 'le choix du statut dans le détail');
+  const statusStart = performance.now();
+  await setSelectByLabel('Statut de cette erreur', 'resolved');
+  await setSelectByLabel('Statut', 'resolved');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${paymentErrors}`, 'la liste des erreurs résolues');
+  metrics.statusAndFilterMs = Math.round(performance.now() - statusStart);
+  check('un statut vaut pour toutes les erreurs identiques, que le filtre de statut isole', (await listSize()) === paymentErrors, `${await listSize()} lignes, ${paymentErrors} attendues`);
+  check('chaque ligne résolue le dit', (await evaluate(`[...document.querySelectorAll('[role=listbox] [role=option]')].every((option) => option.textContent.includes('Résolu'))`)) === true);
+  await setSelectByLabel('Statut', '');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${manySetSize}`, 'la liste entière sans filtre de statut');
+
   // 4. Pasted text with markup: shown as text, never interpreted.
   await click('Choisir un autre journal');
   await waitFor(`!!document.querySelector('#paste-input')`, 'le champ de collage');
