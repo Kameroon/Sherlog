@@ -213,24 +213,29 @@ export function useLogScan({ startScan = startScanWorker, readHead: read = readH
     dispatch({ type: 'reset' });
   }, [stopScan]);
 
+  // What the readers need, not the whole state: a change of the masking makes a new state, and readers that changed
+  // with it would send every open detail and every « texte exact » to read the file again.
+  const analysedSource = state.phase === 'analysed' ? state.source : null;
+  const analysedEncoding = state.phase === 'analysed' ? state.result.encoding : null;
+
   const readText = useCallback(
     (position: EntryPosition): Promise<EntryText> => {
-      if (state.phase !== 'analysed' || state.result.encoding === null) {
+      if (analysedSource === null || analysedEncoding === null) {
         return Promise.reject(new Error('aucun journal analysé'));
       }
-      return readEntryText(state.source, position, state.result.encoding);
+      return readEntryText(analysedSource, position, analysedEncoding);
     },
-    [state],
+    [analysedSource, analysedEncoding],
   );
 
   const readNeighbours = useCallback(
     (position: EntryPosition): Promise<NeighbourLines> => {
-      if (state.phase !== 'analysed' || state.result.encoding === null) {
+      if (analysedSource === null || analysedEncoding === null) {
         return Promise.reject(new Error('aucun journal analysé'));
       }
-      return readNeighbourLines(state.source, position, state.result.encoding);
+      return readNeighbourLines(analysedSource, position, analysedEncoding);
     },
-    [state],
+    [analysedSource, analysedEncoding],
   );
 
   return { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours };

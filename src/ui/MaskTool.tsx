@@ -39,7 +39,7 @@ export function MaskTool({ masking, onChange, occurrences, forTheBeginning, show
       <p className="period-help">
         Les données cochées sont remplacées par une étiquette dans l’aperçu et dans ce qui sera envoyé. C’est un meilleur effort : l’aperçu de ce qui est envoyé fait foi.
       </p>
-      <ul className="mask-rules" role="group" aria-label="Masquer les données sensibles">
+      <ul className="mask-rules">
         {REDACTION_RULES.map((rule) => {
           const found = occurrences[rule.id];
           return (

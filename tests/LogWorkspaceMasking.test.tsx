@@ -1,5 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as entrySource from '../src/sources/readEntryText';
+import { errorRecord } from './helpers/fakeScanner';
 import { BUILT_IN_PROFILES } from '../src/core/profiles';
 import type { HeadRead } from '../src/sources/readHead';
 import { readSample } from './helpers/samples';
@@ -20,8 +22,21 @@ describe('LogWorkspace masking tool', () => {
     await chooseFile(sample, 'dated.log');
 
     // Assert
-    const boxes = within(screen.getByRole('group', { name: 'Masquer les données sensibles' })).getAllByRole('checkbox');
+    const boxes = within(screen.getByRole('region', { name: 'Masquer les données sensibles' })).getAllByRole('checkbox');
     expect(boxes.map((item) => (item as HTMLInputElement).checked)).toEqual([true, true, true, true, false, false]);
+  });
+
+  it('should list the rules as a list, so that a screen reader says how many there are', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(sample, 'dated.log');
+
+    // Assert
+    const region = screen.getByRole('region', { name: 'Masquer les données sensibles' });
+    // A list item needs a list around it: a role on the <ul> would take that away from the six rules.
+    expect(within(within(region).getByRole('list')).getAllByRole('listitem')).toHaveLength(6);
   });
 
   it('should say how many times each rule finds something in the log', async () => {
@@ -201,5 +216,26 @@ describe('LogWorkspace masking tool', () => {
 
     // Assert
     expect(box('Adresses IP')).toBeChecked();
+  });
+
+  it('should not read the log again when a masking box is changed after the analysis, and follow the change at once', async () => {
+    // Arrange
+    const reads = vi.spyOn(entrySource, 'readEntryText');
+    const scanner = setup();
+    await startAnalysis(scanner);
+    finish(scanner, [{ ...errorRecord, offset: 0, length: 20 }]);
+    fireEvent.click(within(await screen.findByRole('listbox', { name: 'Erreurs' })).getAllByRole('option')[0] as HTMLElement);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Faire expliquer cette erreur par l’IA' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voir le texte exact' }));
+    await screen.findByLabelText(/Texte exact envoyé/);
+    const readsBefore = reads.mock.calls.length;
+
+    // Act
+    fireEvent.click(box('Adresses IP'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Assert
+    expect(reads.mock.calls.length).toBe(readsBefore);
+    reads.mockRestore();
   });
 });
