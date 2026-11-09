@@ -37,28 +37,31 @@ export function PreparedPreview({ preview, name, headBytes, sourceBytes, complet
       <p className="small-note">
         {name} · {where}.{hidden > 0 ? ` Aperçu des ${MAX_PREVIEW_LINES} premières.` : ''}
       </p>
-      <ol className="excerpt" aria-label="Premières lignes du journal">
-        {preview.lines.map((line) => {
-          const classes = [line.kind === 'header' ? 'is-header' : 'is-continuation'];
-          if (line.isError) {
-            classes.push('is-error');
-          }
-          if (line.ignored) {
-            classes.push('is-ignored');
-          }
-          return (
-            <li key={line.number} className={classes.join(' ')}>
-              <span className="line-no">{line.number}</span>
-              <span className="line-tag">{tagOf(line)}</span>
-              <span>
-                {line.text}
-                {line.cut ? '…' : ''}
-                {line.ignored && <span className="visually-hidden"> (écartée)</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      {/* The preview scrolls in its own box, so that the button that starts the analysis stays within reach: the box is a stop for the keyboard. */}
+      <div className="excerpt-scroll" role="region" aria-label="Lignes de l’aperçu" tabIndex={0}>
+        <ol className="excerpt" aria-label="Premières lignes du journal">
+          {preview.lines.map((line) => {
+            const classes = [line.kind === 'header' ? 'is-header' : 'is-continuation'];
+            if (line.isError) {
+              classes.push('is-error');
+            }
+            if (line.ignored) {
+              classes.push('is-ignored');
+            }
+            return (
+              <li key={line.number} className={classes.join(' ')}>
+                <span className="line-no">{line.number}</span>
+                <span className="line-tag">{tagOf(line)}</span>
+                <span>
+                  {line.text}
+                  {line.cut ? '…' : ''}
+                  {line.ignored && <span className="visually-hidden"> (écartée)</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
       <ul className="legend">
         <li>Lignes barrées : écartées par vos réglages</li>
         <li>Lignes en rouge : erreurs gardées</li>
