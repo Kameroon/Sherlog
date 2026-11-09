@@ -4,7 +4,7 @@
 //
 // Usage: npm run build && npm run e2e        Needs Node >= 22.13 and Chrome (or Chromium, Edge): set CHROME_PATH if not found.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -645,6 +645,87 @@ async function run(cdp, appUrl, dataDir) {
   await click('Oublier la clé');
   check('oublier la clé l’efface des deux stockages', !(await storageHolds('sessionStorage')) && !(await storageHolds('localStorage')));
   check('sans clé, l’envoi est de nouveau désactivé', (await isDisabled('Envoyer à l’IA')) === true);
+
+  // 9. The folder source (10a). The dialog of the browser cannot be driven, so the picker is replaced by one that gives
+  // a REAL folder handle: the origin-private folder of Chrome, with real files. What follows the dialog is real: listing,
+  // one level, the keeping of the handle in IndexedDB (structured clone), its reading after a reload, forgetting it.
+  await click('Choisir un autre journal');
+  await waitFor(`!!document.querySelector('input[type=file]')`, 'le retour au choix de la source');
+  const consoleSample = readFileSync(join(root, 'samples', 'serilog-console.log'), 'utf8');
+  await evaluate(`(async () => {
+    const root = await navigator.storage.getDirectory();
+    const folder = async (name, files, extra = 0) => {
+      const dir = await root.getDirectoryHandle(name, { create: true });
+      for await (const entry of dir.keys()) { await dir.removeEntry(entry); }
+      for (const [file, text] of Object.entries(files)) {
+        const handle = await dir.getFileHandle(file, { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+      }
+      for (let index = 0; index < extra; index += 1) {
+        const handle = await dir.getFileHandle('extra-' + String(index).padStart(4, '0') + '.log', { create: true });
+        const writable = await handle.createWritable();
+        await writable.write('[08:00:00 INF] x\\n');
+        await writable.close();
+      }
+      return dir;
+    };
+    const logs = await folder('e2e-logs', { 'serilog-console.log': ${JSON.stringify(consoleSample)}, 'notes.txt': 'hello' });
+    await logs.getDirectoryHandle('archive', { create: true });
+    window.__pickerCalls = [];
+    window.__nextFolder = logs;
+    window.showDirectoryPicker = async (options) => { window.__pickerCalls.push(options); return window.__nextFolder; };
+  })()`);
+  check('le sélecteur de dossier est proposé', await evaluate(hasButton('Choisir un dossier')));
+  check('rien n’est demandé au navigateur avant le clic', (await evaluate(`window.__pickerCalls.length`)) === 0);
+  await click('Choisir un dossier');
+  await waitFor(`!!document.querySelector('.folder-files')`, 'la liste des fichiers du dossier');
+  const folderNames = await evaluate(`[...document.querySelectorAll('.folder-file-name')].map((name) => name.textContent)`);
+  check('le dossier est demandé en lecture seule', (await evaluate(`JSON.stringify(window.__pickerCalls[0])`)).includes('"mode":"read"') && !(await evaluate(`JSON.stringify(window.__pickerCalls)`)).includes('readwrite'));
+  check('les fichiers du dossier sont listés, pas le sous-dossier', same([...folderNames].sort(), ['notes.txt', 'serilog-console.log']), folderNames.join(' | '));
+  check('l’écran dit qu’un seul niveau est lu', await evaluate(hasText('Un seul niveau est lu')));
+  check('le dossier est retenu et l’écran le dit', await evaluate(hasText('Dossier retenu : e2e-logs')));
+  const keptKeys = await evaluate(`new Promise((resolve, reject) => { const request = indexedDB.open('sherlog'); request.onerror = () => reject(new Error('indexedDB')); request.onsuccess = () => { const keys = request.result.transaction('folders').objectStore('folders').getAllKeys(); keys.onsuccess = () => { request.result.close(); resolve(keys.result); }; }; })`);
+  check('le dossier est retenu dans IndexedDB, sous le nom de l’identité de l’utilisateur', keptKeys.length === 1 && keptKeys[0].startsWith('folder:') && keptKeys[0].length > 'folder:'.length, JSON.stringify(keptKeys));
+  await cdp.send('Page.reload');
+  await waitFor(`!!document.querySelector('input[type=file]')`, 'la page rechargée');
+  await waitFor(hasText('Dossier retenu : e2e-logs'), 'le dossier retenu retrouvé après le rechargement');
+  check('après un rechargement, le dossier retenu est retrouvé sans rien redemander au navigateur', !(await evaluate(`!!document.querySelector('.folder-files')`)) && (await evaluate(`window.__pickerCalls === undefined`)));
+  await click('Relire ce dossier');
+  await waitFor(`!!document.querySelector('.folder-files')`, 'la liste du dossier retenu');
+  check('relire le dossier retenu liste ses fichiers en un clic (la poignée a survécu au stockage)', same([...(await evaluate(`[...document.querySelectorAll('.folder-file-name')].map((name) => name.textContent)`))].sort(), ['notes.txt', 'serilog-console.log']));
+  await evaluate(`[...document.querySelectorAll('button')].find((button) => button.getAttribute('aria-label') === 'Lire serilog-console.log').click()`);
+  await waitFor(hasText('Format reconnu'), 'la préparation du fichier du dossier');
+  check('le fichier choisi dans le dossier est lu comme un fichier choisi à la main, sans rien analyser', (await evaluate(hasText('Analyser ce journal'))) && !(await evaluate(hasText('Analyse terminée'))) && !(await evaluate(`!!document.querySelector('progress')`)));
+  check('le focus est sur le nom du journal', (await focused()).startsWith('H2 | serilog-console.log'), await focused());
+  await click('Choisir un autre journal');
+  await waitFor(hasText('Dossier retenu : e2e-logs'), 'le retour au choix avec le dossier retenu');
+  await click('Oublier ce dossier');
+  await waitFor(`!document.body.innerText.includes('Dossier retenu : e2e-logs')`, 'l’oubli du dossier');
+  const keptAfter = await evaluate(`new Promise((resolve) => { const request = indexedDB.open('sherlog'); request.onsuccess = () => { const keys = request.result.transaction('folders').objectStore('folders').getAllKeys(); keys.onsuccess = () => { request.result.close(); resolve(keys.result); }; }; })`);
+  check('oublier le dossier l’efface d’IndexedDB', keptAfter.length === 0, JSON.stringify(keptAfter));
+  // A folder of more than the limit: said, not silently cut; the cost of listing it in a real browser is measured.
+  await evaluate(`(async () => {
+    const root = await navigator.storage.getDirectory();
+    const dir = await root.getDirectoryHandle('e2e-big', { create: true });
+    for await (const entry of dir.keys()) { await dir.removeEntry(entry); }
+    for (let index = 0; index < 1001; index += 1) {
+      const handle = await dir.getFileHandle('big-' + String(index).padStart(4, '0') + '.log', { create: true });
+      const writable = await handle.createWritable();
+      await writable.write('[08:00:00 INF] x\\n');
+      await writable.close();
+    }
+    // The reload dropped the replacement of the picker: it is installed again.
+    window.showDirectoryPicker = async () => dir;
+  })()`);
+  const folderStart = performance.now();
+  await click('Choisir un dossier');
+  await waitFor(`document.querySelectorAll('.folder-file').length === 1000`, 'les 1 000 fichiers listés', 60000);
+  metrics.folderListMs = Math.round(performance.now() - folderStart);
+  check('un dossier de plus de 1 000 fichiers est listé jusqu’à 1 000, et l’écran le dit', (await evaluate(hasText('plus de 1 000 fichiers'))) || (await evaluate(`document.body.innerText.replace(/\\s/g, ' ').includes('plus de 1 000 fichiers')`)));
+  check('les 1 000 fichiers sont dans une zone qui défile et que le clavier atteint', (await evaluate(`document.querySelector('.folder-scroll')?.getAttribute('tabindex')`)) === '0');
+  await click('Oublier ce dossier');
 
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 

@@ -190,26 +190,29 @@ export function FolderSource({ scope, onFile, picker: givenPicker, store: givenS
           {view.listing.files.length === 0 ? (
             <p>Aucun fichier dans ce dossier.</p>
           ) : (
-            <ul className="folder-files" aria-label="Fichiers du dossier">
-              {view.listing.files.map((file) => (
-                <li key={file.name} className="folder-file">
-                  <span className="folder-file-name">{file.name}</span>
-                  <span className="folder-file-meta">
-                    {formatSize(file.size)} · {new Date(file.modified).toLocaleString('fr-FR')}
-                  </span>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    aria-label={`Lire ${file.name}`}
-                    onClick={() => {
-                      onFile(file.file);
-                    }}
-                  >
-                    Lire
-                  </button>
-                </li>
-              ))}
-            </ul>
+            // The list scrolls in its own box, which the keyboard can reach.
+            <div className="folder-scroll" role="region" aria-label="Liste des fichiers" tabIndex={0}>
+              <ul className="folder-files" aria-label="Fichiers du dossier">
+                {view.listing.files.map((file) => (
+                  <li key={file.name} className="folder-file">
+                    <span className="folder-file-name">{file.name}</span>
+                    <span className="folder-file-meta">
+                      {formatSize(file.size)} · {new Date(file.modified).toLocaleString('fr-FR')}
+                    </span>
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      aria-label={`Lire ${file.name}`}
+                      onClick={() => {
+                        onFile(file.file);
+                      }}
+                    >
+                      Lire
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
       )}

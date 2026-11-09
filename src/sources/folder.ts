@@ -47,9 +47,9 @@ export interface FolderListing {
 
 /** The picker of a window, or `null` in a browser that has none (Firefox, Safari). */
 export function directoryPickerOf(scope: object): DirectoryPicker | null {
-  const picker = (scope as { showDirectoryPicker?: DirectoryPicker }).showDirectoryPicker;
-  // Called as a method of the window it came from: apart from it the browser refuses ("Illegal invocation").
-  return typeof picker === 'function' ? (options) => picker.call(scope, options) : null;
+  const holder = scope as { showDirectoryPicker?: DirectoryPicker };
+  // Looked up again at each call, and called as a method of the window it belongs to: apart from it the browser refuses ("Illegal invocation").
+  return typeof holder.showDirectoryPicker === 'function' ? (options) => holder.showDirectoryPicker?.(options) ?? Promise.reject(new TypeError('showDirectoryPicker is not available')) : null;
 }
 
 /** The identifier that makes the browser open the dialog where it was last, for this application. */

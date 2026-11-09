@@ -16,6 +16,8 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-013** Liste virtualisée par blocs, sans style calculé.
 - **ADR-015** *(proposé)* Masquage par règles strictes qui ne devinent pas (`redact`) : contexte ou contrôle exigé, options pour les identifiants, dernier filet à l'envoi, durée bornée ; outil « Masquer » de la préparation (état à côté de la préparation, texte d'origine à la demande).
 - **ADR-016** *(proposé)* Choix explicite des erreurs à envoyer (par empreinte, occurrence la plus récente) et aperçu du texte exact : masqué avant d'être coupé, coupure explicite, rien n'est envoyé.
+- **ADR-020** *(proposé)* Sources avancées : audit de sécurité de conception (menaces et contrôles exigés pour le dossier, l'URL et Azure Monitor ; pas de joker `*.blob.core.windows.net`).
+- **ADR-021** *(proposé)* Source « dossier » (10a) : lecture seule, un seul niveau, dossier retenu par identité ; audit du code.
 - **ADR-019** *(proposé)* Chat par erreur : ouvert dès l'analyse du journal, rien ne part avant le clic, question masquée, contexte fixé au premier message et réemballé avec un délimiteur neuf à chaque requête, conversation bornée sans coupe silencieuse, rendu en texte ; revue de sécurité de l'étape 9.
 - **ADR-018** Analyse d'une erreur : envoi sur clic du texte de l'aperçu, prompt durci (journal en données entre des délimiteurs au délimiteur aléatoire tiré par requête), réponse validée champ par champ (une relance, sinon texte brut), rendu en texte seul, statut « Analysé » ; audit de sécurité complet de l'étape 8.
 - **ADR-017** Fournisseurs d'IA (Anthropic par `fetch` et SSE, Ollama), clé de l'utilisateur (mémoire, onglet ou ordinateur, une copie, cloisonnée par identité), test de connexion sans contenu de journal, CSP limitée à deux adresses ; audit de sécurité complet de l'étape 7.
@@ -29,7 +31,7 @@ sherlog/
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), occurrence la plus récente (identicalErrors), regroupement des identiques (identicalErrors), Redactor — TS pur
-│  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
+│  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; folder (File System Access, étape 10a) ; plus tard url, azure-monitor
 │  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, createProvider, streamLines, serverSentEvents, errors, failureMessage ; étape 8 : analysisPrompt + prompts/*.md (ressources embarquées), analysis (schéma et validation), analyseError ; étape 9 : chatPrompt (prompts/chat-system.md)
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
 │  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité) ; plus tard historique local (IndexedDB)

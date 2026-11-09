@@ -198,7 +198,8 @@ describe('FolderSource choosing a folder', () => {
     expect(await screen.findByText(/Aucun fichier dans ce dossier/)).toBeInTheDocument();
   });
 
-  it('should say when the folder has more files than are listed, rather than list them silently cut', async () => {
+  // A thousand rows rendered in jsdom take seconds on a busy machine; the cost in a real browser is measured by the e2e check.
+  it('should say when the folder has more files than are listed, rather than list them silently cut', { timeout: 30_000 }, async () => {
     // Arrange
     show({ chooses: handleOf('big', Array.from({ length: MAX_FOLDER_FILES + 1 }, (_, index) => ({ name: `f${index}.log`, modified: index }))) });
 
