@@ -141,6 +141,16 @@ describe('buildSendPayload masking', () => {
   });
 });
 
+describe('buildSendPayload header', () => {
+  it('should mask the times too, since everything that comes from the log is masked', () => {
+    // Act
+    const { text } = buildSendPayload(source({ firstSeen: 'at a@b.example.org', lastSeen: 'from 10.0.4.17' }), DEFAULT_ENABLED_RULES);
+
+    // Assert
+    expect(text).toContain('(première : at [EMAIL], dernière : from [IP])');
+  });
+});
+
 describe('buildSendPayload truncation', () => {
   const LIMIT = 500;
 
@@ -241,6 +251,19 @@ describe('buildSendPayload truncation', () => {
   it('should have a limit that is stated and not tiny', () => {
     // Assert
     expect(MAX_INPUT_CHARS).toBeGreaterThanOrEqual(4000);
+  });
+
+  it('should not start a line of the context with half a pair of UTF-16 units when it cuts it', () => {
+    // Arrange: a single line of the context is longer than the room left, and the room takes every size in turn so that
+    // the cut falls inside an emoji for half of them.
+    const crowded = source({ entry: 'short', before: ['😀'.repeat(300)], after: [] });
+    const limits = Array.from({ length: 40 }, (_, step) => 300 + step);
+
+    // Act
+    const broken = limits.filter((limit) => /(?<![\ud800-\udbff])[\udc00-\udfff]/.test(buildSendPayload(crowded, DEFAULT_ENABLED_RULES, limit).text));
+
+    // Assert
+    expect(broken).toEqual([]);
   });
 
   it('should not break a pair of UTF-16 units when it cuts an entry', () => {

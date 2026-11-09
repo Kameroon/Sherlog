@@ -43,6 +43,13 @@ export interface SendPayload {
 const layout = (header: string, entry: string, before: string, after: string): string =>
   `${header}\n\n--- Erreur ---\n${entry}\n\n--- Contexte avant ---\n${before}\n\n--- Contexte après ---\n${after}`;
 
+/** The last `budget` units of a line, without a lone second half of a pair at the start. */
+function tailOf(line: string, budget: number): string {
+  const start = line.length - budget;
+  const code = line.charCodeAt(start);
+  return line.slice(code >= 0xdc00 && code <= 0xdfff ? start + 1 : start);
+}
+
 /** Keeps whole lines from the side nearest to the error until the budget is used; a single line too long for it is cut. */
 function fitLines(lines: readonly string[], budget: number, nearest: 'end' | 'start'): { text: string; cut: boolean } {
   const ordered = nearest === 'end' ? [...lines].reverse() : [...lines];
@@ -58,7 +65,7 @@ function fitLines(lines: readonly string[], budget: number, nearest: 'end' | 'st
   }
   if (kept.length === 0 && ordered[0] !== undefined && budget > 0) {
     const first = ordered[0];
-    const partial = nearest === 'end' ? first.slice(first.length - budget) : truncateText(first, budget);
+    const partial = nearest === 'end' ? tailOf(first, budget) : truncateText(first, budget);
     return { text: partial, cut: true };
   }
   const inReadingOrder = nearest === 'end' ? kept.reverse() : kept;
@@ -96,7 +103,10 @@ export function buildSendPayload(source: SendSource, masking: ReadonlySet<Redact
   const afterLines = source.after.length === 0 ? [] : after;
 
   const count = `${source.countIsMinimum === true ? 'au moins ' : ''}${source.count}`;
-  const header = `Occurrences : ${count} (première : ${source.firstSeen ?? 'sans heure'}, dernière : ${source.lastSeen ?? 'sans heure'})\nFichier : ${fileName}`;
+  // The times are the text the format captured: the built-in formats only capture digits, a custom pattern could capture anything.
+  const first = source.firstSeen === null ? 'sans heure' : masked(source.firstSeen);
+  const last = source.lastSeen === null ? 'sans heure' : masked(source.lastSeen);
+  const header = `Occurrences : ${count} (première : ${first}, dernière : ${last})\nFichier : ${fileName}`;
 
   const reserved = (beforeLines.length === 0 ? NO_LINE.length : 0) + (afterLines.length === 0 ? NO_LINE.length : 0);
   const budget = Math.max(0, maxChars - layout(header, '', '', '').length - reserved);

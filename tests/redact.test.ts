@@ -69,12 +69,24 @@ describe('redact IP addresses', () => {
     ['a hardware address', 'adapter aa:bb:cc:dd:ee:ff is up'],
     ['a scoped name', 'threw Dead::Beef while loading'],
     ['a duration', 'finished in 0.7792ms'],
+    ['a browser version in a user agent', 'UserAgent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'],
+    ['the version of another browser', 'UserAgent=Mozilla/5.0 Edg/120.0.0.0'],
   ])('should leave %s as it is', (_, line) => {
     // Act
     const text = mask(line, 'ip');
 
     // Assert
     expect(text).toBe(line);
+  });
+});
+
+describe('redact an address that follows a scheme', () => {
+  it('should replace an address in a web address, since a scheme is not a product name', () => {
+    // Act
+    const text = mask('calling http://10.0.4.17:8080/health', 'ip');
+
+    // Assert
+    expect(text).toBe('calling http://[IP]:8080/health');
   });
 });
 
@@ -137,6 +149,10 @@ describe('redact secrets', () => {
     ['a JSON property', '{"user":"a","password":"hunter2hunter2"}', '{"user":"a","password":"[SECRET]"}'],
     ['a client secret', 'client_secret=Zx81-kLq_90Pw', 'client_secret=[SECRET]'],
     ['an access token', 'access_token=ya29.a0AfH6SMB', 'access_token=[SECRET]'],
+    ['a JSON access token', '{"access_token":"ya29.a0AfH6SMB"}', '{"access_token":"[SECRET]"}'],
+    ['a JSON name with a prefix', '{"db_password":"hunter2hunter2"}', '{"db_password":"[SECRET]"}'],
+    ['a JSON name in camel case', '{"dbPassword":"hunter2hunter2"}', '{"dbPassword":"[SECRET]"}'],
+    ['a name in camel case', 'dbPassword=hunter2hunter2', 'dbPassword=[SECRET]'],
   ])('should replace the value of %s', (_, line, expected) => {
     // Act
     const text = mask(line, 'secret');
@@ -161,6 +177,8 @@ describe('redact secrets', () => {
     ['an already masked value', 'password=[SECRET]'],
     ['stars', 'password=********'],
     ['a name that only starts with token', 'tokenCount=42 maxTokens=4000'],
+    ['a JSON name that only ends with token', '{"maxToken":"4000","nextPageToken":"abcd1234efgh"}'],
+    ['a JSON name that says what kind of token it is', '{"tokenType":"Bearer"}'],
     ['a message about a token', 'Token expired for user, refresh needed'],
     ['bearer followed by a plain word', 'Bearer authentication failed'],
     ['bearer followed by a class name', 'registered Bearer AuthenticationHandlerDefaults'],

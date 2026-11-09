@@ -66,7 +66,8 @@ function findEmails(text: string): readonly Range[] {
 // ---- IP addresses ----
 
 const OCTET = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
-const IPV4 = new RegExp(`(?<![\\w.])(?:${OCTET}\\.){3}${OCTET}(?!\\w|\\.\\d)`, 'dg');
+// Not after « name/ » (`Chrome/120.0.0.0`, in a user agent): that is a version. After a scheme (`http://`) it is an address.
+const IPV4 = new RegExp(`(?<![\\w.])(?<![A-Za-z]/)(?:${OCTET}\\.){3}${OCTET}(?!\\w|\\.\\d)`, 'dg');
 const IPV6_FULL = /(?<![\w:])(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}(?![\w:])/dg;
 /** A number written like an address, after one of these words, is a version or a build, not a machine. */
 const VERSION_WORD = /\b(?:version|ver|build|release|revision|assembly|framework|runtime)\W{0,4}$/i;
@@ -105,7 +106,9 @@ const SECRET_KEYS = 'api[_-]?key|x-api-key|access[_-]?token|refresh[_-]?token|cl
 const KEY_VALUE = new RegExp(`(?<![A-Za-z0-9])(?:${SECRET_KEYS})(?![\\w-])["']?\\s{0,2}=\\s{0,2}["']?([^\\s;"'&,]{4,256})`, 'dgi');
 /** The same names in camel case, which are secrets whatever comes before them (`dbPassword`). `token` is left out: `maxToken` is a number. */
 const CAMEL_KEY_VALUE = /(?<=[a-z])(?:ApiKey|ClientSecret|Secret|Password)(?![\w-])["']?\s{0,2}=\s{0,2}["']?([^\s;"'&,]{4,256})/dg;
-const JSON_KEY_VALUE = new RegExp(`"[A-Za-z0-9_-]{0,40}(?:${SECRET_KEYS})"\\s{0,2}:\\s{0,2}"([^"\\\\]{4,256})"`, 'dgi');
+// The name is one of the keys, alone or after a prefix and a separator (`db_password`): `maxToken` and `nextPageToken` are not secrets.
+const JSON_KEY_VALUE = new RegExp(`"(?:[A-Za-z0-9]{0,40}[_-])?(?:${SECRET_KEYS})"\\s{0,2}:\\s{0,2}"([^"\\\\]{4,256})"`, 'dgi');
+const CAMEL_JSON_KEY_VALUE = /"[A-Za-z0-9]{0,40}[a-z](?:ApiKey|ClientSecret|Secret|Password)"\s{0,2}:\s{0,2}"([^"\\]{4,256})"/dg;
 
 /** Values that say « no secret here »: an empty template, a flag, stars, or what was already masked. */
 const NOT_A_SECRET = /^(?:null|none|nil|true|false|undefined|redacted|empty|[*x]+|[{$<%[].*)$/i;
@@ -121,6 +124,7 @@ function findSecrets(text: string): readonly Range[] {
     ...rangesOf(text, KEY_VALUE, true, isValue),
     ...rangesOf(text, CAMEL_KEY_VALUE, true, isValue),
     ...rangesOf(text, JSON_KEY_VALUE, true, isValue),
+    ...rangesOf(text, CAMEL_JSON_KEY_VALUE, true, isValue),
   ];
 }
 
