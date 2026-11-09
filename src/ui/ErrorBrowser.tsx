@@ -1,4 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react';
+import { NO_STATUSES, statusOf, withStatus } from '../core/errorStatus';
+import type { ErrorStatus, StatusByFingerprint } from '../core/errorStatus';
 import { DEFAULT_ERROR_VIEW, buildErrorView, distinctLevels } from '../core/errorView';
 import type { ErrorViewOptions } from '../core/errorView';
 import { summariseIdentical } from '../core/identicalErrors';
@@ -21,7 +23,8 @@ interface ErrorBrowserProps {
 /**
  * The errors of an analysis: the search, the filter and the sort above, the list on one side and the detail of the
  * selected one on the other. The selection is an error of the whole list (`selected` is its position in `records`,
- * which is also its number in the log), so it holds when the order changes or a search hides it.
+ * which is also its number in the log), so it holds when the order changes or a search hides it. The statuses are
+ * kept here, for this analysis only: a new analysis mounts the browser again, with every error new.
  */
 export function ErrorBrowser({ records, readText, readNeighbours, limitReached }: ErrorBrowserProps) {
   const groups = useMemo(() => summariseIdentical(records), [records]);
@@ -29,7 +32,8 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached }
   const [options, setOptions] = useState<ErrorViewOptions>(DEFAULT_ERROR_VIEW);
   // The text box answers at once; the list of a hundred thousand errors follows when the browser is free.
   const applied = useDeferredValue(options);
-  const indices = useMemo(() => buildErrorView(records, groups, applied), [records, groups, applied]);
+  const [statuses, setStatuses] = useState<StatusByFingerprint>(NO_STATUSES);
+  const indices = useMemo(() => buildErrorView(records, groups, applied, statuses), [records, groups, applied, statuses]);
   const visible = useMemo(() => indices.flatMap((index) => records[index] ?? []), [indices, records]);
   const [selected, setSelected] = useState<number | null>(null);
   const record = selected === null ? null : (records[selected] ?? null);
@@ -47,9 +51,10 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached }
         ) : (
           <ErrorList
             // A new search, filter or sort starts the list again at the top.
-            key={`${applied.search.trim()}|${applied.level ?? ''}|${applied.sortKey}:${applied.direction}`}
+            key={`${applied.search.trim()}|${applied.level ?? ''}|${applied.status ?? ''}|${applied.sortKey}:${applied.direction}`}
             records={visible}
             groups={groups}
+            statuses={statuses}
             selected={selectedRow}
             onSelect={(row) => {
               setSelected(indices[row] ?? null);
@@ -65,6 +70,14 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached }
             readNeighbours={readNeighbours}
             identical={record === null ? undefined : groups.get(record.fingerprintId)}
             countIsMinimum={limitReached}
+            status={record === null ? undefined : statusOf(statuses, record.fingerprintId)}
+            onStatusChange={
+              record === null
+                ? undefined
+                : (status: ErrorStatus) => {
+                    setStatuses((previous) => withStatus(previous, record.fingerprintId, status));
+                  }
+            }
           />
         </ErrorBoundary>
       </div>

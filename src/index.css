@@ -675,6 +675,21 @@ button:disabled {
   align-self: center;
 }
 
+.badge-status {
+  background: transparent;
+  border: 1px solid var(--color-control-border);
+}
+
+.status-picker {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: start;
+}
+
+.status-picker label {
+  font-weight: 600;
+}
+
 .error-list-empty {
   margin: 0;
 }

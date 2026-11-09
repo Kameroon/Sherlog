@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { DEFAULT_ERROR_VIEW } from '../core/errorView';
 import type { ErrorViewOptions, SortDirection, SortKey } from '../core/errorView';
 import { countOf, formatCount } from './format';
+import { STATUS_CHOICES } from './statusLabels';
 
 /** The sorts offered, one entry per key and direction: a single list says everything, with no default direction to guess. */
 const SORTS: readonly { key: SortKey; direction: SortDirection; label: string }[] = [
@@ -32,7 +33,7 @@ interface ErrorToolbarProps {
 /** Search, level filter and sort of the list of errors, and how many errors that leaves. */
 export function ErrorToolbar({ options, onChange, levels, shown, total }: ErrorToolbarProps) {
   const id = useId();
-  const isDefault = options.search === DEFAULT_ERROR_VIEW.search && options.level === DEFAULT_ERROR_VIEW.level && options.sortKey === DEFAULT_ERROR_VIEW.sortKey && options.direction === DEFAULT_ERROR_VIEW.direction;
+  const isDefault = options.search === DEFAULT_ERROR_VIEW.search && options.level === DEFAULT_ERROR_VIEW.level && options.status === DEFAULT_ERROR_VIEW.status && options.sortKey === DEFAULT_ERROR_VIEW.sortKey && options.direction === DEFAULT_ERROR_VIEW.direction;
 
   return (
     <div className="error-toolbar">
@@ -70,6 +71,24 @@ export function ErrorToolbar({ options, onChange, levels, shown, total }: ErrorT
             </select>
           </div>
         )}
+        <div className="field">
+          <label htmlFor={`${id}-status`}>Statut</label>
+          <select
+            id={`${id}-status`}
+            className="select"
+            value={options.status ?? ''}
+            onChange={(event) => {
+              onChange({ ...options, status: STATUS_CHOICES.find((choice) => choice.status === event.target.value)?.status ?? null });
+            }}
+          >
+            <option value="">Tous</option>
+            {STATUS_CHOICES.map((choice) => (
+              <option key={choice.status} value={choice.status}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="field">
           <label htmlFor={`${id}-sort`}>Trier par</label>
           <select
