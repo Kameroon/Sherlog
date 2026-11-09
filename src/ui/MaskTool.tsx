@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { REDACTION_RULES } from '../core/redact';
 import type { RedactionRuleId } from '../core/redact';
+import { FoldablePanel } from './FoldablePanel';
 import { countOf } from './format';
 
 interface MaskToolProps {
@@ -34,8 +35,7 @@ export function MaskTool({ masking, onChange, occurrences, forTheBeginning, show
   };
 
   return (
-    <section className="panel mask-tool" aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>Masquer les données sensibles</h2>
+    <FoldablePanel id={id} title="Masquer les données sensibles" className="mask-tool">
       <p className="period-help">
         Les données cochées sont remplacées par une étiquette dans l’aperçu et dans ce qui sera envoyé. C’est un meilleur effort : l’aperçu de ce qui est envoyé fait foi.
       </p>
@@ -82,6 +82,6 @@ export function MaskTool({ masking, onChange, occurrences, forTheBeginning, show
         Afficher le texte d’origine
       </button>
       {showingOriginal && <p className="small-note">Le texte d’origine reste sur cet écran : il n’est ni envoyé ni gardé. Il disparaît quand vous quittez la préparation.</p>}
-    </section>
+    </FoldablePanel>
   );
 }
