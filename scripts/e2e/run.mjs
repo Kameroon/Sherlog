@@ -452,7 +452,7 @@ async function run(cdp, appUrl, dataDir) {
   // 4. Pasted text with markup: shown as text, never interpreted.
   await click('Choisir un autre journal');
   await waitFor(`!!document.querySelector('#paste-input')`, 'le champ de collage');
-  const pasted = '[08:16:10 ERR] Failed <img src=x onerror=alert(1)>\n[08:16:11 INF] Next\n';
+  const pasted = '[08:16:10 ERR] Failed <img src=x onerror=alert(1)> for john.doe@example.com from 10.0.4.17\n[08:16:11 INF] Next from 10.0.4.18\n';
   await evaluate(
     `(() => { const field = document.querySelector('#paste-input'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(pasted)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
   );
@@ -467,8 +467,19 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasButton('Voir les lignes autour'), 'le bouton des lignes autour de l’erreur collée');
   await click('Voir les lignes autour');
   await waitFor(hasText('Aucune ligne avant'), 'les lignes autour de l’erreur collée');
-  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
+  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next from 10.0.4.18' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
 
+  // 5. What would be sent: chosen by the user, masked, the lines around the error included, nothing sent.
+  check('aucune erreur n’est choisie d’office', (await evaluate(`document.querySelector('.send-panel')?.textContent.includes('Aucune erreur choisie.')`)) === true);
+  await evaluate(`[...document.querySelectorAll('label')].find((label) => label.textContent.includes('Faire expliquer cette erreur par l’IA')).querySelector('input').click()`);
+  await waitFor(`!!document.querySelector('.send-panel .send-item')`, 'l’erreur choisie dans le panneau d’envoi');
+  check('l’erreur choisie est marquée dans la liste', (await text('[role=option]')).includes('À envoyer'));
+  await click('Voir le texte exact');
+  await waitFor(`!!document.querySelector('[aria-label^="Texte exact envoyé"]')`, 'le texte exact envoyé');
+  const sent = await text('[aria-label^="Texte exact envoyé"]');
+  check('le texte envoyé masque l’adresse e-mail et les adresses IP, lignes autour comprises', sent.includes('[EMAIL]') && sent.includes('[IP]') && !sent.includes('john.doe') && !sent.includes('10.0.4.17') && !sent.includes('10.0.4.18'), sent);
+  check('le balisage reste du texte dans le texte envoyé', sent.includes('<img src=x') && !(await evaluate(`!!document.querySelector('.send-panel img')`)));
+  check('l’envoi n’est pas disponible et le dit', (await isDisabled('Envoyer à l’IA')) === true && (await evaluate(hasText('Rien n’a été envoyé'))));
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 }
 
