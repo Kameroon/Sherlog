@@ -12,6 +12,8 @@ interface PreparedPreviewProps {
   sourceBytes: number;
   /** `true` when the preview covers the whole source. */
   complete: boolean;
+  /** `true` to show the lines as they are in the log instead of masked. */
+  showOriginal?: boolean;
 }
 
 function tagOf(line: HeadPreview['lines'][number]): string {
@@ -25,7 +27,7 @@ function tagOf(line: HeadPreview['lines'][number]): string {
  * The first lines of the log as the preparation sees them: headers apart from the lines that continue them, errors
  * marked, and the lines of entries that are left out struck through. Text only: a log line is never markup.
  */
-export function PreparedPreview({ preview, name, headBytes, sourceBytes, complete }: PreparedPreviewProps) {
+export function PreparedPreview({ preview, name, headBytes, sourceBytes, complete, showOriginal = false }: PreparedPreviewProps) {
   const where = complete
     ? `${formatCount(preview.totalLines)} lignes lues dans ce navigateur`
     : `début du fichier (${formatSize(headBytes)} sur ${formatSize(sourceBytes)}) : ${formatCount(preview.totalLines)} lignes`;
@@ -53,8 +55,8 @@ export function PreparedPreview({ preview, name, headBytes, sourceBytes, complet
                 <span className="line-no">{line.number}</span>
                 <span className="line-tag">{tagOf(line)}</span>
                 <span>
-                  {line.text}
-                  {line.cut ? '…' : ''}
+                  {showOriginal ? line.originalText : line.text}
+                  {(showOriginal ? line.originalCut : line.cut) ? '…' : ''}
                   {line.ignored && <span className="visually-hidden"> (écartée)</span>}
                 </span>
               </li>

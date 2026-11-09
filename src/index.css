@@ -639,6 +639,53 @@ button:disabled {
   list-style: none;
 }
 
+/* ---- Masking tool ---- */
+
+/* The masking tool has six rules with a description each: it takes the whole row under the three other settings. */
+.mask-tool {
+  grid-column: 1 / -1;
+}
+
+.mask-rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mask-rule {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+}
+
+.mask-rule-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mask-placeholder {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.mask-option {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.mask-tool .button-secondary[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-selected);
+}
+
 /* ---- Period ---- */
 
 .select {

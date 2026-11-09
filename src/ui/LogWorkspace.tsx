@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
+import type { RedactionRuleId } from '../core/redact';
 import type { ScanResult } from '../core/scanLog';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
@@ -76,7 +77,7 @@ function stepOf(phase: ScanState['phase']): StepNumber {
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
 export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
-  const { state, chooseFile, chooseText, changePreparation, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
+  const { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
 
   // Each stage replaces the previous one, and the button that was clicked goes away: without moving the focus to the
   // new stage, a keyboard user lands on the page body. Not on the first render, which must not steal the focus, and not
@@ -104,6 +105,7 @@ export function LogWorkspace({ dependencies }: LogWorkspaceProps) {
         onFile={(file) => void chooseFile(file)}
         onText={(text) => void chooseText(text)}
         onPreparationChange={changePreparation}
+        onMaskingChange={changeMasking}
         onProfileChange={changeProfile}
         onAnalyse={analyse}
         onCancel={cancel}
@@ -121,6 +123,7 @@ interface StageProps {
   onFile: (file: File) => void;
   onText: (text: string) => void;
   onPreparationChange: (preparation: Preparation) => void;
+  onMaskingChange: (masking: ReadonlySet<RedactionRuleId>) => void;
   onProfileChange: (profile: LogProfile) => void;
   onAnalyse: () => void;
   onCancel: () => void;
@@ -129,7 +132,7 @@ interface StageProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
 }
 
-function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
+function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -191,6 +194,8 @@ function Stage({ state, setFocusTarget, onFile, onText, onPreparationChange, onP
             onProfileChange={onProfileChange}
             preparation={state.preparation}
             onPreparationChange={onPreparationChange}
+            masking={state.masking}
+            onMaskingChange={onMaskingChange}
             result={analysed ? state.result : null}
             settingsChanged={state.phase === 'ready' && state.settingsChanged}
             onAnalyse={analysed ? undefined : onAnalyse}
