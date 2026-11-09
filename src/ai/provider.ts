@@ -1,4 +1,4 @@
-import type { AiRequestError } from './errors';
+import { AiRequestError } from './errors';
 
 /** The two providers a user can choose from. */
 export type ProviderId = 'anthropic' | 'ollama';
@@ -9,6 +9,8 @@ export interface Message {
 }
 
 export interface StreamOptions {
+  /** The instructions to the model, apart from the conversation (what the log says is never in it). */
+  readonly system?: string;
   /** Cancels the request, and the reading of its answer if it has begun. */
   readonly signal?: AbortSignal;
 }
@@ -21,11 +23,21 @@ export interface AiProvider {
 /** The outcome of "Tester la connexion": always a value, never a throw, so that the screen can say why. */
 export type ConnectionResult = { readonly ok: true } | { readonly ok: false; readonly failure: AiRequestError };
 
-/** Reads an answer to its end and gives the whole text. */
-export async function readAnswer(pieces: AsyncIterable<string>): Promise<string> {
+/** The longest answer read as a whole: an analysis is a few thousand characters, and an answer that never ends must not fill the page's memory. */
+export const MAX_ANSWER_CHARS = 60_000;
+
+/**
+ * Reads an answer to its end and gives the whole text.
+ *
+ * @throws AiRequestError of kind `protocol` when the answer is longer than `maxChars`: it is refused, not cut.
+ */
+export async function readAnswer(pieces: AsyncIterable<string>, maxChars: number = MAX_ANSWER_CHARS): Promise<string> {
   let answer = '';
   for await (const piece of pieces) {
     answer += piece;
+    if (answer.length > maxChars) {
+      throw new AiRequestError('protocol', { detail: 'réponse trop longue' });
+    }
   }
   return answer;
 }

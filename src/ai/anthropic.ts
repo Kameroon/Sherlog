@@ -109,7 +109,7 @@ export function createAnthropicProvider(config: AnthropicConfig): AiProvider {
           // Without it the answer is not readable by the page (ADR-002).
           'anthropic-dangerous-direct-browser-access': 'true',
         },
-        body: { model, max_tokens: maxTokens, stream: true, messages },
+        body: { model, max_tokens: maxTokens, stream: true, system: options.system, messages },
         signal: options.signal,
         fetchImpl,
         headersTimeoutMs: config.headersTimeoutMs,
