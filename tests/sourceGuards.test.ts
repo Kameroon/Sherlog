@@ -40,9 +40,33 @@ describe('source guards', () => {
     expect(filesWith(/\bconsole\.(log|info|warn|error|debug|trace|dir|table|assert)\b/)).toEqual([]);
   });
 
-  it('should keep browser storage in the one module that scopes it by identity', () => {
+  it('should keep the storage of the tab and of the computer in the one module that scopes it by identity', () => {
     // Act & Assert
-    expect(filesWith(/\b(sessionStorage|localStorage|indexedDB)\b/)).toEqual(['store/aiSettings.ts']);
+    expect(filesWith(/\b(sessionStorage|localStorage)\b/)).toEqual(['store/aiSettings.ts']);
+  });
+
+  it('should keep IndexedDB, where the folder kept is, in the one module that scopes it by identity', () => {
+    // Act & Assert
+    expect(filesWith(/\bindexedDB\b/)).toEqual(['store/folderStore.ts']);
+  });
+
+  it('should reach the folder picker of the browser from the one module that asks for read mode', () => {
+    // Act & Assert
+    expect(filesWith(/\bshowDirectoryPicker\b/)).toEqual(['sources/folder.ts']);
+  });
+
+  // Nothing in the application writes to the user's disk (ADR-020, A1): not one call that creates, writes or removes.
+  it.each(['createWritable', 'removeEntry', 'getFileHandle', 'getDirectoryHandle', 'showSaveFilePicker', 'showOpenFilePicker', 'FileSystemWritableFileStream'])(
+    'should never use %s, which writes to or opens files on the disk',
+    (api) => {
+      // Act & Assert
+      expect(sources.filter(({ text }) => text.includes(api)).map(({ file }) => file)).toEqual([]);
+    },
+  );
+
+  it('should never ask the browser for a folder in write mode', () => {
+    // Act & Assert
+    expect(filesWith(/mode:\s*['"]readwrite['"]/)).toEqual([]);
   });
 
   it.each(['dangerouslySetInnerHTML', 'innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function'])('should not use %s', (api) => {

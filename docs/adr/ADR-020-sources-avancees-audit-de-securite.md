@@ -54,7 +54,11 @@ Jusqu'ici, un journal arrive par un fichier ou un collage que l'utilisateur donn
 | M8 | Navigateur partagé : jeton ou compte resté ouvert. | Moyenne | Mémoire seulement ; bouton « Se déconnecter d'Azure Monitor » ; rien ne survit à l'onglet. |
 | M9 | En-tête `Cross-Origin-Opener-Policy` : la fenêtre contextuelle de connexion exige que `window.opener` reste joignable. | Faible | Ne pas ajouter de COOP `same-origin` ; test de configuration qui le garantit. |
 
-## Décisions à prendre avant le code
+## Décisions prises (2026-11-09) et décisions encore ouvertes
+- **Q1 — décidée : un seul niveau.** **Q2 — décidée : retenir le dossier** (cloisonné par identité, avec « Oublier »). Réalisées en 10a : ADR-021.
+- **Q3 — OUVERTE** : aucun compte de stockage donné ; 10b bloquée. **Q4 — déléguée à Claude** : limite de téléchargement mesurée sur un fichier généré. **Q5 — OUVERTE** : ni 3b, ni export réel, ni enregistrement Entra, ni workspace ; 10c bloquée.
+
+## Décisions à prendre avant le code (texte d'origine)
 - **Q1 — Dossier : un seul niveau ou récursif ?** Proposé : **un seul niveau** (KISS, borne simple ; les journaux sont d'ordinaire dans un dossier plat).
 - **Q2 — Dossier : retenir le dossier pour le relire en un clic (`SPEC.md` §4, « relecture rapide d'un dossier déjà autorisé »), ou le redemander à chaque fois ?** Proposé : **le retenir**, cloisonné par identité, avec « Oublier » ; sinon rien à stocker.
 - **Q3 — URL : quels comptes de stockage exactement ?** Aucune adresse n'est devinée : le nom de chaque compte (`https://<compte>.blob.core.windows.net`) est donné par l'auteur ; sans cela, 10b n'est pas livrable. Conseil à afficher : jeton SAS en lecture seule, de courte durée.

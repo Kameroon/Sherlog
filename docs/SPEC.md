@@ -26,7 +26,7 @@ une analyse IA précise et un chat, avec la clé de l'utilisateur ou un modèle 
 
 ### Partie 1 — Collecte et affichage des erreurs
 - **Sources locales** : glisser-déposer ou sélecteur de fichiers (tous navigateurs) ; sélecteur de dossier avec relecture rapide
-  (Chrome et Edge uniquement). Pas de saisie de chemin ni de découverte automatique : le navigateur n'accède au disque que sur choix de l'utilisateur.
+  (Chrome et Edge uniquement ; **réalisé à l'étape 10a, ADR-021** : lecture seule, un seul niveau, 1 000 fichiers au plus, l'utilisateur choisit un fichier ; le dossier est retenu par identité et le navigateur redemande l'autorisation à chaque session). Pas de saisie de chemin ni de découverte automatique : le navigateur n'accède au disque que sur choix de l'utilisateur.
 - **Sources distantes** : (a) collage de texte ; (b) URL de logs lisible par le navigateur (HTTPS + CORS autorisant le site,
   par exemple un lien SAS Blob) **sur un domaine de la liste figée dans la CSP** ; tout autre domaine est refusé avec un message explicite (ajout = modification de la config et redéploiement) ; (c) Azure Monitor (Log Analytics / App Insights) via connexion Microsoft dans le navigateur —
   **conditionné au spike de faisabilité**. Repli sans condition : exporter le résultat de la requête depuis le portail Azure et le déposer comme un fichier.
