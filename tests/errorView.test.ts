@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ERROR_VIEW, buildErrorView, distinctLevels } from '../src/core/errorView';
 import type { ErrorViewOptions } from '../src/core/errorView';
+import { NO_STATUSES, withStatus } from '../src/core/errorStatus';
+import type { StatusByFingerprint } from '../src/core/errorStatus';
 import { summariseIdentical } from '../src/core/identicalErrors';
 import type { ErrorRecord } from '../src/core/scanLog';
 
@@ -17,8 +19,8 @@ const record = (offset: number, overrides: Partial<ErrorRecord> = {}): ErrorReco
   ...overrides,
 });
 
-const view = (records: readonly ErrorRecord[], options: Partial<ErrorViewOptions> = {}): readonly number[] =>
-  buildErrorView(records, summariseIdentical(records), { ...DEFAULT_ERROR_VIEW, ...options });
+const view = (records: readonly ErrorRecord[], options: Partial<ErrorViewOptions> = {}, statuses: StatusByFingerprint = NO_STATUSES): readonly number[] =>
+  buildErrorView(records, summariseIdentical(records), { ...DEFAULT_ERROR_VIEW, ...options }, statuses);
 
 describe('buildErrorView', () => {
   it('should keep every error in reading order when no option is set', () => {
@@ -143,6 +145,46 @@ describe('buildErrorView', () => {
 
       // Assert
       expect(indices).toEqual([1]);
+    });
+  });
+
+  describe('status filter', () => {
+    const records = [record(0, { fingerprintId: 1 }), record(1, { fingerprintId: 2 }), record(2, { fingerprintId: 1 }), record(3, { fingerprintId: 3 })];
+    const statuses = withStatus(withStatus(NO_STATUSES, 1, 'resolved'), 2, 'ignored');
+
+    it('should keep the errors whose fingerprint has the chosen status, the twins together', () => {
+      // Act
+      const indices = view(records, { status: 'resolved' }, statuses);
+
+      // Assert
+      expect(indices).toEqual([0, 2]);
+    });
+
+    it('should keep the errors nobody has set a status for when the status is new', () => {
+      // Act
+      const indices = view(records, { status: 'new' }, statuses);
+
+      // Assert
+      expect(indices).toEqual([3]);
+    });
+
+    it('should keep every status when none is chosen', () => {
+      // Act
+      const indices = view(records, { status: null }, statuses);
+
+      // Assert
+      expect(indices).toEqual([0, 1, 2, 3]);
+    });
+
+    it('should combine with the search', () => {
+      // Arrange
+      const named = [record(0, { fingerprintId: 1, message: 'disk' }), record(1, { fingerprintId: 1, message: 'network' })];
+
+      // Act
+      const indices = view(named, { status: 'resolved', search: 'disk' }, withStatus(NO_STATUSES, 1, 'resolved'));
+
+      // Assert
+      expect(indices).toEqual([0]);
     });
   });
 

@@ -1,3 +1,5 @@
+import { NO_STATUSES, statusOf } from './errorStatus';
+import type { ErrorStatus, StatusByFingerprint } from './errorStatus';
 import type { IdenticalErrors } from './identicalErrors';
 import type { ErrorRecord } from './scanLog';
 
@@ -10,11 +12,13 @@ export interface ErrorViewOptions {
   readonly search: string;
   /** Level, exactly as written in the log, to keep; `null` keeps every level. */
   readonly level: string | null;
+  /** Status to keep, which is the status of the fingerprint of the error; `null` keeps every status. */
+  readonly status: ErrorStatus | null;
   readonly sortKey: SortKey;
   readonly direction: SortDirection;
 }
 
-export const DEFAULT_ERROR_VIEW: ErrorViewOptions = { search: '', level: null, sortKey: 'reading', direction: 'asc' };
+export const DEFAULT_ERROR_VIEW: ErrorViewOptions = { search: '', level: null, status: null, sortKey: 'reading', direction: 'asc' };
 
 // The two kinds of timestamp the built-in profiles can give; the same shapes as the period of the preparation, with
 // the fraction of second kept so that two errors in the same second still sort. The offset (`+01:00`) is not read.
@@ -74,17 +78,26 @@ const byTime =
   };
 
 /**
- * Chooses which errors the list shows and in what order: the search and the level filter first, then the sort.
+ * Chooses which errors the list shows and in what order: the search and the filters first, then the sort.
  * Equal errors keep their reading order (the sort of arrays is stable).
  *
  * @returns Positions in `records`, so the caller can tell an error by its place in the whole list. The search covers
  * what the records hold, that is the time, the level and the message cut at its limit; the stack is not read.
  */
-export function buildErrorView(records: readonly ErrorRecord[], groups: ReadonlyMap<number, IdenticalErrors>, options: ErrorViewOptions): readonly number[] {
+export function buildErrorView(
+  records: readonly ErrorRecord[],
+  groups: ReadonlyMap<number, IdenticalErrors>,
+  options: ErrorViewOptions,
+  statuses: StatusByFingerprint = NO_STATUSES,
+): readonly number[] {
   const needle = options.search.trim().toLowerCase();
   const indices: number[] = [];
   records.forEach((record, index) => {
-    if ((options.level === null || record.level === options.level) && (needle === '' || matchesSearch(record, needle))) {
+    const wanted =
+      (options.level === null || record.level === options.level) &&
+      (options.status === null || statusOf(statuses, record.fingerprintId) === options.status) &&
+      (needle === '' || matchesSearch(record, needle));
+    if (wanted) {
       indices.push(index);
     }
   });
