@@ -391,6 +391,41 @@ async function run(cdp, appUrl, dataDir) {
   check('au milieu de l’ascenseur, la page montre les lignes du milieu de la liste', middle.some((position) => position > 40000 && position < 60000), `${Math.min(...middle)} à ${Math.max(...middle)}`);
   metrics.heapMB = await evaluate(`Math.round(performance.memory.usedJSHeapSize / 1048576)`);
 
+  // 3b. Search and sort over 100 000 recorded errors: the list follows within a time a user can bear.
+  const setSearch = (value) =>
+    evaluate(
+      `(() => { const field = document.querySelector('input[type=search]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
+    );
+  const setSort = (value) =>
+    evaluate(
+      `(() => { const field = [...document.querySelectorAll('select')].find((select) => select.id.endsWith('-sort')); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    );
+  const listSize = () => evaluate(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize') ?? 0)`);
+  const firstTime = () => evaluate(`document.querySelector('[role=listbox] [role=option] .error-time')?.textContent ?? ''`);
+  // The generator cycles through six messages: the first one, which names PaymentGateway, is every sixth error.
+  const paymentErrors = Math.ceil(manySetSize / 6);
+  const searchStart = performance.now();
+  await setSearch('PaymentGateway');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${paymentErrors}`, 'la liste réduite par la recherche');
+  metrics.searchMs = Math.round(performance.now() - searchStart);
+  check('la recherche ne garde que les erreurs qui contiennent le texte', (await listSize()) === paymentErrors, `${await listSize()} lignes, ${paymentErrors} attendues`);
+  check('le nombre d’erreurs affichées est annoncé', plain(await text('.error-toolbar-count')) === `${fr(paymentErrors)} erreurs affichées sur ${fr(manySetSize)}`, await text('.error-toolbar-count'));
+  await setSearch('');
+  await waitFor(`Number(document.querySelector('[role=listbox] [role=option]')?.getAttribute('aria-setsize')) === ${manySetSize}`, 'la liste entière après avoir vidé la recherche');
+  // The generated times go back to midnight after 86 400 entries, so the most recent error is not the last one read.
+  const firstInReading = await firstTime();
+  const firstTimeIs = (time) => `(document.querySelector('[role=listbox] [role=option] .error-time')?.textContent ?? '') === ${JSON.stringify(time)}`;
+  const shownTimes = () => evaluate(`[...document.querySelectorAll('[role=listbox] [role=option] .error-time')].slice(0, 50).map((time) => time.textContent)`);
+  const sortStart = performance.now();
+  await setSort('time:desc');
+  await waitFor(`!(${firstTimeIs(firstInReading)})`, 'la liste triée par heure, la plus récente d’abord');
+  metrics.sortByTimeMs = Math.round(performance.now() - sortStart);
+  const newestFirst = await shownTimes();
+  check('trié par heure, la plus récente d’abord, les premières lignes ne remontent pas dans le temps', newestFirst.length === 50 && newestFirst.every((time, i) => i === 0 || time <= newestFirst[i - 1]) && newestFirst[0] > firstInReading, `${newestFirst[0]} puis ${newestFirst[49]}`);
+  check('trier laisse 100 000 erreurs dans la liste et moins de 400 lignes dans la page', (await listSize()) === manySetSize && (await optionCount()) < 400);
+  await setSort('reading:asc');
+  await waitFor(firstTimeIs(firstInReading), 'le retour à l’ordre de lecture');
+
   // 4. Pasted text with markup: shown as text, never interpreted.
   await click('Choisir un autre journal');
   await waitFor(`!!document.querySelector('#paste-input')`, 'le champ de collage');
