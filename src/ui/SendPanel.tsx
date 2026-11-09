@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ProviderChoice } from '../ai/createProvider';
 import { PROVIDER_NAMES } from '../ai/provider';
@@ -7,20 +7,12 @@ import { latestOccurrence } from '../core/identicalErrors';
 import { REDACTION_RULES, rulesForSending } from '../core/redact';
 import type { RedactionRuleId } from '../core/redact';
 import type { ErrorRecord } from '../core/scanLog';
-import { buildSendPayload } from '../core/sendPayload';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import { readFailureMessage } from '../sources/readFailure';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
-import { countOf, formatCount } from './format';
+import { ExactText } from './ExactText';
+import { formatCount } from './format';
 import type { AnalysisByFingerprint, AnalysisEntry } from './analysisState';
-import { sendSourceOf } from './sendSource';
 import type { SendProgress } from './useAnalyses';
-
-/** What the panel shows of the log it reads for one error: the reads in progress, the text, or why it could not be read. */
-type Reading =
-  | { readonly status: 'loading' }
-  | { readonly status: 'done'; readonly entry: EntryText; readonly lines: NeighbourLines }
-  | { readonly status: 'failed'; readonly message: string };
 
 interface SendPanelProps {
   records: readonly ErrorRecord[];
@@ -60,69 +52,6 @@ interface ItemProps extends Pick<SendPanelProps, 'fileName' | 'masking' | 'count
   byTime: boolean;
   hasDate: boolean;
   onRemove: () => void;
-}
-
-/** The text that would be sent for one error, read from the log when the user asks to see it, masked and cut like a request would. */
-function ExactText({ record, number, group, fileName, masking, countIsMinimum, readText, readNeighbours }: Omit<ItemProps, 'byTime' | 'hasDate' | 'onRemove' | 'analysis'>) {
-  const [reading, setReading] = useState<Reading>({ status: 'loading' });
-
-  useEffect(() => {
-    // The user may hide the text or change the error before the reads end: an answer that comes late is dropped.
-    let current = true;
-    Promise.all([readText(record), readNeighbours(record)]).then(
-      ([entry, lines]) => {
-        if (current) {
-          setReading({ status: 'done', entry, lines });
-        }
-      },
-      (error: unknown) => {
-        if (current) {
-          setReading({ status: 'failed', message: readFailureMessage(error) });
-        }
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [record, readText, readNeighbours]);
-
-  // Masking is applied here, not when reading: a change of the rules in the preparation shows at once, with no new read.
-  const payload = useMemo(
-    () =>
-      reading.status === 'done'
-        ? buildSendPayload(sendSourceOf({ fileName, group, countIsMinimum, entry: reading.entry, lines: reading.lines }), masking)
-        : null,
-    [reading, fileName, group, countIsMinimum, masking],
-  );
-
-  if (reading.status === 'loading') {
-    return (
-      <p className="hint" role="status">
-        Lecture du texte dans le fichier…
-      </p>
-    );
-  }
-  if (reading.status === 'failed') {
-    return (
-      <p className="notice notice-error" role="alert">
-        {reading.message}
-      </p>
-    );
-  }
-  if (payload === null) {
-    return null;
-  }
-  return (
-    <>
-      <p className="small-note">
-        {payload.maskedCount === 0 ? 'Aucune donnée masquée dans ce texte.' : `${countOf(payload.maskedCount, 'donnée masquée', 'données masquées')} dans ce texte.`}
-      </p>
-      <pre className="entry-text" role="region" aria-label={`Texte exact envoyé pour l’erreur ${number}`} tabIndex={0}>
-        {payload.text}
-      </pre>
-      {payload.note !== null && <p className="notice notice-warning">{payload.note}</p>}
-    </>
-  );
 }
 
 function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, ...reading }: ItemProps) {

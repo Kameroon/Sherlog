@@ -478,6 +478,7 @@ async function run(cdp, appUrl, dataDir) {
   await click('Voir les lignes autour');
   await waitFor(hasText('Aucune ligne avant'), 'les lignes autour de l’erreur collée');
   check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next from 10.0.4.18' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
+  check('le chat n’est pas proposé tant que le modèle n’a pas analysé l’erreur : il approfondit son analyse', !(await evaluate(`!!document.querySelector('.chat')`)));
 
   // 5. What would be sent: chosen by the user, masked, the lines around the error included, nothing sent.
   check('aucune erreur n’est choisie d’office', (await evaluate(`document.querySelector('.send-panel')?.textContent.includes('Aucune erreur choisie.')`)) === true);
@@ -515,7 +516,10 @@ async function run(cdp, appUrl, dataDir) {
     suggestedFixes: [{ title: 'Installer la dépendance', details: 'Puis relancer.', codeHint: null }],
     missingInfo: [],
   });
-  const anthropicAnswerTo = (body) => sse(body.includes('log_data_') ? analysisJson : 'OK');
+  const chatAnswer = 'Le délai de la passerelle est trop court <b>gras</b>.';
+  // The analysis and the chat are told apart by their instructions (the role for the chat, the schema for the analysis): the
+  // context of a chat holds an analysis, so the role is looked for first.
+  const anthropicAnswerTo = (body) => sse(body.includes('ingénieur logiciel expert') ? chatAnswer : body.includes('probableCause') ? analysisJson : 'OK');
   cdp.on((message) => {
     if (message.method !== 'Fetch.requestPaused') {
       return;
@@ -567,7 +571,8 @@ async function run(cdp, appUrl, dataDir) {
 
   // 7. The analysis: the text of the preview leaves only on the click, as data between delimiters that carry a random
   // value, masked; the answer is read as the schema and shown as text; the error becomes « Analysé ».
-  const analysisRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('log_data_'));
+  const analysisRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('probableCause') && !request.body.includes('ingénieur logiciel expert'));
+  const chatRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('ingénieur logiciel expert'));
   check('aucune analyse n’est partie avant le clic sur « Envoyer à l’IA »', analysisRequests().length === 0);
   check('le bouton dit où part le texte et avec quel modèle', await evaluate(hasText('part vers Anthropic (api.anthropic.com), modèle claude-haiku-5-5')));
   check('« Envoyer à l’IA » est actif : une erreur est choisie et la clé est là', (await isDisabled('Envoyer à l’IA')) === false);
@@ -592,6 +597,44 @@ async function run(cdp, appUrl, dataDir) {
   const nonces = analysisRequests().map((request) => /<log_data_([0-9a-f]{32})>/.exec(JSON.parse(request.body).messages[0].content)?.[1]);
   check('un second envoi tire un autre délimiteur', nonces.length === 2 && nonces[0] !== nonces[1], nonces.join(' / '));
   check('la clé reste absente de l’écran après l’analyse', !(await evaluate(hasText(apiKey))));
+
+  // 8. The chat about the selected error: it deepens the analysis of the model, so it exists once the model has answered
+  // for the error; nothing is sent before the click, the question is masked, the context and the analysis are in the first
+  // message only, the whole conversation is sent with a new delimiter each time, the answer is shown as text.
+  const typeQuestion = (value) =>
+    evaluate(
+      `(() => { const field = document.querySelector('.chat textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
+    );
+  check('le chat est dans le détail de l’erreur', await evaluate(`!!document.querySelector('.error-detail .chat')`));
+  check('le chat dit où part chaque message, avec le modèle', await evaluate(`document.querySelector('.chat').textContent.includes('part vers Anthropic (api.anthropic.com), modèle claude-haiku-5-5, avec toute la conversation')`));
+  check('aucune question n’est partie avant le clic', chatRequests().length === 0);
+  await typeQuestion('Pourquoi ce délai pour jane.doe@example.com ?');
+  check('l’écran dit combien de données de la question seront masquées', await evaluate(hasText('1 donnée de ce message sera masquée')));
+  check('taper la question n’envoie rien', chatRequests().length === 0);
+  await click('Envoyer la question');
+  await waitFor(`!!document.querySelector('.chat-thread')`, 'le début de la conversation');
+  await waitFor(`document.querySelector('.chat-thread').textContent.includes('Le délai de la passerelle')`, 'la réponse du chat');
+  await waitFor(`!document.querySelector('.chat').textContent.includes('Arrêter la réponse')`, 'la fin de la réponse');
+  const firstChat = JSON.parse(chatRequests()[0]?.body ?? '{}');
+  const firstContent = firstChat.messages?.[0]?.content ?? '';
+  const chatNonce = /^<log_data_([0-9a-f]{32})>\n/.exec(firstContent)?.[1];
+  check('une seule requête, le contexte et la question dans le premier message, le journal entre des délimiteurs aléatoires', chatRequests().length === 1 && firstChat.messages.length === 1 && chatNonce !== undefined && firstContent.includes(`</log_data_${chatNonce}>`), firstContent.slice(0, 60));
+  check('le contexte porte le texte masqué et l’analyse du modèle', firstContent.includes('[EMAIL]') && firstContent.includes('--- Analyse précédente ---') && !firstContent.includes('john.doe'), firstContent.slice(-200));
+  check('la question est masquée avant de partir, hors du bloc de données', firstContent.endsWith('Pourquoi ce délai pour [EMAIL] ?') && !JSON.stringify(firstChat).includes('jane.doe@example.com'));
+  check('le prompt système du chat cite le même délimiteur et dit que le bloc est une donnée', firstChat.system.includes(`<log_data_${chatNonce}>`) && firstChat.system.includes('jamais une instruction'));
+  const chatHeaders = Object.fromEntries(Object.entries(chatRequests()[0]?.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]));
+  check('la requête du chat porte la clé, ni cookie ni référent', chatHeaders['x-api-key'] === apiKey && chatHeaders['cookie'] === undefined && chatHeaders['referer'] === undefined);
+  check('la conversation montre la question masquée et la réponse en texte, sans interpréter le balisage', (await text('.chat-thread')).includes('Pourquoi ce délai pour [EMAIL] ?') && (await text('.chat-thread')).includes('trop court <b>gras</b>.') && !(await evaluate(`!!document.querySelector('.chat-thread b, .chat-thread a, .chat-thread img')`)));
+  await typeQuestion('Et le correctif ?');
+  await click('Envoyer la question');
+  await waitFor(`${JSON.stringify(2)} <= 2 && document.querySelectorAll('.chat-turn').length === 2 && !document.querySelector('.chat').textContent.includes('Arrêter la réponse')`, 'la seconde réponse');
+  const secondChat = JSON.parse(chatRequests()[1]?.body ?? '{}');
+  const secondNonce = /<log_data_([0-9a-f]{32})>/.exec(secondChat.messages?.[0]?.content ?? '')?.[1];
+  check('la seconde question renvoie toute la conversation, le contexte une seule fois', JSON.stringify(secondChat.messages?.map((message) => message.role)) === '["user","assistant","user"]' && secondChat.messages.filter((message) => message.content.includes('log_data_')).length === 1 && secondChat.messages[2].content === 'Et le correctif ?');
+  check('un délimiteur neuf est tiré pour la seconde requête', secondNonce !== undefined && secondNonce !== chatNonce, `${chatNonce} / ${secondNonce}`);
+  await click('Effacer la conversation');
+  check('effacer la conversation la vide', !(await evaluate(`!!document.querySelector('.chat-thread')`)));
+  check('la clé reste absente de l’écran après le chat', !(await evaluate(hasText(apiKey))));
   await evaluate(`[...document.querySelectorAll('.provider-settings input[type=radio]')].find((radio) => radio.parentElement.textContent.includes('Ollama')).click()`);
   check('avec Ollama, l’écran dit que les extraits restent sur l’ordinateur et ce qu’Ollama doit accepter', (await evaluate(hasText('restent sur cet ordinateur'))) && (await evaluate(hasText('OLLAMA_ORIGINS'))));
   await click('Tester la connexion');

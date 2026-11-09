@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { ErrorStatus } from '../core/errorStatus';
 import type { IdenticalErrors } from '../core/identicalErrors';
 import type { ErrorRecord } from '../core/scanLog';
@@ -43,6 +44,8 @@ interface ErrorDetailProps {
   sendChoice?: SendChoice;
   /** What the model said of the error (or is saying, or why it could not), which holds for the errors identical to it. */
   analysis?: AnalysisEntry;
+  /** The conversation about the error, shown under the analysis. */
+  chat?: ReactNode;
 }
 
 /** The choice to send an error, and the occurrence of its fingerprint that would be sent. */
@@ -273,7 +276,7 @@ function NeighbourPanel({ record, position, readNeighbours }: { record: ErrorRec
 }
 
 /** The whole text of the selected error, with its stack, read again from the file; text only, never markup. */
-export function ErrorDetail({ record, position, readText, readNeighbours, identical, countIsMinimum = false, status = 'new', onStatusChange, sendChoice, analysis }: ErrorDetailProps) {
+export function ErrorDetail({ record, position, readText, readNeighbours, identical, countIsMinimum = false, status = 'new', onStatusChange, sendChoice, analysis, chat }: ErrorDetailProps) {
   const titleId = useId();
   return (
     <section className="error-detail" aria-labelledby={titleId}>
@@ -290,6 +293,7 @@ export function ErrorDetail({ record, position, readText, readNeighbours, identi
           {sendChoice !== undefined && <SendChoicePicker choice={sendChoice} twins={identical?.count ?? 1} />}
           {identical !== undefined && identical.count > 1 && <IdenticalSummary identical={identical} countIsMinimum={countIsMinimum} />}
           {analysis !== undefined && <AnalysisView entry={analysis} twins={identical?.count ?? 1} />}
+          {chat}
           <EntryReading record={record} position={position} readText={readText} />
           <NeighbourPanel record={record} position={position} readNeighbours={readNeighbours} />
         </>

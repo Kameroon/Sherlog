@@ -1039,3 +1039,60 @@ button:disabled {
   width: 100%;
   max-width: 28rem;
 }
+
+/* ---- Chat about an error ---- */
+
+.chat {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+.chat h3,
+.chat p {
+  margin: 0;
+}
+
+.chat-context {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.chat-thread {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-turn {
+  display: grid;
+  gap: 0.25rem;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--color-line);
+}
+
+.chat-who {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.chat-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-failure {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.chat .text-area {
+  font-family: inherit;
+}

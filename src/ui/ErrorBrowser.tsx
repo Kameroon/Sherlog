@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { AnalysisOutcome } from '../ai/analyseError';
 import type { ProviderChoice } from '../ai/createProvider';
 import { NO_STATUSES, statusOf, withAnalysis, withStatus } from '../core/errorStatus';
 import type { ErrorStatus, StatusByFingerprint } from '../core/errorStatus';
@@ -16,7 +17,9 @@ import { ErrorDetail } from './ErrorDetail';
 import { ErrorList } from './ErrorList';
 import { ErrorToolbar } from './ErrorToolbar';
 import { SendPanel } from './SendPanel';
+import { ChatContextPreview, ChatPanel } from './ChatPanel';
 import { useAnalyses } from './useAnalyses';
+import { NEW_CHAT, useChats } from './useChats';
 
 interface ErrorBrowserProps {
   records: readonly ErrorRecord[];
@@ -69,6 +72,23 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
       setStatuses((previous) => withAnalysis(previous, fingerprintId));
     },
   });
+  /** What the model said of a fingerprint, once it has answered (an analysis, or its text when it did not follow the schema). */
+  const analysisOf = (fingerprintId: number): AnalysisOutcome | null => {
+    const entry = analyses.get(fingerprintId);
+    return entry?.status === 'done' ? entry.outcome : null;
+  };
+  const chats = useChats({
+    records,
+    groups,
+    fileName,
+    hasDate,
+    countIsMinimum: limitReached,
+    readText,
+    readNeighbours,
+    fetchImpl: aiFetch,
+    siteOrigin,
+    analysisOf,
+  });
   const indices = useMemo(() => buildErrorView(records, groups, applied, statuses), [records, groups, applied, statuses]);
   const visible = useMemo(() => indices.flatMap((index) => records[index] ?? []), [indices, records]);
   const [selected, setSelected] = useState<number | null>(null);
@@ -78,6 +98,44 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
     const row = selected === null ? -1 : indices.indexOf(selected);
     return row === -1 ? null : row;
   }, [indices, selected]);
+
+  const latestRecord = latest === null ? undefined : records[latest.index];
+  const selectedGroup = record === null ? undefined : groups.get(record.fingerprintId);
+  // The chat deepens what the model said: it is not offered before the model has answered for this error (ADR-019).
+  const selectedAnalysis = record === null ? null : analysisOf(record.fingerprintId);
+  const chatPanel =
+    record === null || latest === null || latestRecord === undefined || selectedGroup === undefined || selectedAnalysis === null ? undefined : (
+      <ChatPanel
+        chat={chats.chats.get(record.fingerprintId) ?? NEW_CHAT}
+        provider={provider}
+        masking={masking}
+        busy={chats.busy !== null}
+        answering={chats.busy === record.fingerprintId}
+        twins={selectedGroup.count}
+        onAsk={(question) => {
+          if (provider !== null) {
+            chats.ask(record.fingerprintId, question, provider, masking);
+          }
+        }}
+        onStop={chats.stop}
+        onClear={() => {
+          chats.clear(record.fingerprintId);
+        }}
+        context={
+          <ChatContextPreview
+            record={latestRecord}
+            number={latest.index + 1}
+            group={selectedGroup}
+            fileName={fileName}
+            masking={masking}
+            countIsMinimum={limitReached}
+            readText={readText}
+            readNeighbours={readNeighbours}
+            analysis={selectedAnalysis}
+          />
+        }
+      />
+    );
 
   return (
     <div className="error-browser">
@@ -108,6 +166,7 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
             readNeighbours={readNeighbours}
             identical={record === null ? undefined : groups.get(record.fingerprintId)}
             analysis={record === null ? undefined : analyses.get(record.fingerprintId)}
+            chat={chatPanel}
             countIsMinimum={limitReached}
             status={record === null ? undefined : statusOf(statuses, record.fingerprintId)}
             onStatusChange={
