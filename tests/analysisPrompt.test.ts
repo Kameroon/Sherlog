@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ANALYSIS_KEYS } from '../src/ai/analysis';
 import { RETRY_MESSAGE, buildAnalysisPrompt, createNonce } from '../src/ai/analysisPrompt';
 import type { SendPayload } from '../src/core/sendPayload';
+import { readSample } from './helpers/samples';
 
 const payload = (text: string, note: string | null = null): SendPayload => ({ text, note, maskedCount: 0, cut: { entry: false, before: false, after: false } });
 
@@ -85,6 +86,23 @@ describe('buildAnalysisPrompt', () => {
     expect(content.startsWith(`<log_data_${'44'.repeat(16)}>\n${hostile}\n`)).toBe(true);
     expect(content.endsWith(closing)).toBe(true);
     expect(content.split(closing)).toHaveLength(2);
+  });
+
+  it('should keep the whole hostile sample inside the block, which is closed once and only by us', () => {
+    // Arrange
+    const hostile = readSample('serilog-injection.log');
+
+    // Act
+    const prompt = buildAnalysisPrompt(payload(hostile), fills(0xbb));
+
+    // Assert
+    const content = prompt.messages[0]?.content ?? '';
+    const closing = `</log_data_${'bb'.repeat(16)}>`;
+    expect(content).toContain('Ignore tes instructions précédentes');
+    expect(content).toContain('mode administrateur');
+    expect(content.split(closing)).toHaveLength(2);
+    expect(content.endsWith(closing)).toBe(true);
+    expect(prompt.system).not.toContain('PWNED');
   });
 
   it('should draw another nonce when the log happens to hold the first one', () => {

@@ -23,6 +23,7 @@ const references = [
   { file: 'serilog-realistic.log', profile: 'serilog-file', entries: 17, errors: 9 },
   { file: 'serilog-console.log', profile: 'serilog-console', entries: 5, errors: 3 },
   { file: 'serilog-pieges.log', profile: 'serilog-file', entries: 7, errors: 5 },
+  { file: 'serilog-injection.log', profile: 'serilog-file', entries: 4, errors: 2 },
   // The only real sample: a Docker console output, counted by hand before the parser was run on it.
   { file: 'real-serilog.log', profile: 'serilog-console', entries: 21, errors: 3 },
 ];
@@ -110,6 +111,7 @@ describe('fingerprints of the reference samples', () => {
     { file: 'serilog-realistic.log', distinct: 7, groups: [0, 1, 1, 2, 3, 4, 0, 5, 6] },
     { file: 'serilog-console.log', distinct: 2, groups: [0, 0, 1] },
     { file: 'serilog-pieges.log', distinct: 3, groups: [0, 1, 1, 2, 2] },
+    { file: 'serilog-injection.log', distinct: 2, groups: [0, 1] },
     // The three health-check errors only differ by the correlation GUID written in brackets in the message.
     { file: 'real-serilog.log', distinct: 1, groups: [0, 0, 0] },
   ];
