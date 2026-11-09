@@ -18,6 +18,16 @@ export interface BrowserStorages {
   readonly local: Storage;
 }
 
+/** The storages of the page. They are read when used, not when this module loads: a browser that blocks storage throws on the access itself. */
+export const browserStorages: BrowserStorages = {
+  get session(): Storage {
+    return window.sessionStorage;
+  },
+  get local(): Storage {
+    return window.localStorage;
+  },
+};
+
 export interface LoadedSettings {
   readonly settings: AiSettings;
   /** Why what was saved could not be used, when it could not. */
@@ -67,14 +77,15 @@ export function loadApiKey(scope: string, storages: BrowserStorages): LoadedKey 
  * @returns why it did not work, or `null`.
  */
 export function saveApiKey(scope: string, key: string, remember: boolean, storages: BrowserStorages): string | null {
-  const [target, other] = remember ? [storages.local, storages.session] : [storages.session, storages.local];
+  const [target, other] = remember ? (['local', 'session'] as const) : (['session', 'local'] as const);
+  // The storages are reached inside the `try`: a browser that blocks storage can refuse the access itself.
   try {
-    target.setItem(keyName(scope), key);
+    storages[target].setItem(keyName(scope), key);
   } catch {
     return KEY_NOT_SAVED;
   }
   try {
-    other.removeItem(keyName(scope));
+    storages[other].removeItem(keyName(scope));
   } catch {
     return KEY_COPY_REMAINS;
   }
@@ -88,9 +99,9 @@ export function saveApiKey(scope: string, key: string, remember: boolean, storag
  */
 export function forgetApiKey(scope: string, storages: BrowserStorages): string | null {
   let remains = false;
-  for (const storage of [storages.session, storages.local]) {
+  for (const place of ['session', 'local'] as const) {
     try {
-      storage.removeItem(keyName(scope));
+      storages[place].removeItem(keyName(scope));
     } catch {
       remains = true;
     }

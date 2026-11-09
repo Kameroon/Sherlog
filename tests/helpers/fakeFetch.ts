@@ -12,7 +12,11 @@ type Answer = Response | Error;
 /** A `fetch` that records what it is asked and answers as the test says; the request is seen before it is answered. */
 export function fakeFetch(answer: (request: RecordedRequest) => Answer | Promise<Answer>) {
   const requests: RecordedRequest[] = [];
-  const fetchImpl = (async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
+  // A function, not an arrow: like the browser's `fetch`, it refuses to be called as the method of another object ("Illegal invocation").
+  const fetchImpl = async function (this: unknown, input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+    if (this !== undefined && this !== globalThis) {
+      throw new TypeError("Failed to execute 'fetch': Illegal invocation");
+    }
     const body = typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const request: RecordedRequest = { url, init, body };
@@ -22,7 +26,7 @@ export function fakeFetch(answer: (request: RecordedRequest) => Answer | Promise
       throw given;
     }
     return given;
-  }) as typeof fetch;
+  };
   return { fetchImpl, requests };
 }
 

@@ -261,6 +261,25 @@ describe('a storage that refuses', () => {
     expect(loaded.warning).toMatch(/clé/);
   });
 
+  it('should not throw when the browser refuses even the access to its storages', () => {
+    // Arrange
+    const blocked: BrowserStorages = {
+      get session(): Storage {
+        throw new DOMException('Access is denied.', 'SecurityError');
+      },
+      get local(): Storage {
+        throw new DOMException('Access is denied.', 'SecurityError');
+      },
+    };
+
+    // Act & Assert
+    expect(loadApiKey(SCOPE, blocked).warning).toMatch(/clé/);
+    expect(saveApiKey(SCOPE, KEY, false, blocked)).toMatch(/clé n’a pas été enregistrée/);
+    expect(forgetApiKey(SCOPE, blocked)).toMatch(/copie/);
+    expect(loadSettings(SCOPE, blocked).warning).toMatch(/réglages/);
+    expect(saveSettings(SCOPE, DEFAULT_AI_SETTINGS, blocked)).toMatch(/réglages/);
+  });
+
   it('should never put the key in a message', () => {
     // Arrange
     local.failing.add('setItem');

@@ -69,7 +69,8 @@ async function explanationOf(response: Response, options: Pick<RequestOptions, '
  * No cookie and no referrer go with the request (the page's own are not for a provider).
  */
 export async function send(options: RequestOptions): Promise<Response> {
-  const { signal } = options;
+  // `fetch` is called as a plain function: as the method of `options` the browser refuses it ("Illegal invocation").
+  const { signal, fetchImpl } = options;
   // Read again each time it is needed: the caller may cancel while a request is in flight.
   const isCancelled = (): boolean => signal?.aborted === true;
   if (isCancelled()) {
@@ -88,7 +89,7 @@ export async function send(options: RequestOptions): Promise<Response> {
 
   let response: Response;
   try {
-    response = await options.fetchImpl(options.url, {
+    response = await fetchImpl(options.url, {
       method: options.method,
       headers: { ...options.headers },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),

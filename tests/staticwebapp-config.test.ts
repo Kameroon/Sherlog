@@ -114,6 +114,27 @@ describe('staticwebapp.config.json access rules', () => {
     },
   );
 
+  // The only places the page may send anything to are the two providers (ADR-002): a new destination is a decision, not a side effect.
+  it('should let the page reach only itself, Anthropic and the local Ollama', () => {
+    // Arrange
+    const connectSources = contentSecurityPolicy
+      .split(';')
+      .map((directive) => directive.trim().split(/\s+/))
+      .find(([name]) => name === 'connect-src')
+      ?.slice(1);
+
+    // Act & Assert
+    expect(connectSources).toEqual(["'self'", 'https://api.anthropic.com', 'http://localhost:11434']);
+  });
+
+  it.each(['*', 'https:', 'http:', 'ws:', 'wss:'])('should never allow the wildcard source %s to be reached', (source) => {
+    // Arrange
+    const sources = contentSecurityPolicy.split(/[;\s]+/);
+
+    // Act & Assert
+    expect(sources).not.toContain(source);
+  });
+
   it.each(["'unsafe-inline'", "'unsafe-eval'"])('should never allow %s in the Content-Security-Policy', (keyword) => {
     // Arrange & Act & Assert
     expect(contentSecurityPolicy).not.toContain(keyword);
