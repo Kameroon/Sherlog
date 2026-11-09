@@ -453,6 +453,8 @@ button:disabled {
 /* A card keeps the width of its column: a long control (the list of formats) shrinks to it instead of widening the card. */
 .prep-tools .panel {
   grid-template-columns: minmax(0, 1fr);
+  /* The cards have the height of the tallest: their content stays at the top instead of spreading out. */
+  align-content: start;
 }
 
 .prep-tools .select {
@@ -657,14 +659,20 @@ button:disabled {
   opacity: 0.55;
 }
 
-.period-bound {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
+.period-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
-.period-word {
+.period-fields label {
   font-weight: 600;
+}
+
+.time-input {
+  flex: none;
+  min-width: 0;
+  width: 7.5rem;
 }
 
 /* ---- Error list and its detail ---- */

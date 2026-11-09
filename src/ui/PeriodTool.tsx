@@ -1,61 +1,8 @@
 import { useId } from 'react';
+import { NO_PERIOD } from '../core/preparation';
 import type { Period, Preparation } from '../core/preparation';
 import type { TimeRange } from '../core/previewHead';
 import { countOf } from './format';
-
-const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'));
-const MINUTES = Array.from({ length: 60 }, (_, minute) => String(minute).padStart(2, '0'));
-
-interface TimeBoundProps {
-  /** `HH:MM`, or empty for no bound. */
-  value: string;
-  onChange: (value: string) => void;
-  hourLabel: string;
-  minuteLabel: string;
-}
-
-/** An hour and minutes, as two lists: the minutes wait for an hour, so that a bound is never half set. */
-function TimeBound({ value, onChange, hourLabel, minuteLabel }: TimeBoundProps) {
-  const hour = value.slice(0, 2);
-  const minute = value === '' ? '00' : value.slice(3, 5);
-  return (
-    <>
-      <select
-        className="select select-time"
-        aria-label={hourLabel}
-        value={hour}
-        onChange={(event) => {
-          onChange(event.target.value === '' ? '' : `${event.target.value}:${minute}`);
-        }}
-      >
-        <option value="">--</option>
-        {HOURS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      <span className="period-word" aria-hidden="true">
-        h
-      </span>
-      <select
-        className="select select-time"
-        aria-label={minuteLabel}
-        value={minute}
-        disabled={hour === ''}
-        onChange={(event) => {
-          onChange(`${hour}:${event.target.value}`);
-        }}
-      >
-        {MINUTES.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </>
-  );
-}
 
 interface PeriodToolProps {
   preparation: Preparation;
@@ -88,7 +35,7 @@ export function PeriodTool({ preparation, onChange, withDate, range, forTheBegin
         </p>
       ) : (
         <p className="period-help">
-          Vous gardez les entrées comprises entre deux heures de la journée (la minute de fin est incluse). Laissez « -- » pour ne pas limiter.
+          Vous gardez les entrées comprises entre deux heures de la journée (la minute de fin est incluse). Laissez un champ vide pour ne pas limiter de ce côté.
         </p>
       )}
       {range !== null && (
@@ -120,31 +67,43 @@ export function PeriodTool({ preparation, onChange, withDate, range, forTheBegin
           />
         </div>
       ) : (
-        <div className="field-row">
-          {/* Each bound stays whole when the card is narrow and the row wraps. */}
-          <span className="period-bound">
-            <span className="period-word">De</span>
-            <TimeBound
+        <div className="period-fields">
+          <div className="field">
+            <label htmlFor={`${id}-time-from`}>Heure de début</label>
+            <input
+              id={`${id}-time-from`}
+              className="text-input time-input"
+              type="time"
               value={period.from}
-              hourLabel="Heure de début"
-              minuteLabel="Minutes de début"
-              onChange={(from) => {
-                change({ ...period, from });
+              onChange={(event) => {
+                change({ ...period, from: event.target.value });
               }}
             />
-          </span>
-          <span className="period-bound">
-            <span className="period-word">à</span>
-            <TimeBound
+          </div>
+          <div className="field">
+            <label htmlFor={`${id}-time-to`}>Heure de fin</label>
+            <input
+              id={`${id}-time-to`}
+              className="text-input time-input"
+              type="time"
               value={period.to}
-              hourLabel="Heure de fin"
-              minuteLabel="Minutes de fin"
-              onChange={(to) => {
-                change({ ...period, to });
+              onChange={(event) => {
+                change({ ...period, to: event.target.value });
               }}
             />
-          </span>
+          </div>
         </div>
+      )}
+      {(period.from !== '' || period.to !== '') && (
+        <button
+          type="button"
+          className="button-link"
+          onClick={() => {
+            change(NO_PERIOD);
+          }}
+        >
+          Effacer la période
+        </button>
       )}
       {problem !== null && (
         <p className="notice notice-warning" role="status">
