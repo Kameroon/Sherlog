@@ -238,6 +238,14 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix d’un journal daté');
   await chooseFile(join(root, 'samples', 'sample.log'));
   await waitFor(hasText('Format reconnu'), 'la reconnaissance du journal daté');
+  // 2d. Masking on the dated sample, which holds a password, an address and an identifier.
+  const excerpt = await text('.excerpt');
+  check('l’aperçu remplace le mot de passe et l’adresse e-mail par leurs étiquettes', excerpt.includes('Password=[SECRET]') && excerpt.includes('[EMAIL]') && !excerpt.includes('S3cr3t!') && !excerpt.includes('john.doe@example.com'), excerpt.slice(0, 120));
+  check('le compteur annonce 2 données masquées', (await counters()).some((counter) => counter === '2 données masquées'), (await counters()).join(' | '));
+  check('le GUID n’est masqué que sur option : l’aperçu le garde', excerpt.includes('7f3c9a52-1b6e-4a0d-9b8e-2d5c1a6e44f1'));
+  await click('Afficher le texte d’origine');
+  check('le texte d’origine s’affiche sur demande', (await text('.excerpt')).includes('Password=S3cr3t!'));
+  await click('Afficher le texte d’origine');
   check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('input[type=time]')`)));
   await setDateTime('Début (date et heure)', '2026-11-04T08:16');
   await setDateTime('Fin (date et heure)', '2026-11-04T08:16');
@@ -316,7 +324,8 @@ async function run(cdp, appUrl, dataDir) {
   const bigSummary = await text('.result-sentence');
   const bigExpected = `${fr(expected.entries)} entrées lues, ${fr(expected.errors)} erreurs (${expected.distinct} distinctes).`;
   check('le gros fichier donne exactement les comptes attendus', bigSummary === bigExpected, `obtenu « ${bigSummary} », attendu « ${bigExpected} »`);
-  const bigCounters = await counters();
+  // A fourth counter, « données masquées dans le début », comes with the masking: the reading counters are the first three.
+  const bigCounters = (await counters()).slice(0, 3);
   const bigCountersExpected = [`${fr(expected.entries)} entrées lues`, `${fr(expected.health)} écartées par vos réglages`, `${fr(expected.entries - expected.health)} prêtes à analyser`];
   check('le gros fichier donne les compteurs exacts avec la règle', same(bigCounters, bigCountersExpected), `obtenu ${bigCounters.join(' | ')}, attendu ${bigCountersExpected.join(' | ')}`);
   const bigOptions = await optionCount();
