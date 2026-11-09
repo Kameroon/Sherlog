@@ -2,6 +2,7 @@ import { NO_STATUSES, statusOf } from './errorStatus';
 import type { ErrorStatus, StatusByFingerprint } from './errorStatus';
 import type { IdenticalErrors } from './identicalErrors';
 import type { ErrorRecord } from './scanLog';
+import { timeKey } from './timeKey';
 
 export type SortKey = 'reading' | 'time' | 'severity' | 'count';
 export type SortDirection = 'asc' | 'desc';
@@ -19,21 +20,6 @@ export interface ErrorViewOptions {
 }
 
 export const DEFAULT_ERROR_VIEW: ErrorViewOptions = { search: '', level: null, status: null, sortKey: 'reading', direction: 'asc' };
-
-// The two kinds of timestamp the built-in profiles can give; the same shapes as the period of the preparation, with
-// the fraction of second kept so that two errors in the same second still sort. The offset (`+01:00`) is not read.
-const DATE_AND_TIME = /(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)/;
-const TIME_OF_DAY = /(\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)/;
-
-/** A string that sorts like time, or `null` when the timestamp is missing or cannot be placed. */
-function timeKey(timestamp: string | null): string | null {
-  if (timestamp === null) {
-    return null;
-  }
-  const dated = DATE_AND_TIME.exec(timestamp);
-  const key = dated === null ? TIME_OF_DAY.exec(timestamp)?.[1] : `${dated[1] ?? ''}T${dated[2] ?? ''}`;
-  return key === undefined ? null : key.replace(',', '.');
-}
 
 const FATAL_LEVELS: ReadonlySet<string> = new Set(['FATAL', 'FTL', 'CRITICAL']);
 
