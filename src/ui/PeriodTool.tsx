@@ -121,24 +121,29 @@ export function PeriodTool({ preparation, onChange, withDate, range, forTheBegin
         </div>
       ) : (
         <div className="field-row">
-          <span className="period-word">De</span>
-          <TimeBound
-            value={period.from}
-            hourLabel="Heure de début"
-            minuteLabel="Minutes de début"
-            onChange={(from) => {
-              change({ ...period, from });
-            }}
-          />
-          <span className="period-word">à</span>
-          <TimeBound
-            value={period.to}
-            hourLabel="Heure de fin"
-            minuteLabel="Minutes de fin"
-            onChange={(to) => {
-              change({ ...period, to });
-            }}
-          />
+          {/* Each bound stays whole when the card is narrow and the row wraps. */}
+          <span className="period-bound">
+            <span className="period-word">De</span>
+            <TimeBound
+              value={period.from}
+              hourLabel="Heure de début"
+              minuteLabel="Minutes de début"
+              onChange={(from) => {
+                change({ ...period, from });
+              }}
+            />
+          </span>
+          <span className="period-bound">
+            <span className="period-word">à</span>
+            <TimeBound
+              value={period.to}
+              hourLabel="Heure de fin"
+              minuteLabel="Minutes de fin"
+              onChange={(to) => {
+                change({ ...period, to });
+              }}
+            />
+          </span>
         </div>
       )}
       {problem !== null && (

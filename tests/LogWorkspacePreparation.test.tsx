@@ -33,6 +33,19 @@ describe('LogWorkspace preparing', () => {
     expect(steps[1]).toHaveAttribute('aria-current', 'step');
   });
 
+  it('should keep the preview in a named region that the keyboard can reach, since it scrolls', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(realLog, 'real.log');
+
+    // Assert
+    const region = screen.getByRole('region', { name: 'Lignes de l’aperçu' });
+    expect(region).toHaveAttribute('tabindex', '0');
+    expect(within(region).getByRole('list', { name: 'Premières lignes du journal' })).toBeInTheDocument();
+  });
+
   it('should count the entries read, left out and ready before anything is analysed', async () => {
     // Arrange
     setup();

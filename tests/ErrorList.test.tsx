@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { NO_STATUSES, withStatus } from '../src/core/errorStatus';
 import { summariseIdentical } from '../src/core/identicalErrors';
 import type { ErrorRecord } from '../src/core/scanLog';
 import { ErrorList, ROWS_PER_CHUNK } from '../src/ui/ErrorList';
@@ -265,5 +266,38 @@ describe('ErrorList keyboard', () => {
     // Assert
     expect(list).toHaveAttribute('tabindex', '0');
     expect(screen.getAllByRole('option').every((option) => !option.hasAttribute('tabindex'))).toBe(true);
+  });
+});
+
+describe('ErrorList statuses', () => {
+  it('should name the status of an error that is not new, and nothing for the others', () => {
+    // Arrange
+    const records = recordsOf(3);
+    const statuses = withStatus(withStatus(NO_STATUSES, 0, 'ignored'), 1, 'resolved');
+
+    // Act
+    render(<ErrorList records={records} groups={summariseIdentical(records)} statuses={statuses} selected={null} onSelect={vi.fn()} />);
+
+    // Assert
+    const rows = screen.getAllByRole('option');
+    expect(rows[0]).toHaveTextContent('Ignoré');
+    expect(rows[1]).toHaveTextContent('Résolu');
+    expect(rows[2]).not.toHaveTextContent(/Ignoré|Résolu|Nouveau/);
+  });
+});
+
+describe('ErrorList when rows go away', () => {
+  it('should keep its active row in the list when the list becomes shorter than the active position', () => {
+    // Arrange
+    const many = recordsOf(5);
+    const { rerender } = render(<ErrorList records={many} groups={summariseIdentical(many)} selected={null} onSelect={vi.fn()} />);
+    fireEvent.keyDown(screen.getByRole('listbox', { name: 'Erreurs' }), { key: 'End' });
+
+    // Act
+    const few = recordsOf(2);
+    rerender(<ErrorList records={few} groups={summariseIdentical(few)} selected={null} onSelect={vi.fn()} />);
+
+    // Assert
+    expect(active(screen.getByRole('listbox', { name: 'Erreurs' }))).not.toBeNull();
   });
 });
