@@ -1,7 +1,7 @@
 # ADR-014 : Tri, filtres, recherche et statuts calculés sur les enregistrements en mémoire
 
 ## Statut
-Proposé — 2026-11-09, tranches 1 (tri, recherche, filtre de niveau) et 2 (statuts, filtre de statut) de l'étape 5b faites. Passera à « Accepté » avec la validation de l'étape par l'auteur.
+Accepté — 2026-11-09, avec la validation par l'auteur de l'étape 5b entière (tranche 1 : tri, recherche, filtre de niveau ; tranche 2 : statuts, filtre de statut).
 
 ## Contexte
 La liste de l'étape 5 montre les erreurs enregistrées dans l'ordre de lecture. L'étape 5b ajoute le tri, la recherche plein texte et des filtres (`SPEC.md` §3). Un enregistrement (`ErrorRecord`) ne garde que la position de l'entrée, son heure, son niveau et le début de son message (300 caractères au plus) ; le texte entier et la pile sont relus du fichier à la demande (ADR-011, ADR-013).
