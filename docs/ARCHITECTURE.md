@@ -13,6 +13,8 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-009** Thème clair et sombre selon le système ; jetons et styles de base partagés (`public/login/base.css`) entre les pages publiques et l'application.
 - **ADR-010** Le flux est découpé en lignes sur les octets avant d'être décodé : positions exactes, détection de profil sans deviner, limite de conservation provisoire.
 - **ADR-012** La préparation (règles « ignorer », bientôt période et format) est appliquée dans la passe par un filtre unique ; l'écran de préparation montre ses chiffres sur le début du fichier (1 Mio), exacts après l'analyse.
+- **ADR-013** Liste virtualisée par blocs, sans style calculé.
+- **ADR-014** *(proposé)* Tri, filtre de niveau et recherche calculés sur les enregistrements en mémoire (fonction pure de `core`), sans relire le fichier ; la recherche ne couvre pas la pile.
 - **ADR-011** Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
 
 ## Structure (un seul projet)
@@ -21,7 +23,7 @@ sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
-│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), Redactor — TS pur
+│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtre), regroupement des identiques (identicalErrors), Redactor — TS pur
 │  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
 │  ├─ ai/        AiProvider, anthropic, ollama, prompts
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
