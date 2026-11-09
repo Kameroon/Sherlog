@@ -29,9 +29,9 @@ Proposé — 2026-11-09, tranche 3 de l'étape 6 faite. Passera à « Accepté �
 - **Montrer la requête complète** : impossible avant l'étape 8 (délimiteur aléatoire, consignes).
 
 ## Conséquences
-- Le **détail de l'erreur** (étape 5) montre toujours le texte d'origine relu du fichier, mot de passe compris : il reste sur l'écran de l'utilisateur et ne part nulle part. La spec parle de masquage « à l'écran » pour l'espace de préparation ; **appliquer le masquage au détail aussi est une question laissée à l'auteur.**
+- Le **détail de l'erreur** (étape 5) montre toujours le texte d'origine relu du fichier, mot de passe compris : il reste sur l'écran de l'utilisateur et ne part nulle part. La spec parle de masquage « à l'écran » pour l'espace de préparation ; **l'auteur a tranché le 2026-11-09 de ne pas masquer le détail** : il montre le journal tel qu'il est, le contrôle de ce qui part étant le panneau « Envoi à l'IA ».
 - Les lignes autour sont masquées dans le texte envoyé (validé par l'auteur, ADR-013), mais restent montrées telles quelles dans le détail (« Voir les lignes autour »).
-- `MAX_INPUT_CHARS` est une valeur provisoire, non mesurée sur un modèle réel : à reprendre à l'étape 7 ou 8.
+- `MAX_INPUT_CHARS` (12 000) est **validée par l'auteur le 2026-11-09**, mais non mesurée sur un modèle réel : à reprendre à l'étape 7 ou 8 si les réponses réelles le demandent.
 - L'occurrence « la plus récente » d'un journal sans date est la dernière lue : ce peut ne pas être la plus récente en temps. Avec date, les heures se comparent **telles qu'écrites** (le décalage `+01:00` n'est pas lu, comme pour la période et le tri, ADR-012 et ADR-014) : au passage à l'heure d'hiver, `02:30 +02:00` puis `02:10 +01:00` donnent pour plus récente la première, alors que la seconde l'est en temps réel.
 
 ## Mesuré et non vérifié
