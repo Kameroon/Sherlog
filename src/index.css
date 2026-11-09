@@ -650,6 +650,35 @@ button:disabled {
 
 /* ---- Error list and its detail ---- */
 
+.error-toolbar {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.error-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.error-toolbar .text-input {
+  min-width: 16rem;
+}
+
+.error-toolbar .small-note {
+  margin: 0;
+}
+
+.error-toolbar-count {
+  align-self: center;
+}
+
+.error-list-empty {
+  margin: 0;
+}
+
 .results-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
