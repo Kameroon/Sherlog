@@ -32,6 +32,12 @@ interface TestRequest {
   readonly model: string;
 }
 
+/** What a finished test gives: what to say, and for Ollama the models it read (`null` when it could not read them). */
+interface TestOutcome {
+  readonly test: TestState;
+  readonly models?: readonly string[] | null;
+}
+
 const NOT_TESTED: TestState = { status: 'idle' };
 
 const PROVIDER_LABELS: Readonly<Record<ProviderId, string>> = {
@@ -67,28 +73,35 @@ function ProviderForm({ scope, storages, fetchImpl, siteOrigin }: FormProps) {
       return undefined;
     }
     const controller = new AbortController();
-    const run = async (): Promise<TestState> => {
+    const run = async (): Promise<TestOutcome> => {
       if (request.provider === 'anthropic') {
         const result = await testAnthropicConnection({ apiKey: request.apiKey, model: request.model, fetchImpl }, controller.signal);
-        return result.ok
-          ? { status: 'ok', message: `Connexion réussie : le modèle ${request.model} a répondu.` }
-          : { status: 'failed', message: failureMessage(result.failure, { provider: 'anthropic', siteOrigin }) };
+        return {
+          test: result.ok
+            ? { status: 'ok', message: `Connexion réussie : le modèle ${request.model} a répondu.` }
+            : { status: 'failed', message: failureMessage(result.failure, { provider: 'anthropic', siteOrigin }) },
+        };
       }
       const result = await listOllamaModels({ fetchImpl }, controller.signal);
       if (!result.ok) {
-        setOllamaModels(null);
-        return { status: 'failed', message: failureMessage(result.failure, { provider: 'ollama', siteOrigin }) };
+        return { test: { status: 'failed', message: failureMessage(result.failure, { provider: 'ollama', siteOrigin }) }, models: null };
       }
-      setOllamaModels(result.models);
       return {
-        status: 'ok',
-        message: result.models.length === 0 ? 'Ollama répond, mais aucun modèle n’est installé.' : `Ollama répond : ${countOf(result.models.length, 'modèle installé', 'modèles installés')}.`,
+        test: {
+          status: 'ok',
+          message: result.models.length === 0 ? 'Ollama répond, mais aucun modèle n’est installé.' : `Ollama répond : ${countOf(result.models.length, 'modèle installé', 'modèles installés')}.`,
+        },
+        models: result.models,
       };
     };
     void run().then((outcome) => {
-      // A test that was given up has nothing to say: the screen has moved on.
-      if (!controller.signal.aborted) {
-        setTest(outcome);
+      // A test that was given up has nothing to say, and nothing to keep: the screen has moved on.
+      if (controller.signal.aborted) {
+        return;
+      }
+      setTest(outcome.test);
+      if (outcome.models !== undefined) {
+        setOllamaModels(outcome.models);
       }
     });
     return () => {

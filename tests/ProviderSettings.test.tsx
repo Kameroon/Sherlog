@@ -492,6 +492,29 @@ describe('ProviderSettings Ollama', () => {
     expect(loadSettings(scope.name, storages).settings).toMatchObject({ provider: 'ollama', ollamaModel: 'llama3:8b' });
   });
 
+  it('should not keep the models of a test that was given up when the user changed provider', async () => {
+    // Arrange
+    let release: (answer: Response) => void = () => undefined;
+    const waiting = new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+    show({ answer: () => waiting });
+    chooseProvider(/Ollama/);
+    click('Tester la connexion');
+
+    // Act
+    chooseProvider(/Anthropic/);
+    chooseProvider(/Ollama/);
+    release(jsonAnswer({ models: [{ name: 'llama3:8b' }] }));
+    await waitFor(() => {
+      expect(screen.queryByText(/Test en cours/)).not.toBeInTheDocument();
+    });
+
+    // Assert
+    expect(screen.queryByLabelText('Modèle installé')).not.toBeInTheDocument();
+    expect(screen.getByText(/pour lire les modèles installés/)).toBeInTheDocument();
+  });
+
   it('should say when the model chosen before is no longer installed', async () => {
     // Arrange
     show({ answer: tags('mistral:latest'), settings: { ...DEFAULT_AI_SETTINGS, provider: 'ollama', ollamaModel: 'llama3:8b' } });
