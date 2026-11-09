@@ -1,7 +1,7 @@
 # ADR-016 : Choix explicite des erreurs à envoyer et aperçu du texte exact
 
 ## Statut
-Proposé — 2026-11-09, tranche 3 de l'étape 6 faite. Passera à « Accepté » avec la validation de l'étape par l'auteur.
+Accepté — 2026-11-09, avec la validation par l'auteur de l'étape 6 entière (tranche 3 : choix des erreurs et aperçu d'envoi).
 
 ## Contexte
 `SPEC.md` §3 et §6 demandent qu'après l'analyse locale l'utilisateur coche les erreurs à faire expliquer (aucune d'office), consulte **le texte exact qui serait envoyé, toujours masqué**, avec un avertissement si aucun masquage n'est actif, et décide d'envoyer ou non ; `redact` reste le dernier filet. L'envoi lui-même (fournisseur, clé) est l'étape 7 et le prompt durci l'étape 8 : cette tranche construit et montre ce qui partirait, sans rien envoyer.

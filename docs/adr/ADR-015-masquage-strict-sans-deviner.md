@@ -1,7 +1,7 @@
 # ADR-015 : Masquage par règles strictes, qui ne devinent pas
 
 ## Statut
-Proposé — 2026-11-09, tranches 1 (le cœur `redact`) et 2 (l'outil « Masquer » de la préparation) de l'étape 6 faites. Passera à « Accepté » avec la validation de l'étape par l'auteur.
+Accepté — 2026-11-09, avec la validation par l'auteur de l'étape 6 entière (tranches 1 à 3).
 
 ## Contexte
 Rien ne doit partir vers un fournisseur IA sans avoir été masqué (`SPEC.md` §6). Le masquage par motifs se trompe dans deux sens : il **masque ce qui n'est pas sensible** (faux positif : un numéro de version pris pour une adresse IP, un nom de fichier pris pour un e-mail) ou **laisse passer ce qui l'est** (faux négatif). L'auteur a demandé le 2026-11-09 : « pas de faux positif nulle part, dans aucun de mes projets », en validant que le masquage s'applique aussi aux lignes autour de l'erreur (ADR-013, conséquences).
