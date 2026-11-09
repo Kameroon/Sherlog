@@ -79,7 +79,7 @@ describe('LogWorkspace format of a recognised log', () => {
     await chooseFile(realLog, 'real.log');
     fireEvent.change(screen.getByLabelText('Ignorer les entrées qui contiennent'), { target: { value: '/health' } });
     fireEvent.click(screen.getByRole('button', { name: 'Ajouter la règle' }));
-    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '12:00' } });
 
     // Act
     pickFormat(FILE_FORMAT);

@@ -303,14 +303,12 @@ describe('LogWorkspace preparing when only the beginning of a big file was read'
   });
 });
 
-const selectTime = (label: string, value: string) => {
+const setTime = (label: string, value: string) => {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 };
-const setTimes = (from: [string, string], to: [string, string]) => {
-  selectTime('Heure de début', from[0]);
-  selectTime('Minutes de début', from[1]);
-  selectTime('Heure de fin', to[0]);
-  selectTime('Minutes de fin', to[1]);
+const setTimes = (from: string, to: string) => {
+  setTime('Heure de début', from);
+  setTime('Heure de fin', to);
 };
 
 describe('LogWorkspace preparing with a period of times of day', () => {
@@ -332,7 +330,7 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     await chooseFile(realLog, 'real.log');
 
     // Act
-    setTimes(['12', '06'], ['12', '06']);
+    setTimes('12:06', '12:06');
 
     // Assert
     expect(counters()).toEqual([
@@ -344,30 +342,50 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     expect(document.querySelectorAll('.excerpt .is-ignored')).toHaveLength(7);
   });
 
-  it('should leave the minutes unavailable until an hour is chosen, so that no bound is half set', async () => {
-    // Arrange
-    setup();
-
+  it('should offer a time field for each bound, as a time of day', async () => {
     // Act
+    setup();
     await chooseFile(realLog, 'real.log');
 
     // Assert
-    expect(screen.getByLabelText('Minutes de début')).toBeDisabled();
-    selectTime('Heure de début', '12');
-    expect(screen.getByLabelText('Minutes de début')).toBeEnabled();
+    expect(screen.getByLabelText('Heure de début')).toHaveAttribute('type', 'time');
+    expect(screen.getByLabelText('Heure de fin')).toHaveAttribute('type', 'time');
   });
 
-  it('should clear a bound when its hour is set back to none', async () => {
+  it('should clear a bound when its field is emptied', async () => {
     // Arrange
     setup();
     await chooseFile(realLog, 'real.log');
-    setTimes(['12', '06'], ['12', '06']);
+    setTimes('12:06', '12:06');
 
     // Act
-    selectTime('Heure de début', '');
-    selectTime('Heure de fin', '');
+    setTimes('', '');
 
     // Assert
+    expect(counters()[1]).toContain('0écartée');
+  });
+
+  it('should not offer to clear the period while no bound is set', async () => {
+    // Act
+    setup();
+    await chooseFile(realLog, 'real.log');
+
+    // Assert
+    expect(screen.queryByRole('button', { name: 'Effacer la période' })).not.toBeInTheDocument();
+  });
+
+  it('should clear both bounds at once with « Effacer la période »', async () => {
+    // Arrange
+    setup();
+    await chooseFile(realLog, 'real.log');
+    setTimes('12:06', '12:06');
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Effacer la période' }));
+
+    // Assert
+    expect(screen.getByLabelText('Heure de début')).toHaveValue('');
+    expect(screen.getByLabelText('Heure de fin')).toHaveValue('');
     expect(counters()[1]).toContain('0écartée');
   });
 
@@ -377,7 +395,7 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     await chooseFile(realLog, 'real.log');
 
     // Act
-    setTimes(['12', '07'], ['12', '06']);
+    setTimes('12:07', '12:06');
 
     // Assert
     expect(screen.getByText('La fin doit suivre le début : un passage de minuit n’est pas géré.')).toBeInTheDocument();
@@ -389,10 +407,10 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     // Arrange
     setup();
     await chooseFile(realLog, 'real.log');
-    setTimes(['12', '07'], ['12', '06']);
+    setTimes('12:07', '12:06');
 
     // Act
-    selectTime('Minutes de fin', '08');
+    setTime('Heure de fin', '12:08');
 
     // Assert
     expect(screen.getByRole('button', { name: 'Analyser ce journal' })).toBeEnabled();
@@ -402,7 +420,7 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     // Arrange
     const scanner = setup();
     await chooseFile(realLog, 'real.log');
-    setTimes(['12', '06'], ['12', '06']);
+    setTimes('12:06', '12:06');
 
     // Act
     fireEvent.click(screen.getByRole('button', { name: 'Analyser ce journal' }));
@@ -418,7 +436,7 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     finish(scanner);
 
     // Act
-    selectTime('Heure de début', '08');
+    setTime('Heure de début', '08:00');
 
     // Assert
     expect(screen.queryByText(/Analyse terminée sur votre ordinateur/)).not.toBeInTheDocument();
@@ -430,14 +448,14 @@ describe('LogWorkspace preparing with a period of times of day', () => {
     const scanner = setup();
     await startAnalysis(scanner);
     finish(scanner);
-    const hour = screen.getByLabelText('Heure de début');
-    hour.focus();
+    const field = screen.getByLabelText('Heure de début');
+    field.focus();
 
     // Act
-    selectTime('Heure de début', '08');
+    setTime('Heure de début', '08:00');
 
     // Assert
-    expect(hour).toHaveFocus();
+    expect(field).toHaveFocus();
   });
 });
 
@@ -510,7 +528,7 @@ describe('LogWorkspace preparing a period on the beginning of a big file', () =>
     await screen.findByRole('button', { name: 'Choisir un autre journal' });
 
     // Act: both entries of the beginning are before 09:00.
-    selectTime('Heure de début', '09');
+    setTime('Heure de début', '09:00');
 
     // Assert
     expect(screen.getByText('Le début du fichier va de 08:16:10 à 08:16:11.')).toBeInTheDocument();

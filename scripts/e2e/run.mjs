@@ -149,10 +149,6 @@ async function run(cdp, appUrl, dataDir) {
     );
     await click('Ajouter la règle');
   };
-  const setSelect = (label, value) =>
-    evaluate(
-      `(() => { const select = document.querySelector('[aria-label=${JSON.stringify(label)}]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, ${JSON.stringify(value)}); select.dispatchEvent(new Event('change', { bubbles: true })); })()`,
-    );
   const setDateTime = (label, value) =>
     evaluate(
       `(() => { const label = [...document.querySelectorAll('label')].find((candidate) => candidate.textContent === ${JSON.stringify(label)}); const input = document.getElementById(label.htmlFor); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
@@ -223,9 +219,9 @@ async function run(cdp, appUrl, dataDir) {
   check('le texte de l’erreur est relu depuis le fichier', (await text('.entry-text')).includes(`Executed endpoint 'HTTP: GET /health'`), await text('.entry-text'));
 
   // 2b. A period of times of day on the real sample, still on screen after its analysis.
-  for (const [label, value] of [['Heure de début', '12'], ['Minutes de début', '06'], ['Heure de fin', '12'], ['Minutes de fin', '06']]) {
-    await setSelect(label, value);
-  }
+  check('un format sans date propose deux champs heure', await evaluate(`document.querySelectorAll('input[type=time]').length === 2`));
+  await setDateTime('Heure de début', '12:06');
+  await setDateTime('Heure de fin', '12:06');
   check('changer la période après l’analyse efface le résultat et le dit', !(await evaluate(hasText('Analyse terminée'))) && (await evaluate(hasText('Vous avez changé les réglages'))));
   const timed = await counters();
   check('la période 12:06 à 12:06 écarte 7 des 21 entrées', same(timed, ['21 entrées lues', '7 écartées par vos réglages', '14 prêtes à analyser']), timed.join(' | '));
@@ -233,7 +229,7 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasText('Analyse terminée'), 'la fin de l’analyse avec la période', 20000);
   check('avec la période, l’analyse trouve 2 erreurs sur 14 entrées gardées', (await text('.result-sentence')) === '21 entrées lues, 2 erreurs (1 distincte).', await text('.result-sentence'));
   check('les chiffres exacts de la période sont ceux de l’aperçu', same(await counters(), timed));
-  await setSelect('Minutes de début', '07');
+  await setDateTime('Heure de début', '12:07');
   check('une fin avant le début est refusée avec sa raison', await evaluate(hasText('La fin doit suivre le début')));
   check('l’analyse est interdite tant que la période est invalide', (await isDisabled('Analyser ce journal')) === true);
 
@@ -242,7 +238,7 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix d’un journal daté');
   await chooseFile(join(root, 'samples', 'sample.log'));
   await waitFor(hasText('Format reconnu'), 'la reconnaissance du journal daté');
-  check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('[aria-label="Heure de début"]')`)));
+  check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('input[type=time]')`)));
   await setDateTime('Début (date et heure)', '2026-11-04T08:16');
   await setDateTime('Fin (date et heure)', '2026-11-04T08:16');
   const dated = await counters();
