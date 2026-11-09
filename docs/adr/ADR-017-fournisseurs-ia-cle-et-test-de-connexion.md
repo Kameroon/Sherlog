@@ -44,7 +44,7 @@ Audit complet, liste de contrôle de Sherlog (`CLAUDE.md`, adaptation 6). **Aucu
 
 **Défaut trouvé et corrigé :** la liste des modèles d'un test Ollama abandonné (changement de fournisseur pendant le test) était gardée avant la vérification d'annulation. Corrigé, test ajouté (rouge puis vert, mutation vérifiée). **Défaut trouvé et corrigé :** `fetch` appelé comme méthode d'un objet lève « Illegal invocation » dans un vrai navigateur, ce que des faux `fetch` en flèche ne montraient pas ; le faux `fetch` des tests refuse désormais cet appel, comme le navigateur.
 
-**Mesuré.** 1 044 tests Vitest (Node et jsdom), 107 vérifications de bout en bout dans Chrome 156 sans interface, sous la CSP de production : en-têtes réellement envoyés, requête, refus d'une autre adresse, enregistrement et oubli de la clé, liste des modèles d'Ollama. Toutes les mutations de garde-fou (flux, clé, expurgation, stockage, annulation, identité) font échouer au moins un test.
+**Mesuré.** 1 061 tests Vitest (Node et jsdom), 107 vérifications de bout en bout dans Chrome 156 sans interface, sous la CSP de production : en-têtes réellement envoyés, requête, refus d'une autre adresse, enregistrement et oubli de la clé, liste des modèles d'Ollama. Poids de l'application : 94,9 Ko gzip (303,4 Ko bruts), sans dépendance ajoutée, contre un budget de 300 Ko gzip. Toutes les mutations de garde-fou (flux, clé, expurgation, stockage, annulation, identité) font échouer au moins un test.
 
 **Non vérifié.**
 - **Un appel réel à Anthropic avec une vraie clé depuis le panneau** : le test de bout en bout joue le fournisseur au niveau réseau (DevTools). Le comportement réel a été mesuré au spike de l'étape 1 (ADR-002), avec une page de test, pas avec ce panneau.

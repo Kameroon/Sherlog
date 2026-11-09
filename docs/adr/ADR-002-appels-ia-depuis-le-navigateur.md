@@ -1,7 +1,7 @@
 # ADR-002 : Appels IA directs depuis le navigateur avec la clé de l'utilisateur
 
 ## Statut
-Accepté pour Anthropic ; Ollama accepté comme option, avec des vérifications restantes — 2026-11-06 (résultats du spike de l'étape 1, à valider par l'auteur avec l'étape).
+Accepté pour Anthropic ; Ollama accepté comme option, avec des vérifications restantes — 2026-11-06 (résultats du spike de l'étape 1, à valider par l'auteur avec l'étape). Réalisé à l'étape 7 : voir l'ADR-017 (CSP ajoutée, clé, test de connexion).
 
 ## Contexte
 L'analyse et le chat nécessitent un modèle de langage. Sans backend, l'application ne peut pas détenir de clé : chaque utilisateur apporte la sienne.
@@ -14,7 +14,7 @@ Anthropic :
 - en-têtes envoyés : `x-api-key`, `anthropic-version: 2026-10-21`, `content-type: application/json` et **`anthropic-dangerous-direct-browser-access: true`**, sans lequel la réponse n'est pas lisible par la page ;
 - la requête n'envoie ni `temperature`, ni `top_p`, ni `top_k` : la version d'API `2026-10-21` les supprime et renvoie une erreur 400 si l'un d'eux est présent.
 
-Ollama : option, jamais obligatoire. L'utilisateur doit autoriser l'adresse du site côté Ollama (`OLLAMA_ORIGINS`) ; l'écran Paramètres (étape 7) le lui explique et propose « Tester la connexion ».
+Ollama : option, jamais obligatoire. L'utilisateur doit autoriser l'adresse du site côté Ollama (`OLLAMA_ORIGINS`) ; le panneau du fournisseur (étape 7, ADR-017) le lui explique et propose « Tester la connexion ».
 
 ## Raisons
 - Aucune clé ni aucun log ne transitent par un serveur de l'auteur.
@@ -23,7 +23,7 @@ Ollama : option, jamais obligatoire. L'utilisateur doit autoriser l'adresse du s
 ## Conséquences
 - La clé est exposée à un éventuel XSS : CSP stricte, pas de HTML brut, clé dédiée avec plafond de dépense recommandée à l'utilisateur.
 - L'en-tête d'accès navigateur d'Anthropic **n'apparaît pas dans la documentation officielle lue** (pages « API overview » et « Versions ») : son fonctionnement est mesuré, pas documenté. Un changement côté Anthropic casserait les appels : l'écran Paramètres doit afficher une erreur explicite (« Tester la connexion ») plutôt qu'un échec muet.
-- La CSP de production doit contenir `https://api.anthropic.com` et `http://localhost:11434` dans `connect-src` (ajoutés à l'étape 7, pas avant).
+- La CSP de production doit contenir `https://api.anthropic.com` et `http://localhost:11434` dans `connect-src` (ajoutés à l'étape 7, pas avant : fait, exactement ces deux adresses, verrouillé par un test).
 - Chaque utilisateur d'Ollama autorise l'adresse de **production** de l'application : une origine non autorisée est refusée avec un 403. Les URL de prévisualisation changent à chaque pull request et ne sont pas concernées.
 - Ollama est une option : le poste de l'auteur ralentit fortement dès qu'un modèle est chargé, ce qui ne doit pas en faire un chemin recommandé par défaut.
 

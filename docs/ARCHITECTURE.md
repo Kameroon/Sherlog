@@ -16,6 +16,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-013** Liste virtualisée par blocs, sans style calculé.
 - **ADR-015** *(proposé)* Masquage par règles strictes qui ne devinent pas (`redact`) : contexte ou contrôle exigé, options pour les identifiants, dernier filet à l'envoi, durée bornée ; outil « Masquer » de la préparation (état à côté de la préparation, texte d'origine à la demande).
 - **ADR-016** *(proposé)* Choix explicite des erreurs à envoyer (par empreinte, occurrence la plus récente) et aperçu du texte exact : masqué avant d'être coupé, coupure explicite, rien n'est envoyé.
+- **ADR-017** *(proposé)* Fournisseurs d'IA (Anthropic par `fetch` et SSE, Ollama), clé de l'utilisateur (mémoire, onglet ou ordinateur, une copie, cloisonnée par identité), test de connexion sans contenu de journal, CSP limitée à deux adresses ; audit de sécurité complet de l'étape 7.
 - **ADR-014** Tri, filtres (niveau, statut), recherche et statuts par empreinte calculés sur les enregistrements en mémoire (fonctions pures de `core`), sans relire le fichier ; la recherche ne couvre pas la pile ; statuts en session.
 - **ADR-011** Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
 
@@ -27,9 +28,9 @@ sherlog/
 ├─ src/
 │  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), occurrence la plus récente (identicalErrors), regroupement des identiques (identicalErrors), Redactor — TS pur
 │  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; plus tard folder (File System Access), url, azure-monitor
-│  ├─ ai/        AiProvider, anthropic, ollama, prompts
+│  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, streamLines, serverSentEvents, errors, failureMessage ; plus tard prompts (étape 8)
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
-│  ├─ store/     état de session + historique local (IndexedDB)
+│  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité) ; plus tard historique local (IndexedDB)
 │  └─ ui/        composants React
 └─ tests/        Vitest + Testing Library
 ```
@@ -73,7 +74,7 @@ Fichier réel : `public/staticwebapp.config.json` (copié dans `dist/` par Vite)
 - **Pas de `navigationFallback`** : la documentation précise que les règles de route ne s'appliquent pas aux requêtes qui le déclenchent ; un chemin inexistant servirait `index.html` à un anonyme.
   Si un routage côté client devient nécessaire, utiliser le fragment d'URL (`#/parametres`), qui ne génère aucune requête serveur.
 - **Ne jamais bloquer** `/.auth/login/*` par une règle : les invitations cesseraient de fonctionner.
-- **CSP** : à l'étape 0 `connect-src 'self'` seulement. Domaines cibles, ajoutés par l'étape qui en a besoin : `https://api.anthropic.com` et `http://localhost:11434` (étape 7),
+- **CSP** : à l'étape 0 `connect-src 'self'` seulement. Domaines cibles, ajoutés par l'étape qui en a besoin : `https://api.anthropic.com` et `http://localhost:11434` (étape 7, **faits**, verrouillés par `tests/staticwebapp-config.test.ts`),
   `https://login.microsoftonline.com` et `https://api.loganalytics.azure.com` (étape 10c), `https://*.blob.core.windows.net` (étape 10b). Pas de `'unsafe-inline'` ni de `'unsafe-eval'` : aucun style en ligne dans le code.
   `base-uri`, `form-action` et `frame-ancestors` sont déclarés car ils ne retombent pas sur `default-src`. `http://localhost:11434` depuis une page HTTPS : mesuré à l'étape 1 dans Opera et dans Chrome avec cette CSP, à condition qu'Ollama autorise l'adresse du site (`OLLAMA_ORIGINS`) ; non vérifié dans Edge ni Firefox (ADR-002).
 - **Invitations** : rôle `invited` attribué depuis le portail Azure ou `az staticwebapp users invite` ; GitHub s'invite par nom d'utilisateur, Microsoft par adresse e-mail ; 25 invitations au maximum sur Free.
@@ -91,5 +92,5 @@ Appel Anthropic par `fetch` + lecture SSE manuelle (pas de SDK), validation de l
 MSAL.js : mesuré à l'étape 1 à 68,74 Ko gzip (`@azure/msal-browser` 5.28.0), soit environ 139 Ko avec le JavaScript de l'application, sous le budget (ADR-004) ; il n'est ajouté qu'à l'étape 10c. Les prompts `.md` sont embarqués au build (`?raw`) : le bénéfice est la lisibilité et le diff, pas l'absence de rebuild.
 
 ## Écrans
-Une page principale : sources, liste d'erreurs virtualisée par blocs (ADR-013), panneau de détail avec onglets Analyse et Chat (le détail existe depuis l'étape 5, les onglets arrivent aux étapes 8 et 9) ; une page Paramètres (fournisseur, clé).
+Une page principale : sources, liste d'erreurs virtualisée par blocs (ADR-013), panneau de détail avec onglets Analyse et Chat (le détail existe depuis l'étape 5, les onglets arrivent aux étapes 8 et 9) ; les réglages du fournisseur et de la clé sont un panneau de l'étape « Envoyer à l'IA », pas une page (ADR-017).
 Conception et accessibilité : `frontend-architect`.
