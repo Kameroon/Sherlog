@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Analysis } from '../ai/analysis';
+import type { AnalysisOutcome } from '../ai/analyseError';
 import type { ProviderChoice } from '../ai/createProvider';
 import { NO_STATUSES, statusOf, withAnalysis, withStatus } from '../core/errorStatus';
 import type { ErrorStatus, StatusByFingerprint } from '../core/errorStatus';
@@ -72,10 +72,10 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
       setStatuses((previous) => withAnalysis(previous, fingerprintId));
     },
   });
-  /** The analysis the model made of a fingerprint, when it made one that follows the schema. */
-  const analysisOf = (fingerprintId: number): Analysis | null => {
+  /** What the model said of a fingerprint, once it has answered (an analysis, or its text when it did not follow the schema). */
+  const analysisOf = (fingerprintId: number): AnalysisOutcome | null => {
     const entry = analyses.get(fingerprintId);
-    return entry?.status === 'done' && entry.outcome.kind === 'structured' ? entry.outcome.analysis : null;
+    return entry?.status === 'done' ? entry.outcome : null;
   };
   const chats = useChats({
     records,
@@ -101,8 +101,10 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
 
   const latestRecord = latest === null ? undefined : records[latest.index];
   const selectedGroup = record === null ? undefined : groups.get(record.fingerprintId);
+  // The chat deepens what the model said: it is not offered before the model has answered for this error (ADR-019).
+  const selectedAnalysis = record === null ? null : analysisOf(record.fingerprintId);
   const chatPanel =
-    record === null || latest === null || latestRecord === undefined || selectedGroup === undefined ? undefined : (
+    record === null || latest === null || latestRecord === undefined || selectedGroup === undefined || selectedAnalysis === null ? undefined : (
       <ChatPanel
         chat={chats.chats.get(record.fingerprintId) ?? NEW_CHAT}
         provider={provider}
@@ -129,7 +131,7 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
             countIsMinimum={limitReached}
             readText={readText}
             readNeighbours={readNeighbours}
-            analysis={analysisOf(record.fingerprintId)}
+            analysis={selectedAnalysis}
           />
         }
       />

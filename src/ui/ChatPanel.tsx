@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Analysis } from '../ai/analysis';
+import type { AnalysisOutcome } from '../ai/analyseError';
 import { MAX_QUESTION_CHARS } from '../ai/chatPrompt';
 import type { ProviderChoice } from '../ai/createProvider';
 import { PROVIDER_NAMES } from '../ai/provider';
@@ -11,19 +11,15 @@ import type { ExactTextProps } from './ExactText';
 import { formatCount } from './format';
 import type { ChatState } from './useChats';
 
-/** What goes with the first question, before it is sent: the exact masked text of the log, and the analysis if there is one. */
-export function ChatContextPreview({ analysis, ...text }: ExactTextProps & { analysis: Analysis | null }) {
+/** What goes with the first question, before it is sent: the exact masked text of the log, and the analysis the model made of it. */
+export function ChatContextPreview({ analysis, ...text }: ExactTextProps & { analysis: AnalysisOutcome }) {
   return (
     <>
       <ExactText {...text} />
-      {analysis !== null && (
-        <>
-          <p className="small-note">Avec l’analyse faite par le modèle :</p>
-          <pre className="entry-text" role="region" aria-label="Analyse jointe au contexte" tabIndex={0}>
-            {JSON.stringify(analysis, null, 2)}
-          </pre>
-        </>
-      )}
+      <p className="small-note">{analysis.kind === 'structured' ? 'Avec l’analyse faite par le modèle :' : 'Avec la réponse du modèle, qui n’a pas suivi le format attendu :'}</p>
+      <pre className="entry-text" role="region" aria-label="Analyse jointe au contexte" tabIndex={0}>
+        {analysis.kind === 'structured' ? JSON.stringify(analysis.analysis, null, 2) : analysis.text}
+      </pre>
     </>
   );
 }
@@ -50,8 +46,8 @@ interface ChatPanelProps {
 const hiddenNote = (count: number): string => (count === 1 ? '1 donnée de ce message sera masquée.' : `${formatCount(count)} données de ce message seront masquées.`);
 
 /**
- * The conversation about one error. It is open as soon as the log has been analysed: it needs no analysis by the model,
- * only a provider. Nothing is sent before the user clicks; each question is masked like the rest, and what is shown
+ * The conversation about one error, which deepens the analysis the model made of it: the screen opens it only once the
+ * model has answered for this error, and it needs a provider. Nothing is sent before the user clicks; each question is masked like the rest, and what is shown
  * in the conversation is what was sent. The answers are shown as text, as they are written.
  */
 export function ChatPanel({ chat, provider, masking, busy, answering, twins, context, onAsk, onStop, onClear }: ChatPanelProps) {
@@ -73,7 +69,7 @@ export function ChatPanel({ chat, provider, masking, busy, answering, twins, con
     <section className="chat" aria-label="Discussion sur cette erreur">
       <h3>Discuter de cette erreur</h3>
       <p className="small-note">
-        La discussion est rattachée à cette erreur{twins > 1 ? ` et aux ${formatCount(twins)} erreurs identiques` : ''}. Elle part du texte masqué de l’occurrence la plus récente, et de l’analyse du modèle si elle existe : elle n’en a pas besoin.
+        Le chat approfondit l’analyse du modèle ci-dessus pour cette erreur{twins > 1 ? ` et pour les ${formatCount(twins)} erreurs identiques` : ''}. Il s’appuie sur elle et sur le texte masqué de l’occurrence la plus récente ; il ne doit rien inventer et dit ce qui lui manque.
       </p>
       <p className="small-note">
         {provider === null

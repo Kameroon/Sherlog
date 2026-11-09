@@ -53,7 +53,7 @@ Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets �
    Le worker ne conserve que des positions et métadonnées (voir « Mémoire » au §3 de `SPEC.md`) ; le texte est relu par `readEntryText` (`Blob.slice`) à l'affichage du détail et à l'analyse.
    Pour le collage et les résultats Azure, le texte reste en mémoire. Le worker est annulable et terminable (regex de profil saisie par l'utilisateur).
 2. **Analyse** (étape 8) : erreur (occurrence la plus récente de son empreinte) + contexte → `buildSendPayload` (`redact` puis coupure ; même fonction que l'aperçu) → `buildAnalysisPrompt` (bloc de données au délimiteur aléatoire) → `AiProvider` → `parseAnalysis` (JSON validé, une relance, sinon texte brut dit non structuré) → rattaché à l'empreinte, en mémoire.
-3. **Chat** (étape 9) : question masquée + conversation + contexte fixé au premier message (`buildChatRequest`, délimiteur neuf par requête) → réponse en streaming affichée en texte ; une conversation par empreinte, en mémoire.
+3. **Chat** (étape 9, ouvert seulement après l'analyse du modèle pour l'erreur, qu'il approfondit) : question masquée + conversation + contexte et analyse fixés au premier message (`buildChatRequest`, délimiteur neuf par requête) → réponse en streaming affichée en texte ; une conversation par empreinte, en mémoire.
 4. **Historique local** (optionnel) : écriture IndexedDB, export/import JSON.
 
 ## Configuration

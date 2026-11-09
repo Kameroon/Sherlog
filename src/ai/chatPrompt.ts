@@ -1,5 +1,5 @@
 import type { SendPayload } from '../core/sendPayload';
-import type { Analysis } from './analysis';
+import type { AnalysisOutcome } from './analyseError';
 import { createNonce } from './analysisPrompt';
 import type { RandomBytes } from './analysisPrompt';
 import systemTemplate from './prompts/chat-system.md?raw';
@@ -16,10 +16,13 @@ export const MAX_QUESTION_CHARS = 4_000;
 
 const MAX_NONCE_ATTEMPTS = 5;
 
-/** What the chat knows of the error: the text that comes from the log (masked and cut) and the analysis, if there is one. */
+/**
+ * What the chat knows of the error: the text that comes from the log (masked and cut) and what the model said of it.
+ * The chat deepens that analysis, so it is not opened before there is one (ADR-019).
+ */
 export interface ChatContext {
   readonly payload: SendPayload;
-  readonly analysis: Analysis | null;
+  readonly analysis: AnalysisOutcome;
 }
 
 /** One question and the answer it got; only complete exchanges are kept in the conversation. */
@@ -45,9 +48,11 @@ interface ChatRequestInput {
   readonly random?: RandomBytes;
 }
 
-/** The text of the data block: what comes from the log, then the analysis that was made from it. */
-function blockText(context: ChatContext): string {
-  return context.analysis === null ? context.payload.text : `${context.payload.text}\n\n--- Analyse précédente ---\n${JSON.stringify(context.analysis, null, 2)}`;
+/** The text of the data block: what comes from the log, then the analysis that was made from it (as it came, if it did not follow the schema). */
+function blockText({ payload, analysis }: ChatContext): string {
+  return analysis.kind === 'structured'
+    ? `${payload.text}\n\n--- Analyse précédente ---\n${JSON.stringify(analysis.analysis, null, 2)}`
+    : `${payload.text}\n\n--- Analyse précédente (format non structuré) ---\n${analysis.text}`;
 }
 
 /**

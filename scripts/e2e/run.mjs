@@ -478,7 +478,7 @@ async function run(cdp, appUrl, dataDir) {
   await click('Voir les lignes autour');
   await waitFor(hasText('Aucune ligne avant'), 'les lignes autour de l’erreur collée');
   check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next from 10.0.4.18' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
-  check('le chat est proposé dès l’analyse du journal, sans clé ni analyse du modèle, et dit ce qu’il faut pour discuter', (await evaluate(`!!document.querySelector('.error-detail .chat')`)) && (await evaluate(hasText('Choisissez un fournisseur et donnez sa clé dans les réglages de « Envoi à l’IA » pour discuter'))) && (await isDisabled('Envoyer la question')) === true);
+  check('le chat n’est pas proposé tant que le modèle n’a pas analysé l’erreur : il approfondit son analyse', !(await evaluate(`!!document.querySelector('.chat')`)));
 
   // 5. What would be sent: chosen by the user, masked, the lines around the error included, nothing sent.
   check('aucune erreur n’est choisie d’office', (await evaluate(`document.querySelector('.send-panel')?.textContent.includes('Aucune erreur choisie.')`)) === true);
@@ -519,7 +519,7 @@ async function run(cdp, appUrl, dataDir) {
   const chatAnswer = 'Le délai de la passerelle est trop court <b>gras</b>.';
   // The analysis and the chat are told apart by their instructions (the role for the chat, the schema for the analysis): the
   // context of a chat holds an analysis, so the role is looked for first.
-  const anthropicAnswerTo = (body) => sse(body.includes('assistant de diagnostic') ? chatAnswer : body.includes('probableCause') ? analysisJson : 'OK');
+  const anthropicAnswerTo = (body) => sse(body.includes('ingénieur logiciel expert') ? chatAnswer : body.includes('probableCause') ? analysisJson : 'OK');
   cdp.on((message) => {
     if (message.method !== 'Fetch.requestPaused') {
       return;
@@ -571,8 +571,8 @@ async function run(cdp, appUrl, dataDir) {
 
   // 7. The analysis: the text of the preview leaves only on the click, as data between delimiters that carry a random
   // value, masked; the answer is read as the schema and shown as text; the error becomes « Analysé ».
-  const analysisRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('probableCause') && !request.body.includes('assistant de diagnostic'));
-  const chatRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('assistant de diagnostic'));
+  const analysisRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('probableCause') && !request.body.includes('ingénieur logiciel expert'));
+  const chatRequests = () => providerRequests.filter((request) => request.method === 'POST' && request.body.includes('ingénieur logiciel expert'));
   check('aucune analyse n’est partie avant le clic sur « Envoyer à l’IA »', analysisRequests().length === 0);
   check('le bouton dit où part le texte et avec quel modèle', await evaluate(hasText('part vers Anthropic (api.anthropic.com), modèle claude-haiku-5-5')));
   check('« Envoyer à l’IA » est actif : une erreur est choisie et la clé est là', (await isDisabled('Envoyer à l’IA')) === false);
@@ -598,8 +598,9 @@ async function run(cdp, appUrl, dataDir) {
   check('un second envoi tire un autre délimiteur', nonces.length === 2 && nonces[0] !== nonces[1], nonces.join(' / '));
   check('la clé reste absente de l’écran après l’analyse', !(await evaluate(hasText(apiKey))));
 
-  // 8. The chat about the selected error: open since the log was analysed, nothing sent before the click, the question
-  // masked, the context in the first message only, the whole conversation sent with a new delimiter each time, the answer shown as text.
+  // 8. The chat about the selected error: it deepens the analysis of the model, so it exists once the model has answered
+  // for the error; nothing is sent before the click, the question is masked, the context and the analysis are in the first
+  // message only, the whole conversation is sent with a new delimiter each time, the answer is shown as text.
   const typeQuestion = (value) =>
     evaluate(
       `(() => { const field = document.querySelector('.chat textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(value)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Analysis } from '../ai/analysis';
+import type { AnalysisOutcome } from '../ai/analyseError';
 import { buildChatRequest } from '../ai/chatPrompt';
 import type { ChatContext, ChatTurn } from '../ai/chatPrompt';
 import { createProvider } from '../ai/createProvider';
@@ -40,8 +40,8 @@ export interface ChatsInputs {
   readonly readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
   readonly fetchImpl?: typeof fetch;
   readonly siteOrigin: string;
-  /** The analysis the model made of an error, if it made one: it goes into the context of the chat. */
-  readonly analysisOf: (fingerprintId: number) => Analysis | null;
+  /** What the model said of an error, if it has answered: the chat deepens it, and it goes into the context. */
+  readonly analysisOf: (fingerprintId: number) => AnalysisOutcome | null;
 }
 
 /** One question the user asked: with the conversation and the provider as they were at that moment. */
@@ -113,7 +113,13 @@ export function useChats(inputs: ChatsInputs): Chats {
           }
           return;
         }
-        context = { payload: read.payload, analysis: analysisOf(fingerprintId) };
+        const analysis = analysisOf(fingerprintId);
+        if (analysis === null) {
+          // The screen only opens the chat once the model has answered: this is a guard, not a path the user takes.
+          fail('Le chat approfondit l’analyse du modèle : faites d’abord analyser cette erreur.');
+          return;
+        }
+        context = { payload: read.payload, analysis };
         const built = context;
         update(fingerprintId, (chat) => ({ ...chat, context: built }));
       }
