@@ -1,12 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { parseHead, previewHead } from '../core/previewHead';
 import { validatePeriod } from '../core/preparation';
 import type { Preparation } from '../core/preparation';
 import type { LogProfile } from '../core/profiles';
+import type { RedactionRuleId } from '../core/redact';
 import type { ScanResult } from '../core/scanLog';
 import { FormatPanel } from './FormatPanel';
 import { formatCount, formatSize } from './format';
 import { IgnoreTool } from './IgnoreTool';
+import { MaskTool } from './MaskTool';
 import { PeriodTool } from './PeriodTool';
 import { PreparedPreview } from './PreparedPreview';
 import { Tip } from './Tip';
@@ -26,6 +28,9 @@ interface PreparationScreenProps {
   onProfileChange: (profile: LogProfile) => void;
   preparation: Preparation;
   onPreparationChange: (preparation: Preparation) => void;
+  /** The masking rules that are on. */
+  masking: ReadonlySet<RedactionRuleId>;
+  onMaskingChange: (masking: ReadonlySet<RedactionRuleId>) => void;
   /** The exact figures of the last analysis, shown instead of the figures computed on the beginning. */
   result: ScanResult | null;
   /** `true` when the user changed a setting after an analysis: its result is gone and the analysis is to be run again. */
@@ -53,6 +58,8 @@ export function PreparationScreen({
   onProfileChange,
   preparation,
   onPreparationChange,
+  masking,
+  onMaskingChange,
   result,
   settingsChanged,
   onAnalyse,
@@ -61,7 +68,9 @@ export function PreparationScreen({
 }: PreparationScreenProps) {
   // Reading the text is the costly part: done once per format, then each change of a rule only filters the entries again.
   const parsed = useMemo(() => (profile === null ? null : parseHead(head, profile)), [head, profile]);
-  const preview = useMemo(() => (parsed === null ? null : previewHead(parsed, preparation)), [parsed, preparation]);
+  const preview = useMemo(() => (parsed === null ? null : previewHead(parsed, preparation, masking)), [parsed, preparation, masking]);
+  // The original text is shown on request and stays on this screen: leaving it, or choosing another log, hides it again.
+  const [showingOriginal, setShowingOriginal] = useState(false);
 
   const counts =
     result !== null
@@ -104,6 +113,12 @@ export function PreparationScreen({
                 <strong>{formatCount(counts.ready)}</strong>
                 <span>{counts.ready > 1 ? 'prêtes à analyser' : 'prête à analyser'}</span>
               </li>
+              {preview !== null && preview.masking.masked > 0 && (
+                <li className="counter">
+                  <strong>{formatCount(preview.masking.masked)}</strong>
+                  <span>{`${preview.masking.masked > 1 ? 'données masquées' : 'donnée masquée'}${complete ? '' : ' dans le début'}`}</span>
+                </li>
+              )}
             </ul>
             {result !== null && <p className="small-note">Chiffres exacts de l’analyse.</p>}
             {forTheBeginning && (
@@ -152,11 +167,19 @@ export function PreparationScreen({
                 ignoredByPeriod={counts.ignoredByPeriod}
                 problem={periodProblem}
               />
+              <MaskTool
+                masking={masking}
+                onChange={onMaskingChange}
+                occurrences={preview?.masking.occurrences ?? { email: 0, secret: 0, ip: 0, card: 0, guid: 0, urlHost: 0 }}
+                forTheBeginning={!complete}
+                showingOriginal={showingOriginal}
+                onShowOriginalChange={setShowingOriginal}
+              />
             </>
           )}
         </div>
         {preview !== null && (
-          <PreparedPreview preview={preview} name={name} headBytes={head.length} sourceBytes={source.size} complete={complete} />
+          <PreparedPreview preview={preview} name={name} headBytes={head.length} sourceBytes={source.size} complete={complete} showOriginal={showingOriginal} />
         )}
       </div>
 

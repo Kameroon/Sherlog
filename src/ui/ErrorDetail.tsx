@@ -37,6 +37,18 @@ interface ErrorDetailProps {
   /** Status of the selected error; it is shared by the errors identical to it. */
   status?: ErrorStatus;
   onStatusChange?: (status: ErrorStatus) => void;
+  /** The choice to have the error explained by the model, which holds for the errors identical to it. */
+  sendChoice?: SendChoice;
+}
+
+/** The choice to send an error, and the occurrence of its fingerprint that would be sent. */
+export interface SendChoice {
+  readonly chosen: boolean;
+  readonly onChange: (chosen: boolean) => void;
+  /** `true` when the format has dates, so that the most recent occurrence can be told from the times. */
+  readonly hasDate: boolean;
+  /** The most recent occurrence: its number in the log, its time, and whether the time decided it. `null` when unknown. */
+  readonly latest: { readonly number: number; readonly time: string | null; readonly byTime: boolean } | null;
 }
 
 /** `08:00:00`, or « sans heure » for an entry that has none. */
@@ -77,6 +89,34 @@ function StatusPicker({ status, onChange, twins }: { status: ErrorStatus; onChan
         ))}
       </select>
       {twins > 1 && <p className="small-note">{`Ce statut vaut aussi pour les ${formatCount(twins)} erreurs identiques.`}</p>}
+    </div>
+  );
+}
+
+/** « Faire expliquer par l'IA »: nothing is chosen by default, and choosing sends nothing yet. */
+function SendChoicePicker({ choice, twins }: { choice: SendChoice; twins: number }) {
+  const id = useId();
+  return (
+    <div className="send-choice">
+      <label className="mask-rule-label" htmlFor={id}>
+        <input
+          id={id}
+          type="checkbox"
+          checked={choice.chosen}
+          onChange={(event) => {
+            choice.onChange(event.target.checked);
+          }}
+        />
+        <span>Faire expliquer cette erreur par l’IA</span>
+      </label>
+      <p className="small-note">
+        {twins > 1 ? `Ce choix vaut pour les ${formatCount(twins)} erreurs identiques. ` : ''}Rien n’est envoyé sans votre décision, après l’aperçu du texte exact.
+      </p>
+      {twins > 1 && choice.latest !== null && (
+        <p className="small-note">
+          {`Occurrence retenue pour l’analyse : erreur ${formatCount(choice.latest.number)} (${choice.latest.time ?? 'sans heure'}), ${choice.latest.byTime ? 'la plus récente' : `la dernière lue${choice.hasDate ? '' : ' : ce format n’a pas de date'}`}.`}
+        </p>
+      )}
     </div>
   );
 }
@@ -228,7 +268,7 @@ function NeighbourPanel({ record, position, readNeighbours }: { record: ErrorRec
 }
 
 /** The whole text of the selected error, with its stack, read again from the file; text only, never markup. */
-export function ErrorDetail({ record, position, readText, readNeighbours, identical, countIsMinimum = false, status = 'new', onStatusChange }: ErrorDetailProps) {
+export function ErrorDetail({ record, position, readText, readNeighbours, identical, countIsMinimum = false, status = 'new', onStatusChange, sendChoice }: ErrorDetailProps) {
   const titleId = useId();
   return (
     <section className="error-detail" aria-labelledby={titleId}>
@@ -242,6 +282,7 @@ export function ErrorDetail({ record, position, readText, readNeighbours, identi
             <span className="error-level">{record.level}</span>
           </p>
           {onStatusChange !== undefined && <StatusPicker status={status} onChange={onStatusChange} twins={identical?.count ?? 1} />}
+          {sendChoice !== undefined && <SendChoicePicker choice={sendChoice} twins={identical?.count ?? 1} />}
           {identical !== undefined && identical.count > 1 && <IdenticalSummary identical={identical} countIsMinimum={countIsMinimum} />}
           <EntryReading record={record} position={position} readText={readText} />
           <NeighbourPanel record={record} position={position} readNeighbours={readNeighbours} />

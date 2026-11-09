@@ -238,6 +238,14 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix d’un journal daté');
   await chooseFile(join(root, 'samples', 'sample.log'));
   await waitFor(hasText('Format reconnu'), 'la reconnaissance du journal daté');
+  // 2d. Masking on the dated sample, which holds a password, an address and an identifier.
+  const excerpt = await text('.excerpt');
+  check('l’aperçu remplace le mot de passe et l’adresse e-mail par leurs étiquettes', excerpt.includes('Password=[SECRET]') && excerpt.includes('[EMAIL]') && !excerpt.includes('S3cr3t!') && !excerpt.includes('john.doe@example.com'), excerpt.slice(0, 120));
+  check('le compteur annonce 2 données masquées', (await counters()).some((counter) => counter === '2 données masquées'), (await counters()).join(' | '));
+  check('le GUID n’est masqué que sur option : l’aperçu le garde', excerpt.includes('7f3c9a52-1b6e-4a0d-9b8e-2d5c1a6e44f1'));
+  await click('Afficher le texte d’origine');
+  check('le texte d’origine s’affiche sur demande', (await text('.excerpt')).includes('Password=S3cr3t!'));
+  await click('Afficher le texte d’origine');
   check('un format avec date propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`) && !(await evaluate(`!!document.querySelector('input[type=time]')`)));
   await setDateTime('Début (date et heure)', '2026-11-04T08:16');
   await setDateTime('Fin (date et heure)', '2026-11-04T08:16');
@@ -316,7 +324,8 @@ async function run(cdp, appUrl, dataDir) {
   const bigSummary = await text('.result-sentence');
   const bigExpected = `${fr(expected.entries)} entrées lues, ${fr(expected.errors)} erreurs (${expected.distinct} distinctes).`;
   check('le gros fichier donne exactement les comptes attendus', bigSummary === bigExpected, `obtenu « ${bigSummary} », attendu « ${bigExpected} »`);
-  const bigCounters = await counters();
+  // A fourth counter, « données masquées dans le début », comes with the masking: the reading counters are the first three.
+  const bigCounters = (await counters()).slice(0, 3);
   const bigCountersExpected = [`${fr(expected.entries)} entrées lues`, `${fr(expected.health)} écartées par vos réglages`, `${fr(expected.entries - expected.health)} prêtes à analyser`];
   check('le gros fichier donne les compteurs exacts avec la règle', same(bigCounters, bigCountersExpected), `obtenu ${bigCounters.join(' | ')}, attendu ${bigCountersExpected.join(' | ')}`);
   const bigOptions = await optionCount();
@@ -443,7 +452,7 @@ async function run(cdp, appUrl, dataDir) {
   // 4. Pasted text with markup: shown as text, never interpreted.
   await click('Choisir un autre journal');
   await waitFor(`!!document.querySelector('#paste-input')`, 'le champ de collage');
-  const pasted = '[08:16:10 ERR] Failed <img src=x onerror=alert(1)>\n[08:16:11 INF] Next\n';
+  const pasted = '[08:16:10 ERR] Failed <img src=x onerror=alert(1)> for john.doe@example.com from 10.0.4.17\n[08:16:11 INF] Next from 10.0.4.18\n';
   await evaluate(
     `(() => { const field = document.querySelector('#paste-input'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(pasted)}); field.dispatchEvent(new Event('input', { bubbles: true })); })()`,
   );
@@ -458,8 +467,19 @@ async function run(cdp, appUrl, dataDir) {
   await waitFor(hasButton('Voir les lignes autour'), 'le bouton des lignes autour de l’erreur collée');
   await click('Voir les lignes autour');
   await waitFor(hasText('Aucune ligne avant'), 'les lignes autour de l’erreur collée');
-  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
+  check('dans le texte collé, rien avant l’erreur et la ligne suivante après', (await text('.neighbour-lines [aria-label^="Lignes après"]')) === '[08:16:11 INF] Next from 10.0.4.18' && (await evaluate(hasText('Aucune ligne avant : l’erreur est au début du journal'))));
 
+  // 5. What would be sent: chosen by the user, masked, the lines around the error included, nothing sent.
+  check('aucune erreur n’est choisie d’office', (await evaluate(`document.querySelector('.send-panel')?.textContent.includes('Aucune erreur choisie.')`)) === true);
+  await evaluate(`[...document.querySelectorAll('label')].find((label) => label.textContent.includes('Faire expliquer cette erreur par l’IA')).querySelector('input').click()`);
+  await waitFor(`!!document.querySelector('.send-panel .send-item')`, 'l’erreur choisie dans le panneau d’envoi');
+  check('l’erreur choisie est marquée dans la liste', (await text('[role=option]')).includes('À envoyer'));
+  await click('Voir le texte exact');
+  await waitFor(`!!document.querySelector('[aria-label^="Texte exact envoyé"]')`, 'le texte exact envoyé');
+  const sent = await text('[aria-label^="Texte exact envoyé"]');
+  check('le texte envoyé masque l’adresse e-mail et les adresses IP, lignes autour comprises', sent.includes('[EMAIL]') && sent.includes('[IP]') && !sent.includes('john.doe') && !sent.includes('10.0.4.17') && !sent.includes('10.0.4.18'), sent);
+  check('le balisage reste du texte dans le texte envoyé', sent.includes('<img src=x') && !(await evaluate(`!!document.querySelector('.send-panel img')`)));
+  check('l’envoi n’est pas disponible et le dit', (await isDisabled('Envoyer à l’IA')) === true && (await evaluate(hasText('Rien n’a été envoyé'))));
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
 }
 
