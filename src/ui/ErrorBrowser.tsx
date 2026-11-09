@@ -1,4 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { NO_STATUSES, statusOf, withStatus } from '../core/errorStatus';
 import type { ErrorStatus, StatusByFingerprint } from '../core/errorStatus';
 import { DEFAULT_ERROR_VIEW, buildErrorView, distinctLevels } from '../core/errorView';
@@ -27,6 +28,8 @@ interface ErrorBrowserProps {
   masking?: ReadonlySet<RedactionRuleId>;
   /** `true` when the format has dates, so that the most recent occurrence of an error can be told from the times. */
   hasDate?: boolean;
+  /** The provider's settings, shown in the sending panel. */
+  sendSettings?: ReactNode;
 }
 
 /**
@@ -36,7 +39,7 @@ interface ErrorBrowserProps {
  * kept here, for this analysis only: a new analysis mounts the browser again, with every error new. So is the choice
  * of the errors to have explained, made by fingerprint: none is chosen by default, and nothing is sent from here.
  */
-export function ErrorBrowser({ records, readText, readNeighbours, limitReached, fileName = 'journal', masking = DEFAULT_ENABLED_RULES, hasDate = true }: ErrorBrowserProps) {
+export function ErrorBrowser({ records, readText, readNeighbours, limitReached, fileName = 'journal', masking = DEFAULT_ENABLED_RULES, hasDate = true, sendSettings }: ErrorBrowserProps) {
   const groups = useMemo(() => summariseIdentical(records), [records]);
   const levels = useMemo(() => distinctLevels(records), [records]);
   const [options, setOptions] = useState<ErrorViewOptions>(DEFAULT_ERROR_VIEW);
@@ -134,7 +137,9 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
         onClear={() => {
           setChosenForSending(new Set());
         }}
-      />
+      >
+        {sendSettings}
+      </SendPanel>
     </div>
   );
 }

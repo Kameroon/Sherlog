@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { IdenticalErrors } from '../core/identicalErrors';
 import { latestOccurrence } from '../core/identicalErrors';
 import { REDACTION_RULES, rulesForSending } from '../core/redact';
@@ -32,6 +33,8 @@ interface SendPanelProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
   onRemove: (fingerprintId: number) => void;
   onClear: () => void;
+  /** The choice of the provider and its key, shown between the errors chosen and the button. */
+  children?: ReactNode;
 }
 
 interface ItemProps extends Pick<SendPanelProps, 'fileName' | 'masking' | 'countIsMinimum' | 'readText' | 'readNeighbours'> {
@@ -147,11 +150,12 @@ function SendItem({ record, number, group, byTime, hasDate, onRemove, ...reading
 
 /**
  * The errors the user chose to have explained, and for each the exact text that would leave the browser: masked,
- * the lines around the error included, cut to the limit with the cut said. Nothing is sent from here: the choice of
- * the provider and the sending come with the next step, and the button says so. This text is what comes from the log;
- * the instructions to the model and a random delimiter are added at sending time (`docs/PROMPTS.md`).
+ * the lines around the error included, cut to the limit with the cut said. Nothing is sent from here: the provider is
+ * chosen in the settings shown below the errors, but the sending comes with the analysis (the prompt that holds the
+ * log as data is its work, `docs/PROMPTS.md`), and the button says so. This text is what comes from the log;
+ * the instructions to the model and a random delimiter are added at sending time.
  */
-export function SendPanel({ records, groups, chosen, fileName, masking, hasDate, countIsMinimum, readText, readNeighbours, onRemove, onClear }: SendPanelProps) {
+export function SendPanel({ records, groups, chosen, fileName, masking, hasDate, countIsMinimum, readText, readNeighbours, onRemove, onClear, children }: SendPanelProps) {
   const id = useId();
   const items = useMemo(
     () =>
@@ -208,12 +212,13 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
           )}
         </>
       )}
+      {children}
       <div className="actions">
         <button type="button" className="button-primary" disabled>
           Envoyer à l’IA
         </button>
       </div>
-      <p className="small-note">Pas encore disponible : le fournisseur (Anthropic ou Ollama) se choisit à l’étape suivante. Rien n’a été envoyé.</p>
+      <p className="small-note">Pas encore disponible : l’envoi des erreurs choisies arrive avec l’analyse. Rien n’a été envoyé.</p>
     </section>
   );
 }
