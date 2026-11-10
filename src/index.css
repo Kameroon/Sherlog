@@ -885,7 +885,7 @@ button:disabled {
 }
 
 .error-list {
-  height: min(70vh, 38rem);
+  max-height: min(70vh, 38rem);
   overflow-y: auto;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-control);
