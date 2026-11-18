@@ -10,9 +10,9 @@ Je n'ai pas accès à votre portail Azure : les noms de menus ci-dessous viennen
 
 ---
 
-## Partie A — Source URL (10b) : faite, reste à l'essayer avec un vrai lien
+## Partie A — Source URL (10b) : faite, en production
 
-**État (2026-11-18) :** le compte `sherlogjournaux` existe et la source est construite (ADR-023). Pour l'essayer : générez un lien SAS en lecture seule, de courte durée, **HTTPS uniquement**, sur un fichier d'essai du conteneur `journaux` (portail → le fichier → « Générer une signature d'accès partagé »), collez-le dans le champ « Adresse du fichier », puis « Télécharger et lire ce journal ». Ne m'envoyez pas ce lien. Les étapes ci-dessous sont celles qui ont permis de créer le compte ; elles servent si un autre compte doit être ajouté (modification de la CSP et du code, puis redéploiement).
+**État (2026-11-18) :** le compte `sherlogjournaux` existe, la source est en production et a été essayée par l'auteur sur le site en ligne (ADR-023). Pour s'en servir : générez un lien SAS en lecture seule, de courte durée, **HTTPS uniquement**, sur un fichier d'essai du conteneur `journaux` (portail → le fichier → « Générer une signature d'accès partagé »), collez-le dans le champ « Adresse du fichier », puis « Télécharger et lire ce journal ». Ne m'envoyez pas ce lien. Les étapes ci-dessous sont celles qui ont permis de créer le compte ; elles servent si un autre compte doit être ajouté (modification de la CSP et du code, puis redéploiement).
 
 **Ce qu'il me faut à la fin :** le **nom exact de chaque compte de stockage** autorisé (par exemple `monentreprisejournaux`), rien d'autre.
 
@@ -29,7 +29,7 @@ Je n'ai pas accès à votre portail Azure : les noms de menus ci-dessous viennen
 4. **Fabriquez, à l'usage, un lien de lecture limité** (pas pour moi) : ouvrez le blob → « Générer une SAP » → permissions **Lecture** seule ; une **durée courte** (une heure suffit) ; **HTTPS** uniquement → copiez l'**URL du blob avec son jeton**. Vous la collerez dans l'application le jour où la source existera ; elle ne sera jamais affichée après saisie, ni stockée.
 5. **Donnez-moi le(s) nom(s) de compte**, sans le lien, sans clé.
 
-Ce que je ferai ensuite (10b) : écrire la source, ajouter ces comptes exacts à la CSP (verrouillée par un test), **mesurer** la limite de taille d'un téléchargement sur un fichier généré, auditer le code contre l'ADR-020, vous demander de valider.
+Pour un compte de plus : écrire son nom exact dans `ALLOWED_STORAGE_HOSTS` (`src/sources/urlSource.ts`) et dans la CSP (un test garde les deux égaux), ajouter sa règle CORS, puis redéployer.
 
 ---
 
