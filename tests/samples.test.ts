@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { fingerprint } from '../src/core/fingerprint';
 import { MAX_RETAINED_BYTES } from '../src/core/lineSplitter';
@@ -94,6 +96,39 @@ describe('reference samples', () => {
   });
 });
 
+// Synthetic export with the exact layout of a real one (samples/README.md): read as bytes, its CRLF between records kept.
+describe('Log Analytics CSV export sample', () => {
+  const exportBytes = new Uint8Array(readFileSync(join(process.cwd(), 'samples', 'log-analytics-apptraces.csv')));
+
+  it('should find the export profile, 8 entries and 3 errors when parsing the sample as it is on disk', () => {
+    // Act
+    const result = summarize(exportBytes);
+
+    // Assert
+    expect(result).toEqual({ profile: 'log-analytics-csv', entries: 8, errors: 3 });
+  });
+
+  it('should give the same entries when the bytes come in blocks that cut characters and records', () => {
+    // Act
+    const inBlocks = parseBytes(exportBytes, 7).entries;
+
+    // Assert
+    expect(inBlocks).toEqual(parseBytes(exportBytes).entries);
+  });
+
+  it('should keep the two Error rows and the Critical one, with their dates in ISO 8601, as the errors', () => {
+    // Act
+    const { entries } = parseBytes(exportBytes);
+
+    // Assert
+    expect(errorEntries(entries).map((entry) => [entry.timestamp, entry.level])).toEqual([
+      ['2026-11-14T09:15:42.318Z', 'Error'],
+      ['2026-11-17T22:47:05.950Z', 'Error'],
+      ['2026-11-18T06:30:00.000Z', 'Critical'],
+    ]);
+  });
+});
+
 describe('fingerprints of the reference samples', () => {
   /** Index of the first error that has the same fingerprint, for every error in reading order. */
   function groupsOf(file: string): number[] {
@@ -114,6 +149,8 @@ describe('fingerprints of the reference samples', () => {
     { file: 'serilog-injection.log', distinct: 2, groups: [0, 1] },
     // The three health-check errors only differ by the correlation GUID written in brackets in the message.
     { file: 'real-serilog.log', distinct: 1, groups: [0, 0, 0] },
+    // The two failed imports only differ by their row number.
+    { file: 'log-analytics-apptraces.csv', distinct: 2, groups: [0, 0, 1] },
   ];
 
   it.each(fingerprintReferences)('should find $distinct distinct fingerprints when parsing $file', (reference) => {

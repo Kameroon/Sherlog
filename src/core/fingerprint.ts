@@ -1,5 +1,4 @@
 import type { LogEntry } from './entryAssembler';
-import { matchHeader } from './profiles';
 import type { LogProfile } from './profiles';
 import { truncateText } from './text';
 
@@ -118,10 +117,10 @@ export function firstApplicationFrame(text: string, libraryPrefixes: readonly st
  * part can then be missing.
  *
  * @param entry - An entry assembled with `profile`.
- * @param profile - The profile that read the entry; gives the message group and the library prefixes.
+ * @param profile - The profile that read the entry; gives the library prefixes.
  */
 export function fingerprint(entry: LogEntry, profile: LogProfile): string {
-  const message = matchHeader(profile, entry.firstLine)?.message ?? entry.firstLine;
+  const message = entry.message ?? entry.firstLine;
   const frame = firstApplicationFrame(entry.text, profile.libraryPrefixes) ?? '';
   return [(entry.level ?? '').toUpperCase(), truncateText(normalizeMessage(message), MAX_MESSAGE_KEY_CHARS), frame].join('\n');
 }
