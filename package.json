@@ -15,7 +15,8 @@
     "test": "vitest run",
     "e2e": "node scripts/e2e/run.mjs",
     "serve:dist": "node scripts/serve-dist.mjs",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "audit:all": "npm audit --audit-level=high"
   },
   "dependencies": {
     "react": "19.3.1",
