@@ -18,6 +18,7 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-016** *(proposé)* Choix explicite des erreurs à envoyer (par empreinte, occurrence la plus récente) et aperçu du texte exact : masqué avant d'être coupé, coupure explicite, rien n'est envoyé.
 - **ADR-020** *(proposé)* Sources avancées : audit de sécurité de conception (menaces et contrôles exigés pour le dossier, l'URL et Azure Monitor ; pas de joker `*.blob.core.windows.net`).
 - **ADR-021** Source « dossier » (10a) : lecture seule, un seul niveau, dossier retenu par identité ; audit du code.
+- **ADR-024** *(proposé)* L'audit bloquant de la CI porte sur les dépendances livrées (`--omit=dev`) ; l'audit complet reste disponible (`npm run audit:all`), informatif, tant qu'un avis d'outillage n'a pas de correctif publié.
 - **ADR-019** Chat par erreur : ouvert dès l'analyse du journal, rien ne part avant le clic, question masquée, contexte fixé au premier message et réemballé avec un délimiteur neuf à chaque requête, conversation bornée sans coupe silencieuse, rendu en texte ; revue de sécurité de l'étape 9.
 - **ADR-018** Analyse d'une erreur : envoi sur clic du texte de l'aperçu, prompt durci (journal en données entre des délimiteurs au délimiteur aléatoire tiré par requête), réponse validée champ par champ (une relance, sinon texte brut), rendu en texte seul, statut « Analysé » ; audit de sécurité complet de l'étape 8.
 - **ADR-017** Fournisseurs d'IA (Anthropic par `fetch` et SSE, Ollama), clé de l'utilisateur (mémoire, onglet ou ordinateur, une copie, cloisonnée par identité), test de connexion sans contenu de journal, CSP limitée à deux adresses ; audit de sécurité complet de l'étape 7.
@@ -87,7 +88,7 @@ Réglages applicatifs (valeurs par défaut dans le code) : niveaux d'erreur, pro
 Vérifier dans la documentation officielle : l'API du SDK Anthropic en mode navigateur, la bibliothèque d'authentification Microsoft pour application monopage, la syntaxe exacte des en-têtes de Static Web Apps.
 
 ## Déploiement
-Application Azure Static Web Apps (plan Free) **non liée** au dépôt ; le workflow `.github/workflows/azure-static-web-apps.yml` exécute `tsc --noEmit`, `eslint --max-warnings 0`, tests, build et `npm audit`,
+Application Azure Static Web Apps (plan Free) **non liée** au dépôt ; le workflow `.github/workflows/azure-static-web-apps.yml` exécute `tsc --noEmit`, `eslint --max-warnings 0`, tests, build et `npm audit` des dépendances livrées (`--omit=dev`, ADR-024),
 puis envoie seulement `dist/` (`skip_app_build`). Le jeton de déploiement est le secret GitHub `AZURE_STATIC_WEB_APPS_API_TOKEN`, jamais dans le dépôt.
 Flux : travail sur `dev` → pull request vers `main` (environnement de prévisualisation = staging, 3 maximum sur Free, supprimé à la fermeture) → fusion = production. Voir ADR-007.
 

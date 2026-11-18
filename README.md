@@ -31,7 +31,8 @@ npm run serve:dist   # http://127.0.0.1:4173
 | `npm run build` | Construit `dist/` |
 | `npm run serve:dist` | Sert `dist/` avec les en-têtes de production (CSP) et une identité locale simulée ; ne reproduit pas le contrôle d'accès |
 | `npm run e2e` | Parcours de bout en bout dans Chrome (après `npm run build`) : vrai worker sous la CSP, vrai fichier, progression, annulation, comptes exacts, console sans erreur. Chrome ou Chromium requis (`CHROME_PATH` si introuvable), aucune dépendance ajoutée |
-| `npm run audit` | `npm audit` au niveau high |
+| `npm run audit` | `npm audit` au niveau high sur les dépendances **livrées** seulement (étape bloquante de la CI, ADR-024) |
+| `npm run audit:all` | Le même audit, outils de développement compris : informatif, peut échouer sur un avis d'outillage sans correctif publié |
 
 Essayer le contrôle d'accès en local (émulateur, qui peut différer du cloud) : `npm run build` puis `npx @azure/static-web-apps-cli@2.0.8 start ./dist` (version épinglée, le paquet n'est pas une dépendance du projet).
 
