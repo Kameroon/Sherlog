@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { NO_PERIOD } from '../core/preparation';
 import type { Period, Preparation } from '../core/preparation';
 import type { TimeRange } from '../core/previewHead';
+import { FoldablePanel } from './FoldablePanel';
 import { countOf } from './format';
 
 interface PeriodToolProps {
@@ -27,8 +28,7 @@ export function PeriodTool({ preparation, onChange, withDate, range, forTheBegin
   };
 
   return (
-    <section className="panel" aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>Période</h2>
+    <FoldablePanel id={id} title="Période">
       {withDate ? (
         <p className="period-help">
           Vous gardez les entrées comprises entre deux dates. Les heures sont comparées telles qu’elles sont écrites dans le journal : le décalage horaire (par exemple +01:00) n’est pas lu. La minute de fin est incluse.
@@ -115,6 +115,6 @@ export function PeriodTool({ preparation, onChange, withDate, range, forTheBegin
           {countOf(ignoredByPeriod, 'entrée écartée', 'entrées écartées')} par la période{forTheBeginning ? ' dans le début' : ''}
         </p>
       )}
-    </section>
+    </FoldablePanel>
   );
 }
