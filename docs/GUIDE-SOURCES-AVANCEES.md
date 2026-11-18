@@ -10,7 +10,9 @@ Je n'ai pas accès à votre portail Azure : les noms de menus ci-dessous viennen
 
 ---
 
-## Partie A — Source URL (10b) : commencez par celle-ci, elle est plus courte
+## Partie A — Source URL (10b) : faite, reste à l'essayer avec un vrai lien
+
+**État (2026-11-18) :** le compte `sherlogjournaux` existe et la source est construite (ADR-023). Pour l'essayer : générez un lien SAS en lecture seule, de courte durée, **HTTPS uniquement**, sur un fichier d'essai du conteneur `journaux` (portail → le fichier → « Générer une signature d'accès partagé »), collez-le dans le champ « Adresse du fichier », puis « Télécharger et lire ce journal ». Ne m'envoyez pas ce lien. Les étapes ci-dessous sont celles qui ont permis de créer le compte ; elles servent si un autre compte doit être ajouté (modification de la CSP et du code, puis redéploiement).
 
 **Ce qu'il me faut à la fin :** le **nom exact de chaque compte de stockage** autorisé (par exemple `monentreprisejournaux`), rien d'autre.
 

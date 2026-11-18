@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ALLOWED_STORAGE_HOSTS } from '../src/sources/urlSource';
 
 interface RouteRule {
   route: string;
@@ -114,17 +115,26 @@ describe('staticwebapp.config.json access rules', () => {
     },
   );
 
-  // The only places the page may send anything to are the two providers (ADR-002): a new destination is a decision, not a side effect.
-  it('should let the page reach only itself, Anthropic and the local Ollama', () => {
-    // Arrange
-    const connectSources = contentSecurityPolicy
-      .split(';')
-      .map((directive) => directive.trim().split(/\s+/))
-      .find(([name]) => name === 'connect-src')
-      ?.slice(1);
+  const connectSources = contentSecurityPolicy
+    .split(';')
+    .map((directive) => directive.trim().split(/\s+/))
+    .find(([name]) => name === 'connect-src')
+    ?.slice(1);
 
+  // The only places the page may send anything to are the two providers (ADR-002) and the storage accounts that were named
+  // (ADR-020, T1): a new destination is a decision, not a side effect.
+  it('should let the page reach only itself, Anthropic, the local Ollama and the named storage accounts', () => {
     // Act & Assert
-    expect(connectSources).toEqual(["'self'", 'https://api.anthropic.com', 'http://localhost:11434']);
+    expect(connectSources).toEqual(["'self'", 'https://api.anthropic.com', 'http://localhost:11434', ...ALLOWED_STORAGE_HOSTS.map((host) => `https://${host}`)]);
+  });
+
+  it('should name each storage account in full, never as a wildcard of all the accounts', () => {
+    // Act
+    const storageSources = (connectSources ?? []).filter((source) => source.includes('core.windows.net'));
+
+    // Assert
+    expect(storageSources).toEqual(['https://sherlogjournaux.blob.core.windows.net']);
+    expect(storageSources.some((source) => source.includes('*'))).toBe(false);
   });
 
   it.each(['*', 'https:', 'http:', 'ws:', 'wss:'])('should never allow the wildcard source %s to be reached', (source) => {

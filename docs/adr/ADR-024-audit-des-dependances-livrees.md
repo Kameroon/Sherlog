@@ -1,7 +1,7 @@
 # ADR-024 : L'audit bloquant de la CI porte sur les dépendances livrées
 
 ## Statut
-Proposé — 2026-11-18, à la demande de l'auteur (« prépare ce changement dans une PR à part »), en attente de sa validation.
+Accepté — 2026-11-18, à la demande de l'auteur (« prépare ce changement dans une PR à part »), validé par lui (PR #28).
 
 ## Contexte
 Le workflow `.github/workflows/azure-static-web-apps.yml` exécute `npm run audit` avant le déploiement ; l'étape est bloquante. Jusqu'à l'étape 10a, `npm audit --audit-level=high` réussissait (seul un avis modéré sur `minimatch`, dans l'outillage `eslint`, était signalé).
