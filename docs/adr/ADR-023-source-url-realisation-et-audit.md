@@ -56,7 +56,9 @@ Liste de contrôle de Sherlog (`CLAUDE.md`, adaptation 6). **Aucun point critiqu
 
 **Essai réel (2026-11-18, par l'auteur).** La version de cette branche, servie en local avec les en-têtes de production (`serve:dist`, `http://127.0.0.1:4175`), a téléchargé `journaux/sample.log` depuis le vrai compte `sherlogjournaux` avec un vrai lien SAS en lecture seule (généré dans le portail, jamais transmis à Claude). Une origine `http://127.0.0.1:4175` avait été ajoutée **temporairement** à la règle CORS du service Blob, puis **retirée** par l'auteur après l'essai. Résultat vu par l'auteur : fichier lu (14 entrées), analysé, aucune erreur de l'application dans la console.
 
+**En production (2026-11-18).** Mise en ligne par la PR #29 (dev vers main), sur l'accord explicite de l'auteur ; CSP de production vérifiée (`connect-src` avec `https://sherlogjournaux.blob.core.windows.net`). L'auteur a refait l'essai **sur le site en ligne** avec un nouveau lien SAS, sans rien changer au CORS (l'origine de production y est) : « Télécharger et lire ce journal » a fonctionné, sans erreur remarquée.
+
 **Non vérifié.**
-- **Le site de production** avec un vrai lien (l'origine de production n'a été essayée qu'à travers la règle CORS, pas encore avec la page en ligne, qui n'a pas cette version) ; les réponses réelles d'Azure à un jeton expiré (403) ou à un fichier absent (404), et le débit d'un gros fichier.
+- Les réponses réelles d'Azure à un jeton expiré (403) ou à un fichier absent (404), et le débit d'un gros fichier sur le vrai réseau.
 - Les mesures de mémoire sont celles du **poste de développement** (Windows, Chrome headless, processus de ce navigateur seulement) ; elles diffèrent selon la machine. Le temps de téléchargement ne contient pas le réseau.
 - Edge ; Firefox et Safari.
