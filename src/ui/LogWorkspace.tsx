@@ -18,6 +18,7 @@ import { SourcePicker } from './SourcePicker';
 import { Steps } from './Steps';
 import type { StepNumber } from './Steps';
 import { Tip } from './Tip';
+import type { UrlDependencies } from './UrlSource';
 import { useLogScan } from './useLogScan';
 import type { ScanDependencies, ScanState } from './useLogScan';
 
@@ -30,6 +31,8 @@ interface LogWorkspaceProps {
   aiDependencies?: Partial<AiDependencies>;
   /** Replaces the folder picker and its store; used by the tests. */
   folderDependencies?: Partial<FolderDependencies>;
+  /** Replaces the network of the URL source; used by the tests. */
+  urlDependencies?: Partial<UrlDependencies>;
 }
 
 interface ScanSummaryProps {
@@ -88,7 +91,7 @@ function stepOf(state: ScanState): StepNumber {
  * The page's working area: choose a log, prepare it, analyse it on demand, read the errors.
  * Each stage is the user's decision; nothing is analysed or sent by itself.
  */
-export function LogWorkspace({ dependencies, storageScope = null, aiDependencies, folderDependencies }: LogWorkspaceProps) {
+export function LogWorkspace({ dependencies, storageScope = null, aiDependencies, folderDependencies, urlDependencies }: LogWorkspaceProps) {
   // What the settings panel says is usable to send with; the panel only exists once errors were found.
   const [provider, setProvider] = useState<ProviderChoice | null>(null);
   const { state, chooseFile, chooseText, changePreparation, changeMasking, changeProfile, analyse, cancel, reset, readText, readNeighbours } = useLogScan(dependencies);
@@ -118,6 +121,7 @@ export function LogWorkspace({ dependencies, storageScope = null, aiDependencies
         sendSettings={<ProviderSettings scope={storageScope} onChoiceChange={setProvider} {...aiDependencies} />}
         storageScope={storageScope}
         folderDependencies={folderDependencies}
+        urlDependencies={urlDependencies}
         provider={provider}
         aiFetch={aiDependencies?.fetchImpl}
         siteOrigin={aiDependencies?.siteOrigin}
@@ -143,6 +147,7 @@ interface StageProps {
   sendSettings: ReactNode;
   storageScope: StorageScope | null;
   folderDependencies: Partial<FolderDependencies> | undefined;
+  urlDependencies: Partial<UrlDependencies> | undefined;
   /** What the user chose in those settings, once it is usable; `null` until then. */
   provider: ProviderChoice | null;
   aiFetch: typeof fetch | undefined;
@@ -160,7 +165,7 @@ interface StageProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
 }
 
-function Stage({ state, sendSettings, storageScope, folderDependencies, provider, aiFetch, siteOrigin, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
+function Stage({ state, sendSettings, storageScope, folderDependencies, urlDependencies, provider, aiFetch, siteOrigin, setFocusTarget, onFile, onText, onPreparationChange, onMaskingChange, onProfileChange, onAnalyse, onCancel, onReset, readText, readNeighbours }: StageProps) {
   switch (state.phase) {
     case 'idle':
       return (
@@ -169,7 +174,7 @@ function Stage({ state, sendSettings, storageScope, folderDependencies, provider
             Aucune source de logs chargée pour le moment.
             <span className="cursor" aria-hidden="true" />
           </p>
-          <SourcePicker onFile={onFile} onText={onText} scope={storageScope} folderDependencies={folderDependencies} />
+          <SourcePicker onFile={onFile} onText={onText} scope={storageScope} folderDependencies={folderDependencies} urlDependencies={urlDependencies} />
         </>
       );
     case 'detecting':
@@ -184,7 +189,7 @@ function Stage({ state, sendSettings, storageScope, folderDependencies, provider
           <p className="notice notice-error" role="alert" ref={setFocusTarget} tabIndex={-1}>
             {state.message}
           </p>
-          <SourcePicker onFile={onFile} onText={onText} scope={storageScope} folderDependencies={folderDependencies} />
+          <SourcePicker onFile={onFile} onText={onText} scope={storageScope} folderDependencies={folderDependencies} urlDependencies={urlDependencies} />
         </>
       );
     case 'ready':

@@ -1098,6 +1098,22 @@ button:disabled {
   font-family: inherit;
 }
 
+/* ---- URL source ---- */
+
+.url-source {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.url-source p {
+  margin: 0;
+}
+
+.url-progress {
+  display: grid;
+  gap: var(--space-1);
+}
+
 /* ---- Folder source ---- */
 
 .folder-source {

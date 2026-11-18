@@ -16,6 +16,8 @@ export interface RequestOptions {
   readonly signal?: AbortSignal;
   readonly fetchImpl: typeof fetch;
   readonly headersTimeoutMs?: number;
+  /** What to do when the address answers with a redirection; the browser's own rule (follow) when not given. */
+  readonly redirect?: RequestRedirect;
   /** Taken out of what the provider says before it is kept: a key must never come back to the screen. */
   readonly secret?: string;
   /** Finds the explanation in the JSON body of an error answer. */
@@ -97,6 +99,7 @@ export async function send(options: RequestOptions): Promise<Response> {
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
       cache: 'no-store',
+      redirect: options.redirect,
     });
   } catch {
     signal?.removeEventListener('abort', forwardAbort);

@@ -56,7 +56,7 @@ Jusqu'ici, un journal arrive par un fichier ou un collage que l'utilisateur donn
 
 ## Décisions prises (2026-11-09) et décisions encore ouvertes
 - **Q1 — décidée : un seul niveau.** **Q2 — décidée : retenir le dossier** (cloisonné par identité, avec « Oublier »). Réalisées en 10a : ADR-021.
-- **Q3 — OUVERTE** : aucun compte de stockage donné ; 10b bloquée. **Q4 — déléguée à Claude** : limite de téléchargement mesurée sur un fichier généré. **Q5 — OUVERTE** : ni 3b, ni export réel, ni enregistrement Entra, ni workspace ; 10c bloquée.
+- **Q3 — décidée (2026-11-17) : le compte `sherlogjournaux`**, créé par l'auteur. **Q4 — décidée : 256 Mio**, mesurée sur un fichier généré. Réalisées en 10b : ADR-023. **Q5 — OUVERTE** : ni 3b, ni export réel, ni enregistrement Entra, ni workspace ; 10c bloquée.
 
 ## Décisions à prendre avant le code (texte d'origine)
 - **Q1 — Dossier : un seul niveau ou récursif ?** Proposé : **un seul niveau** (KISS, borne simple ; les journaux sont d'ordinaire dans un dossier plat).

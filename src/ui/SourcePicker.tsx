@@ -3,6 +3,8 @@ import type { StorageScope } from '../auth/storageScope';
 import { FolderSource } from './FolderSource';
 import type { FolderDependencies } from './FolderSource';
 import { Tip } from './Tip';
+import { UrlSource } from './UrlSource';
+import type { UrlDependencies } from './UrlSource';
 
 interface SourcePickerProps {
   onFile: (file: File) => void;
@@ -11,13 +13,15 @@ interface SourcePickerProps {
   scope?: StorageScope | null;
   /** Replaces the folder picker and its store; used by the tests. */
   folderDependencies?: Partial<FolderDependencies>;
+  /** Replaces the network of the URL source; used by the tests. */
+  urlDependencies?: Partial<UrlDependencies>;
 }
 
 /**
- * The ways to give Sherlog a log: a file, a folder (Chrome and Edge), or text pasted from a terminal or Docker.
- * Choosing only reads the beginning to recognise the format: nothing is analysed or sent.
+ * The ways to give Sherlog a log: a file, a folder (Chrome and Edge), a file of an allowed storage account, or text pasted
+ * from a terminal or Docker. Choosing only reads the beginning to recognise the format: nothing is analysed or sent.
  */
-export function SourcePicker({ onFile, onText, scope = null, folderDependencies }: SourcePickerProps) {
+export function SourcePicker({ onFile, onText, scope = null, folderDependencies, urlDependencies }: SourcePickerProps) {
   const [text, setText] = useState('');
 
   return (
@@ -45,6 +49,10 @@ export function SourcePicker({ onFile, onText, scope = null, folderDependencies 
       <p className="source-or">ou</p>
 
       <FolderSource scope={scope} onFile={onFile} {...folderDependencies} />
+
+      <p className="source-or">ou</p>
+
+      <UrlSource onFile={onFile} {...urlDependencies} />
 
       <p className="source-or">ou</p>
 

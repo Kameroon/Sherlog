@@ -30,6 +30,30 @@ describe('source guards', () => {
     expect(callers).toEqual(['ai/request.ts', 'auth/clientPrincipal.ts']);
   });
 
+  // The URL source (ADR-020, T2) adds no sender: it goes through `send`, which omits the cookies and the referrer.
+  it('should download a source only through the one sender, never with a call of its own', () => {
+    // Act & Assert
+    expect(filesWith(/\bfetchImpl\(|(?<![.\w])fetch\(/)).not.toContain('sources/urlSource.ts');
+    expect(filesWith(/from '\.\.\/ai\/request'/)).toContain('sources/urlSource.ts');
+  });
+
+  // An address with an access token must not reach the history of the browser, nor the address bar (ADR-020, U2).
+  it.each(['history.pushState', 'history.replaceState', 'location.assign', 'location.replace', 'location.href =', 'location.search', 'location.hash', 'window.open'])(
+    'should never use %s, which would put an address in the history or the address bar',
+    (api) => {
+      // Act & Assert
+      expect(sources.filter(({ text }) => text.includes(api)).map(({ file }) => file)).toEqual([]);
+    },
+  );
+
+  it('should read the address of a source in a masked field only', () => {
+    // Act
+    const unmasked = sources.filter(({ file, text }) => file === 'ui/UrlSource.tsx' && !/type="password"/.test(text)).map(({ file }) => file);
+
+    // Assert
+    expect(unmasked).toEqual([]);
+  });
+
   it.each(['XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'importScripts'])('should not use %s, another way out of the browser', (api) => {
     // Act & Assert
     expect(filesWith(new RegExp(`\\b${api}\\b`))).toEqual([]);
