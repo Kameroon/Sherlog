@@ -3,11 +3,11 @@
 // through the real file input, progress and cancelling work, and nothing is written to the console as an error.
 //
 // Usage: npm run build && npm run e2e        Needs Node >= 22.13 and Chrome (or Chromium, Edge): set CHROME_PATH if not found.
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDistServer } from '../serve-dist.mjs';
 import { connect } from './cdp.mjs';
@@ -15,6 +15,8 @@ import { generateLog } from './generateLog.mjs';
 
 const BIG_LOG_MEGABYTES = 64;
 const MANY_ERRORS_MEGABYTES = 14;
+/** The limit of a download of the URL source, in Mio: the same as `MAX_DOWNLOAD_BYTES` in `src/sources/urlSource.ts`. */
+const DOWNLOAD_LIMIT_MIB = 256;
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
 const results = [];
@@ -71,7 +73,7 @@ async function main() {
   const debugPort = await freePort();
   const chrome = spawn(
     findChrome(),
-    ['--headless=new', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profileDir}`, '--no-first-run', '--disable-gpu', 'about:blank'],
+    ['--headless=new', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profileDir}`, '--no-first-run', '--disable-gpu', '--enable-precise-memory-info', 'about:blank'],
     { stdio: 'ignore' },
   );
   const chromeFailed = new Promise((_, reject) => chrome.once('error', (error) => reject(new Error(`Chrome n’a pas démarré : ${error.message}`))));
@@ -79,7 +81,7 @@ async function main() {
   let cdp;
   try {
     cdp = await Promise.race([connect(debugPort), chromeFailed]);
-    await run(cdp, appUrl, dataDir);
+    await run(cdp, appUrl, dataDir, profileDir);
   } finally {
     cdp?.close();
     chrome.kill();
@@ -96,7 +98,7 @@ async function main() {
   }
 }
 
-async function run(cdp, appUrl, dataDir) {
+async function run(cdp, appUrl, dataDir, profileDir) {
   const problems = [];
   cdp.on((message) => {
     if (message.method === 'Runtime.exceptionThrown') {
@@ -520,11 +522,41 @@ async function run(cdp, appUrl, dataDir) {
   // The analysis and the chat are told apart by their instructions (the role for the chat, the schema for the analysis): the
   // context of a chat holds an analysis, so the role is looked for first.
   const anthropicAnswerTo = (body) => sse(body.includes('ingénieur logiciel expert') ? chatAnswer : body.includes('probableCause') ? analysisJson : 'OK');
+  // The storage account of the URL source (10b) is played the same way, one answer per file name, and kept apart from the providers.
+  const STORAGE_ORIGIN = 'https://sherlogjournaux.blob.core.windows.net';
+  const storageRequests = [];
+  const storageSample = readFileSync(join(root, 'samples', 'serilog-console.log'), 'utf8');
+  const siteOrigin = new URL(appUrl).origin;
+  const storageAnswerTo = (request) => {
+    const file = new URL(request.url).pathname.split('/').pop();
+    const withOrigin = [{ name: 'access-control-allow-origin', value: siteOrigin }];
+    switch (file) {
+      case 'expired.log':
+        return { responseCode: 403, responseHeaders: [...withOrigin, { name: 'content-type', value: 'application/xml' }], body: '<Error><Code>AuthenticationFailed</Code></Error>' };
+      case 'redirect.log':
+        return { responseCode: 302, responseHeaders: [...withOrigin, { name: 'location', value: 'https://example.com/stolen.log' }], body: '' };
+      case 'nocors.log':
+        return { responseCode: 200, responseHeaders: [{ name: 'content-type', value: 'text/plain' }], body: storageSample };
+      case 'slow.log':
+        return null;
+      default:
+        return { responseCode: 200, responseHeaders: [...withOrigin, { name: 'content-type', value: 'application/octet-stream' }], body: storageSample };
+    }
+  };
   cdp.on((message) => {
     if (message.method !== 'Fetch.requestPaused') {
       return;
     }
     const { requestId, request } = message.params;
+    if (request.url.startsWith(`${STORAGE_ORIGIN}/`)) {
+      storageRequests.push({ url: request.url, method: request.method, headers: request.headers });
+      const stored = storageAnswerTo(request);
+      // A file that is never answered: the download stays in progress until the user cancels it.
+      if (stored !== null) {
+        void cdp.send('Fetch.fulfillRequest', { requestId, responseCode: stored.responseCode, responseHeaders: stored.responseHeaders, body: Buffer.from(stored.body).toString('base64') });
+      }
+      return;
+    }
     providerRequests.push({ url: request.url, method: request.method, headers: request.headers, body: request.postData ?? '' });
     const toAnthropic = request.url.startsWith('https://api.anthropic.com/');
     const answer =
@@ -535,7 +567,7 @@ async function run(cdp, appUrl, dataDir) {
           : { responseCode: 200, responseHeaders: [...CORS, { name: 'content-type', value: 'application/json' }], body: '{"models":[{"name":"llama3:8b"}]}' };
     void cdp.send('Fetch.fulfillRequest', { requestId, responseCode: answer.responseCode, responseHeaders: answer.responseHeaders, body: Buffer.from(answer.body).toString('base64') });
   });
-  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: 'https://api.anthropic.com/*' }, { urlPattern: 'http://localhost:11434/*' }] });
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: 'https://api.anthropic.com/*' }, { urlPattern: 'http://localhost:11434/*' }, { urlPattern: `${STORAGE_ORIGIN}/*` }] });
 
   check('les réglages du fournisseur sont dans le panneau d’envoi une fois les erreurs trouvées', await evaluate(`!!document.querySelector('.send-panel .provider-settings')`));
   check('la clé se saisit dans un champ masqué que le navigateur ne remplit pas', await evaluate(`(() => { const field = document.querySelector('.provider-settings input[type=password]'); return !!field && field.autocomplete === 'off'; })()`));
@@ -728,6 +760,157 @@ async function run(cdp, appUrl, dataDir) {
   await click('Oublier ce dossier');
 
   check('aucune erreur, exception ni avertissement dans la console', problems.length === 0, problems.join(' ; '));
+
+  // 10. The URL source (10b): the storage account is played at the network level, so a request that reaches it has passed
+  // the CSP of production. The address carries an access token: it must never be seen on the screen, in a storage, in the
+  // address of the page, nor in a request header; a redirection, a refused token and a missing CORS rule are said, not followed.
+  const sasSecret = 'e2eSIG0123456789';
+  const sasFor = (file) => `${STORAGE_ORIGIN}/journaux/${file}?sv=2022-11-02&sp=r&sig=${sasSecret}`;
+  const urlLabel = 'Adresse du fichier, avec son jeton d’accès (lien SAS en lecture seule)';
+  const secretSeen = () =>
+    evaluate(
+      `document.body.innerText.includes(${JSON.stringify(sasSecret)}) || location.href.includes(${JSON.stringify(sasSecret)}) || document.title.includes(${JSON.stringify(sasSecret)}) || JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]).includes(${JSON.stringify(sasSecret)})`,
+    );
+  const downloadClick = () => click('Télécharger et lire ce journal');
+  const waitForAlert = (needle, label) => waitFor(`(document.querySelector('.url-source [role=alert]')?.textContent ?? '').includes(${JSON.stringify(needle)})`, label);
+  const providerCallsBefore = providerRequests.length;
+  await click('Choisir un autre journal').catch(() => undefined);
+  await waitFor(`!!document.querySelector('.url-source input')`, 'la source URL');
+  check('la source URL est proposée, avec un champ masqué que le navigateur ne remplit pas', await evaluate(`(() => { const field = document.querySelector('.url-source input'); return field.type === 'password' && field.autocomplete === 'off'; })()`));
+  check('elle dit quels comptes sont autorisés et jusqu’à quelle taille', (await evaluate(hasText('sherlogjournaux.blob.core.windows.net'))) && (await evaluate(hasText(`jusqu’à ${DOWNLOAD_LIMIT_MIB} Mio`))));
+  check('le bouton est inactif tant qu’aucune adresse n’est saisie', (await isDisabled('Télécharger et lire ce journal')) === true);
+  await setDateTime(urlLabel, `https://evil.example/journaux/app.log?sig=${sasSecret}`);
+  await downloadClick();
+  await waitForAlert('compte de stockage n’est pas autorisé', 'le refus d’un compte non autorisé');
+  check('un compte qui n’est pas dans la liste est refusé avant tout envoi, sans répéter l’adresse', storageRequests.length === 0 && !(await secretSeen()) && !(await evaluate(hasText('evil.example'))));
+  await setDateTime(urlLabel, `http://sherlogjournaux.blob.core.windows.net/journaux/app.log?sig=${sasSecret}`);
+  await downloadClick();
+  await waitForAlert('commencer par https', 'le refus d’une adresse http');
+  check('une adresse http est refusée avant tout envoi', storageRequests.length === 0);
+  check('ces refus n’ont rien envoyé ni rien provoqué dans la console', providerRequests.length === providerCallsBefore);
+
+  const problemsBeforeDownload = problems.length;
+  await setDateTime(urlLabel, sasFor('app.log'));
+  check('saisir l’adresse n’envoie rien', storageRequests.length === 0);
+  await downloadClick();
+  await waitFor(hasText('Format reconnu'), 'la préparation du fichier téléchargé');
+  const fetched = storageRequests[0];
+  const fetchedHeaders = Object.fromEntries(Object.entries(fetched?.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]));
+  check('une seule requête GET est partie, vers l’adresse saisie, sous la CSP de production', storageRequests.length === 1 && fetched?.method === 'GET' && fetched?.url === sasFor('app.log'), JSON.stringify(storageRequests.map((request) => request.method + ' ' + request.url.split('?')[0])));
+  check('la requête ne porte ni cookie, ni référent, ni en-tête d’authentification', fetchedHeaders['cookie'] === undefined && fetchedHeaders['referer'] === undefined && fetchedHeaders['authorization'] === undefined, Object.keys(fetchedHeaders).join(','));
+  check('le fichier téléchargé est préparé comme un fichier choisi à la main, sans rien analyser', (await evaluate(hasText('Analyser ce journal'))) && !(await evaluate(hasText('Analyse terminée'))) && (await text('h2')).includes('app.log'));
+  check('le jeton n’est ni à l’écran, ni dans l’adresse de la page, ni dans un stockage', !(await secretSeen()));
+  check('le téléchargement n’a rien écrit dans la console et n’a rien envoyé à un fournisseur', problems.length === problemsBeforeDownload && providerRequests.length === providerCallsBefore, problems.slice(problemsBeforeDownload).join(' ; '));
+  await click('Choisir un autre journal');
+  await waitFor(`!!document.querySelector('.url-source input')`, 'le retour au choix de la source');
+  check('de retour au choix, le champ de l’adresse est vide', (await evaluate(`document.querySelector('.url-source input').value`)) === '');
+
+  await setDateTime(urlLabel, sasFor('expired.log'));
+  await downloadClick();
+  await waitForAlert('code 403', 'le refus du jeton');
+  check('un jeton refusé est dit, avec son code, sans citer l’adresse', (await evaluate(hasText('jeton est invalide, expiré'))) && !(await secretSeen()));
+  await setDateTime(urlLabel, sasFor('redirect.log'));
+  await downloadClick();
+  await waitForAlert('injoignable', 'l’échec d’une redirection');
+  check('une redirection n’est pas suivie : le téléchargement échoue et rien n’est lu', !(await evaluate(hasText('Format reconnu'))) && storageRequests.filter((request) => request.url.includes('redirect.log')).length === 1 && !(await secretSeen()));
+  await setDateTime(urlLabel, sasFor('nocors.log'));
+  await downloadClick();
+  await waitForAlert('CORS', 'l’échec sans règle CORS');
+  check('sans règle CORS, l’écran dit quelle adresse de site autoriser', (await text('.url-source [role=alert]')).includes(siteOrigin) && !(await secretSeen()));
+  await setDateTime(urlLabel, sasFor('slow.log'));
+  await downloadClick();
+  await waitFor(hasButton('Annuler le téléchargement'), 'le téléchargement en cours');
+  check('pendant l’attente, le champ est verrouillé, l’hôte et le fichier sont dits, pas l’adresse', (await evaluate(`document.querySelector('.url-source input').disabled`)) && (await evaluate(hasText('Téléchargement de slow.log depuis sherlogjournaux.blob.core.windows.net'))) && !(await secretSeen()));
+  await click('Annuler le téléchargement');
+  await waitFor(`!document.body.innerText.includes('Annuler le téléchargement')`, 'l’annulation');
+  check('annuler ne dit rien, et le bouton est de nouveau disponible', !(await evaluate(`!!document.querySelector('.url-source [role=alert]')`)) && (await isDisabled('Télécharger et lire ce journal')) === false);
+
+  // 11. The limit of a download, measured in the real browser on generated data (ADR-020, Q4). The network is replaced
+  // by a stream that makes the file as it is read, 64 KiB at a time, so that what is measured is what the page does with it:
+  // keeping it in a Blob, recognising its format, then reading it all in the worker. `E2E_DOWNLOAD_MEGABYTES=64,256,512`
+  // measures other sizes; the Chrome memory is read on Windows only (the working set of the processes of this browser).
+  await evaluate(`(() => {
+    const realFetch = window.fetch;
+    const line = new TextEncoder().encode('[08:00:00 INF] Request handled in 12 ms\\n'.repeat(1600));
+    window.__generated = { megabytes: 1, announce: true };
+    window.fetch = function (input, init) {
+      if (!String(input).startsWith(${JSON.stringify(STORAGE_ORIGIN)} + '/')) { return realFetch.call(window, input, init); }
+      const { megabytes, announce } = window.__generated;
+      const total = megabytes * 1024 * 1024;
+      let sent = 0;
+      const body = new ReadableStream({ pull(controller) {
+        if (sent >= total) { controller.close(); return; }
+        const size = Math.min(line.length, total - sent);
+        controller.enqueue(size === line.length ? line : line.slice(0, size));
+        sent += size;
+      } }, { highWaterMark: 0 });
+      return Promise.resolve(new Response(body, { status: 200, headers: announce ? { 'content-length': String(total) } : {} }));
+    };
+  })()`);
+  const generate = (megabytes, announce = true) => evaluate(`window.__generated = { megabytes: ${megabytes}, announce: ${announce} }`);
+  const beginDownload = async () => {
+    await setDateTime(urlLabel, sasFor('generated.log'));
+    await evaluate(`window.__heapPeak = 0; window.__heapTimer = setInterval(() => { window.__heapPeak = Math.max(window.__heapPeak, performance.memory.usedJSHeapSize); }, 20);`);
+    await downloadClick();
+  };
+  const endDownload = async () => (await evaluate(`clearInterval(window.__heapTimer); window.__heapPeak`)) / 1048576;
+  const chromeMemory = () =>
+    new Promise((resolve) => {
+      if (process.platform !== 'win32') {
+        resolve(null);
+        return;
+      }
+      const command = `(Get-CimInstance Win32_Process | Where-Object { $_.Name -ne 'powershell.exe' -and $_.CommandLine -like '*${basename(profileDir)}*' } | Measure-Object WorkingSetSize -Sum).Sum`;
+      execFile('powershell', ['-NoProfile', '-Command', command], (error, stdout) => resolve(error === null ? Number(stdout.trim()) / 1048576 || null : null));
+    });
+  const sizes = (process.env.E2E_DOWNLOAD_MEGABYTES ?? '64').split(',').map(Number);
+  for (const megabytes of sizes) {
+    await generate(megabytes);
+    const baseline = await chromeMemory();
+    let peak = baseline ?? 0;
+    let measuring = true;
+    const sampler = (async () => {
+      while (measuring) {
+        peak = Math.max(peak, (await chromeMemory()) ?? 0);
+      }
+    })();
+    const start = performance.now();
+    await beginDownload();
+    await waitFor(`${hasText('Format reconnu')} || !!document.querySelector('.url-source [role=alert]')`, `le téléchargement de ${megabytes} Mio`, 600000);
+    const downloadMs = Math.round(performance.now() - start);
+    const heap = await endDownload();
+    const downloaded = await evaluate(hasText('Format reconnu'));
+    let analyseMs = null;
+    if (downloaded) {
+      const analysisStart = performance.now();
+      await click('Analyser ce journal');
+      await waitFor(hasText('Analyse terminée'), `l’analyse du fichier de ${megabytes} Mio`, 900000);
+      analyseMs = Math.round(performance.now() - analysisStart);
+    }
+    measuring = false;
+    await sampler;
+    metrics[`download${megabytes}MiB`] = { downloaded, downloadMs, analyseMs, jsHeapPeakMiB: Math.round(heap), chromeGrowthMiB: baseline === null ? null : Math.round(peak - baseline) };
+    check(`un fichier de ${megabytes} Mio est téléchargé puis préparé${megabytes <= DOWNLOAD_LIMIT_MIB ? ' et analysé' : ''}, ou refusé en le disant au-delà de la limite`, megabytes <= DOWNLOAD_LIMIT_MIB ? downloaded && analyseMs !== null : !downloaded && (await evaluate(hasText('limite'))), JSON.stringify(metrics[`download${megabytes}MiB`]));
+    await click('Choisir un autre journal').catch(() => undefined);
+    await waitFor(`!!document.querySelector('.url-source input')`, 'le retour au choix de la source');
+  }
+
+  // Past the limit: a file announced larger is refused before it is read; one that says nothing about its size, or says less
+  // than it is, is cut off as the limit is passed. Nothing is kept in either case.
+  await generate(DOWNLOAD_LIMIT_MIB * 2);
+  let refusalStart = performance.now();
+  await beginDownload();
+  await waitForAlert('il n’a pas été téléchargé', 'le refus d’un fichier annoncé trop grand');
+  metrics.refusedBeforeReadMs = Math.round(performance.now() - refusalStart);
+  await endDownload();
+  check('un fichier annoncé plus grand que la limite est refusé avant d’être lu, avec sa taille et la limite', (await text('.url-source [role=alert]')).includes(`${DOWNLOAD_LIMIT_MIB * 2} Mio`) && (await text('.url-source [role=alert]')).includes(`${DOWNLOAD_LIMIT_MIB} Mio`), await text('.url-source [role=alert]'));
+  await generate(DOWNLOAD_LIMIT_MIB + 8, false);
+  refusalStart = performance.now();
+  await beginDownload();
+  await waitForAlert('arrêté', 'l’arrêt d’un fichier qui dépasse la limite sans l’avoir annoncé');
+  metrics.cutOffMs = Math.round(performance.now() - refusalStart);
+  await endDownload();
+  check('un fichier qui dépasse la limite sans l’avoir annoncé est coupé, et rien n’est gardé', !(await evaluate(hasText('Format reconnu'))) && (await text('.url-source [role=alert]')).includes(`${DOWNLOAD_LIMIT_MIB} Mio`));
 
   // The CSP refuses any other address (the console then logs the refusal, which is why this comes after the check above).
   const elsewhere = await evaluate(`fetch('https://example.com/').then(() => 'autorisée', () => 'refusée')`);

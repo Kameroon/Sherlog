@@ -11,7 +11,7 @@ export const ALLOWED_STORAGE_HOSTS: readonly string[] = ['sherlogjournaux.blob.c
 
 /**
  * The largest file downloaded, in bytes. The file is kept whole in a Blob, like a file chosen on the computer, so this
- * is what bounds the memory and the time of the source (ADR-020, U4 and U7); the figures that set it are in ADR-022.
+ * is what bounds the memory and the time of the source (ADR-020, U4 and U7); the figures that set it are in ADR-023.
  */
 export const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024;
 

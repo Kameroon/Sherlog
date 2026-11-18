@@ -149,6 +149,20 @@ describe('URL source', () => {
     expect(downloadButton()).toBeDisabled();
   });
 
+  it('should show a file name that holds markup as text, never as markup', async () => {
+    // Arrange
+    const { fetchImpl } = hangingFetch();
+    const { container } = render(<UrlSource onFile={vi.fn()} fetchImpl={fetchImpl} siteOrigin={ORIGIN} />);
+    type(`https://${HOST}/journaux/%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E.log?sig=${SECRET}`);
+
+    // Act
+    fireEvent.click(downloadButton());
+
+    // Assert
+    expect(await screen.findByRole('status')).toHaveTextContent('<img src=x onerror=alert(1)>.log');
+    expect(container.querySelector('img')).toBeNull();
+  });
+
   it('should show how much has arrived against the size announced', async () => {
     // Arrange
     let release: () => void = () => undefined;
