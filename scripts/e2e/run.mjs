@@ -801,6 +801,30 @@ async function run(cdp, appUrl, dataDir, profileDir) {
   check('le fichier téléchargé est préparé comme un fichier choisi à la main, sans rien analyser', (await evaluate(hasText('Analyser ce journal'))) && !(await evaluate(hasText('Analyse terminée'))) && (await text('h2')).includes('app.log'));
   check('le jeton n’est ni à l’écran, ni dans l’adresse de la page, ni dans un stockage', !(await secretSeen()));
   check('le téléchargement n’a rien écrit dans la console et n’a rien envoyé à un fournisseur', problems.length === problemsBeforeDownload && providerRequests.length === providerCallsBefore, problems.slice(problemsBeforeDownload).join(' ; '));
+  // The settings of the preparation side by side: the longest format name ("Serilog console (sans date)") must shrink to
+  // its card, not widen it under the next one. The narrowest card is just before the grid drops a column, so a range
+  // of screen widths is tried rather than one.
+  const overflowAt = [];
+  let sideBySide = 0;
+  for (let width = 700; width <= 1600; width += 10) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+    const layout = await evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const cards = [...document.querySelectorAll('.prep-tools > .panel')];
+      const columns = getComputedStyle(document.querySelector('.prep-tools')).gridTemplateColumns.split(' ').length;
+      const outside = cards.flatMap((card) => {
+        const right = card.getBoundingClientRect().right;
+        // A tooltip floats over the page by design: it is not content of the card.
+        return [...card.querySelectorAll('*')].filter((element) => !element.closest('.tooltip') && element.getBoundingClientRect().right > right + 0.5).map((element) => card.querySelector('h2').textContent + ' > ' + element.tagName.toLowerCase() + (element.className ? '.' + element.className : ''));
+      });
+      resolve({ columns, outside });
+    })))`);
+    sideBySide += layout.columns > 1 ? 1 : 0;
+    if (layout.outside.length > 0) {
+      overflowAt.push(`${width} px (${layout.columns} colonnes) : ${[...new Set(layout.outside)].slice(0, 3).join(', ')}`);
+    }
+  }
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
+  check('les réglages de la préparation, côte à côte ou non, ne dépassent jamais de leur carte, pas même la liste des formats', sideBySide > 0 && overflowAt.length === 0, overflowAt.slice(0, 4).join(' | '));
   await click('Choisir un autre journal');
   await waitFor(`!!document.querySelector('.url-source input')`, 'le retour au choix de la source');
   check('de retour au choix, le champ de l’adresse est vide', (await evaluate(`document.querySelector('.url-source input').value`)) === '');

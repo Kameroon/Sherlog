@@ -224,8 +224,11 @@
   color: var(--color-accent);
 }
 
+/* One column that keeps the width of the panel: without it the column takes the width of its widest content (the list of
+   formats, a long name) and everything in the panel widens with it, under the next card. */
 .foldable-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
 }
 
