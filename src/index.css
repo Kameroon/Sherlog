@@ -843,6 +843,13 @@ button:disabled {
   min-width: 16rem;
 }
 
+/* The search field and the two lists share one height: their own padding and font would make them differ. */
+.error-toolbar .text-input,
+.error-toolbar .select {
+  box-sizing: border-box;
+  height: 2.5rem;
+}
+
 .error-toolbar .small-note {
   margin: 0;
 }
@@ -872,16 +879,10 @@ button:disabled {
 
 .results-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   align-items: start;
   margin-top: var(--space-2);
-}
-
-@media (max-width: 64rem) {
-  .results-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 .error-list {
