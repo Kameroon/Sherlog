@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { addIgnoreText, removeIgnoreText } from '../core/preparation';
 import type { Preparation } from '../core/preparation';
+import { FoldablePanel } from './FoldablePanel';
 import { countOf } from './format';
 import { Tip } from './Tip';
 
@@ -32,8 +33,7 @@ export function IgnoreTool({ preparation, onChange, counts, countsAreForTheBegin
   }
 
   return (
-    <section className="panel" aria-labelledby={`${inputId}-title`}>
-      <h2 id={`${inputId}-title`}>Ignorer des entrées</h2>
+    <FoldablePanel id={inputId} title="Ignorer des entrées">
       <p>
         Écartez ce qui n’a pas d’intérêt, par exemple les appels de santé (<code>/health</code>).
       </p>
@@ -101,6 +101,6 @@ export function IgnoreTool({ preparation, onChange, counts, countsAreForTheBegin
           ))}
         </ul>
       )}
-    </section>
+    </FoldablePanel>
   );
 }

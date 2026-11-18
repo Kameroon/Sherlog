@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { BUILT_IN_PROFILES } from '../core/profiles';
 import type { OtherFormatLines } from '../core/previewHead';
 import type { LogProfile } from '../core/profiles';
+import { FoldablePanel } from './FoldablePanel';
 
 interface FormatPanelProps {
   /** The format the log is read with; `null` when none was recognised and none was picked yet. */
@@ -26,8 +27,7 @@ export function FormatPanel({ profile, recognised, unrecognisedReason, orphanLin
   const selectId = useId();
 
   return (
-    <section className="panel" aria-labelledby={`${selectId}-title`}>
-      <h2 id={`${selectId}-title`}>Format</h2>
+    <FoldablePanel id={selectId} title="Format">
       {profile === null && unrecognisedReason !== null && (
         <>
           <p className="notice notice-warning">Format non reconnu : {unrecognisedReason}.</p>
@@ -83,6 +83,6 @@ export function FormatPanel({ profile, recognised, unrecognisedReason, orphanLin
             : '1 ligne au début du fichier n’a ni date ni niveau : elle est gardée, mais ne compte jamais comme erreur.'}
         </p>
       )}
-    </section>
+    </FoldablePanel>
   );
 }
