@@ -1,18 +1,29 @@
+import { createCsvEntryAssembler } from './csvExport';
+import { appendEntryLine, completeEntry, NO_FIELDS, startEntryLines } from './entryLines';
+import type { EntryFields, EntryLines } from './entryLines';
 import { MAX_RETAINED_BYTES } from './lineSplitter';
 import type { SourceLine } from './lineSplitter';
 import { matchHeader } from './profiles';
-import type { HeaderMatch, LogProfile } from './profiles';
+import type { LogProfile, TextProfile } from './profiles';
 
 /** One log entry: a header line and the lines that continue it (exception, multi-line message). */
 export interface LogEntry {
-  /** Byte offset of the first line. Entries are contiguous: each one ends where the next begins. */
+  /**
+   * Byte offset of the first line. Entries are contiguous: each one ends where the next begins. The line of column
+   * names of a CSV export comes before the first entry.
+   */
   readonly offset: number;
   /** Byte length up to the start of the next entry (or the end of the input), terminators included. */
   readonly length: number;
-  /** Timestamp as written in the log; `null` when the profile has none or the entry has no header. */
+  /**
+   * Timestamp as written in the log, or as ISO 8601 for a CSV export (see `csvExport.ts`); `null` when the profile has
+   * none or the entry has no header.
+   */
   readonly timestamp: string | null;
-  /** Level as written in the log; `null` for lines that come before the first header. */
+  /** Level as written in the log, or named by the level table of the profile; `null` for lines that come before the first header. */
   readonly level: string | null;
+  /** The message on its first line, without the timestamp and the level; `null` when the format does not tell it apart. */
+  readonly message: string | null;
   readonly firstLine: string;
   /** Retained lines joined with `\n`; only a beginning of the entry when `truncated`. */
   readonly text: string;
@@ -34,33 +45,6 @@ export interface EntryAssembler {
   finish(): LogEntry | null;
 }
 
-interface Draft {
-  readonly offset: number;
-  length: number;
-  readonly timestamp: string | null;
-  readonly level: string | null;
-  readonly firstLine: string;
-  readonly lines: string[];
-  lineCount: number;
-  retainedBytes: number;
-  /** Set when a line did not fit: the following lines are skipped too, so `text` stays a beginning. */
-  full: boolean;
-  truncated: boolean;
-}
-
-function toEntry(draft: Draft): LogEntry {
-  return {
-    offset: draft.offset,
-    length: draft.length,
-    timestamp: draft.timestamp,
-    level: draft.level,
-    firstLine: draft.firstLine,
-    text: draft.lines.join('\n'),
-    lineCount: draft.lineCount,
-    truncated: draft.truncated,
-  };
-}
-
 /**
  * Builds entries from lines: a line that matches the profile header starts an entry, any other line
  * continues the current one. Lines before the first header form an entry without a level, so nothing
@@ -69,58 +53,35 @@ function toEntry(draft: Draft): LogEntry {
  * The retained text is bounded by `maxRetainedBytes` counted in source bytes. The header line is always
  * kept; later lines are kept while they fit.
  */
-export function createEntryAssembler(profile: LogProfile, options: EntryAssemblerOptions = {}): EntryAssembler {
-  const maxRetainedBytes = options.maxRetainedBytes ?? MAX_RETAINED_BYTES;
-  let current: Draft | null = null;
-
-  function start(line: SourceLine, header: HeaderMatch | null): Draft {
-    return {
-      offset: line.offset,
-      length: line.byteLength,
-      timestamp: header?.timestamp ?? null,
-      level: header?.level ?? null,
-      firstLine: line.text,
-      lines: [line.text],
-      lineCount: 1,
-      retainedBytes: line.byteLength,
-      full: false,
-      truncated: line.truncated,
-    };
-  }
-
-  function append(draft: Draft, line: SourceLine): void {
-    draft.length += line.byteLength;
-    draft.lineCount += 1;
-    if (draft.full || draft.retainedBytes + line.byteLength > maxRetainedBytes) {
-      draft.full = true;
-      draft.truncated = true;
-      return;
-    }
-    draft.lines.push(line.text);
-    draft.retainedBytes += line.byteLength;
-    draft.truncated ||= line.truncated;
-  }
+function createTextEntryAssembler(profile: TextProfile, maxRetainedBytes: number): EntryAssembler {
+  let current: { readonly lines: EntryLines; readonly fields: EntryFields } | null = null;
 
   return {
     push(line) {
       const header = matchHeader(profile, line.text);
       let completed: LogEntry | null = null;
       if (header !== null && current !== null) {
-        completed = toEntry(current);
+        completed = completeEntry(current.lines, current.fields);
         current = null;
       }
       if (current === null) {
-        current = start(line, header);
+        current = { lines: startEntryLines(line), fields: header ?? NO_FIELDS };
       } else {
-        append(current, line);
+        appendEntryLine(current.lines, line, maxRetainedBytes);
       }
       return completed;
     },
 
     finish() {
-      const last = current === null ? null : toEntry(current);
+      const last = current === null ? null : completeEntry(current.lines, current.fields);
       current = null;
       return last;
     },
   };
+}
+
+/** Builds the entries of a source the way its profile reads them: header lines for a text log, records for a CSV export. */
+export function createEntryAssembler(profile: LogProfile, options: EntryAssemblerOptions = {}): EntryAssembler {
+  const maxRetainedBytes = options.maxRetainedBytes ?? MAX_RETAINED_BYTES;
+  return profile.kind === 'csv' ? createCsvEntryAssembler(profile, maxRetainedBytes) : createTextEntryAssembler(profile, maxRetainedBytes);
 }

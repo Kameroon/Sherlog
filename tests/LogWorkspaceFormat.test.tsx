@@ -10,6 +10,7 @@ const counters = (): (string | null)[] => [...document.querySelectorAll('.counte
 const FORMAT = 'Format du journal';
 const FILE_FORMAT = 'Serilog fichier / horodatage ISO + niveau';
 const CONSOLE_FORMAT = 'Serilog console (sans date)';
+const CSV_FORMAT = 'Export CSV Log Analytics / Application Insights';
 
 const pickFormat = (label: string) => {
   const select = screen.getByLabelText(FORMAT);
@@ -27,9 +28,20 @@ describe('LogWorkspace format of a recognised log', () => {
 
     // Assert
     const select = screen.getByLabelText<HTMLSelectElement>(FORMAT);
-    expect([...select.options].map((option) => option.textContent)).toEqual([FILE_FORMAT, CONSOLE_FORMAT]);
+    expect([...select.options].map((option) => option.textContent)).toEqual([FILE_FORMAT, CONSOLE_FORMAT, CSV_FORMAT]);
     expect(select.selectedOptions[0]?.textContent).toBe(CONSOLE_FORMAT);
     expect(screen.getByText(`Format reconnu : ${CONSOLE_FORMAT}`)).toBeInTheDocument();
+  });
+
+  it('should name the line of column names of a CSV export in the preview, since it belongs to no entry', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(readSample('log-analytics-apptraces.csv'), 'export.csv');
+
+    // Assert
+    expect([...document.querySelectorAll('.excerpt li .line-tag')].slice(0, 2).map((tag) => tag.textContent)).toEqual(['colonnes', 'INFORMATION']);
   });
 
   it('should say the format is the user’s choice, not a recognised one, once another is picked', async () => {

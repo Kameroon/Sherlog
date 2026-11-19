@@ -33,6 +33,17 @@ Pour un compte de plus : écrire son nom exact dans `ALLOWED_STORAGE_HOSTS` (`sr
 
 ---
 
+## Lire les journaux d'Azure Monitor dès maintenant : l'export CSV (3b)
+Sans connexion Microsoft dans Sherlog, ces étapes ont été vérifiées par l'auteur le 2026-11-18 :
+1. Dans le portail, ouvrez l'**espace de travail Log Analytics**, puis **Journaux**. Si un assistant IA (« Observability Agent ») s'ouvre, désactivez la bascule **Agent** en haut à droite. Passez ensuite de « Mode simple » à **Mode KQL**.
+2. Lancez une requête sur la table `AppTraces`, par exemple `AppTraces | where TimeGenerated > ago(30d) | order by TimeGenerated asc`.
+3. Vérifiez le **nombre de lignes affiché** : le portail en montre **1 000 au plus**, et l'export ne contient que ce qui est affiché. S'il y en a exactement 1 000, le résultat a été coupé : réduisez la période.
+4. Ouvrez **Exporter**, puis **CSV (toutes les colonnes)**. Déposez le fichier dans Sherlog : il est reconnu comme « Export CSV Log Analytics / Application Insights ».
+
+Sherlog garde comme erreurs les lignes de niveau 3 (Error) et 4 (Critical). Les dates sont lues sous la forme écrite par un portail en français (`20/10/2026 00:41:49.839`, en UTC). Une autre forme ne donne pas de date, plutôt qu'une date devinée (ADR-025).
+
+---
+
 ## Partie B — Azure Monitor (10c) : à faire après 3b
 
 **Ordre obligatoire :** l'étape **3b** (profil structuré) doit être faite **avant** 10c, parce que l'API d'Azure Monitor renvoie des **tableaux** (colonnes et lignes) que le parseur de texte ne sait pas lire. 3b a besoin d'un **export réel** : je ne devine aucun nom de colonne.

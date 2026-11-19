@@ -15,6 +15,7 @@ ceux de `real-serilog.log` sont comptés à la main sur le fichier, puis confirm
 | `serilog-pieges.log` | Serilog fichier | 7 | 5 | 3 |
 | `serilog-injection.log` | Serilog fichier | 4 | 2 | 2 |
 | `real-serilog.log` | Serilog console (sans date) | 21 | 3 | 1 |
+| `log-analytics-apptraces.csv` | Export CSV Log Analytics / Application Insights | 8 | 3 | 2 |
 
 Étape 2 : les colonnes « Profil attendu », « Entrées » et « Erreurs » sont vérifiées par `tests/samples.test.ts` (parseur de `src/core`). Étape 3 : la colonne « Empreintes distinctes » est vérifiée par `tests/samples.test.ts`, qui contrôle aussi quelles erreurs partagent la même empreinte.
 
@@ -36,5 +37,15 @@ ceux de `real-serilog.log` sont comptés à la main sur le fichier, puis confirm
   Il ne contient **ni stack, ni message sur plusieurs lignes, ni niveau `FTL`** : ces cas restent couverts uniquement par les échantillons synthétiques.
 - **`real-mixed-formats.log`** : **extrait réel** de 8 lignes, fourni par l'auteur, qui **mélange trois dispositions** : lignes console avec un champ en plus (`[10:32:39 BOOT INF]`), lignes console classiques (certaines avec un champ vide `[]` dans le message), et une ligne avec date et décalage (`2026-11-07 10:32:42 +00:00 [INF]`), plus une pile d'exception. Il n'a **pas de résultat de référence** : le cas est ouvert (`SPEC.md` §8 point 4). Constat vérifié aujourd'hui : la première ligne n'est lue par aucun profil, l'application répond « format non reconnu » (verrouillé par `tests/samples.test.ts`).
 
+- **`log-analytics-apptraces.csv`** : export CSV **synthétique** du portail Log Analytics (table `AppTraces`, étape 3b, ADR-025).
+  - **Sa forme est celle d'un export réel** fourni par l'auteur, gardé hors du dépôt : même ligne d'en-tête de 34 colonnes (identique octet pour octet), BOM, CRLF entre les lignes, LF dans les messages entre guillemets, pas de fin de ligne finale. Git ne le convertit pas (`.gitattributes`).
+  - **Toutes ses valeurs sont inventées** : identifiants à zéro, aucun nom de ressource réel.
+  - **Ses 8 lignes** comprennent :
+    - un avertissement sur deux lignes (niveau 2, pas une erreur) ;
+    - un message d'information qui contient le mot « error » (niveau 1, pas une erreur) ;
+    - deux imports en échec (niveau 3) qui ne diffèrent que par leur numéro de ligne, donc une seule empreinte ; leurs messages tiennent sur trois lignes et contiennent des guillemets doublés et une virgule ;
+    - une erreur critique (niveau 4).
+  - L'export réel, lui, ne contient que les niveaux 1 et 2 : relu en local, il donne 264 entrées et 0 erreur.
+
 ## À ajouter par l'auteur (non devinable)
-- Un export réel Application Insights / Log Analytics (JSON de l'API et/ou CSV du portail), avant l'étape 3b : les noms exacts des colonnes sont relevés sur cet export, jamais supposés.
+- Un export réel au format JSON de l'API Azure Monitor, pour la suite de 3b : les noms exacts des champs sont relevés sur cet export, jamais supposés.

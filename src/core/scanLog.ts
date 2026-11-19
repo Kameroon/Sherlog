@@ -5,7 +5,6 @@ import { isErrorLevel } from './levels';
 import { createLineSplitter } from './lineSplitter';
 import type { SourceLine, TextEncoding } from './lineSplitter';
 import type { EntryFilter } from './preparation';
-import { matchHeader } from './profiles';
 import type { LogProfile } from './profiles';
 import { truncateText } from './text';
 
@@ -129,7 +128,7 @@ export async function scanLog(
       fingerprintId = fingerprintIds.size;
       fingerprintIds.set(key, fingerprintId);
     }
-    const message = matchHeader(profile, entry.firstLine)?.message ?? entry.firstLine;
+    const message = entry.message ?? entry.firstLine;
     batch.push({
       offset: entry.offset,
       length: entry.length,

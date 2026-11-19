@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { detectProfile } from '../src/core/detectProfile';
-import { CONSOLE_PROFILE, DEFAULT_PROFILE } from '../src/core/profiles';
+import { CONSOLE_PROFILE, DEFAULT_PROFILE, LOG_ANALYTICS_CSV_PROFILE } from '../src/core/profiles';
 import type { LogProfile } from '../src/core/profiles';
 
 const fileLines = [
@@ -13,8 +13,11 @@ const fileLines = [
 const consoleLines = ['[08:12:01 INF] Started', '[08:16:10 ERR] Timeout', 'System.TimeoutException: timed out'];
 
 function profileWith(id: string, header: RegExp): LogProfile {
-  return { id, label: id, header, limited: false, libraryPrefixes: [] };
+  return { kind: 'text', id, label: id, header, limited: false, libraryPrefixes: [] };
 }
+
+const exportNames = 'TenantId,"TimeGenerated [UTC]",Message,SeverityLevel,Type';
+const exportRow = '"tenant","20/10/2026 00:41:49.839","Timeout",3,AppTraces';
 
 describe('detectProfile', () => {
   it('should detect the Serilog file profile when the lines are Serilog file entries', () => {
@@ -123,5 +126,37 @@ describe('detectProfile', () => {
 
     // Assert
     expect(result).toEqual({ status: 'structured' });
+  });
+
+  it('should detect the Log Analytics CSV export when the first line names its columns', () => {
+    // Act
+    const result = detectProfile([exportNames, exportRow]);
+
+    // Assert
+    expect(result).toEqual({ status: 'detected', profile: LOG_ANALYTICS_CSV_PROFILE });
+  });
+
+  it('should not detect the CSV export when one of its columns is missing from the first line', () => {
+    // Act
+    const result = detectProfile(['TenantId,"TimeGenerated [UTC]",Message,Type', exportRow]);
+
+    // Assert
+    expect(result.status).toBe('unrecognized');
+  });
+
+  it('should not detect the CSV export when the time column is not the UTC one', () => {
+    // Act
+    const result = detectProfile(['TenantId,TimeGenerated,Message,SeverityLevel', exportRow]);
+
+    // Assert
+    expect(result.status).toBe('unrecognized');
+  });
+
+  it('should not detect the CSV export when its column names come after an empty line, which the export would read as its names', () => {
+    // Act
+    const result = detectProfile(['', exportNames, exportRow]);
+
+    // Assert
+    expect(result.status).toBe('unrecognized');
   });
 });

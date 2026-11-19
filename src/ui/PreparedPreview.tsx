@@ -18,6 +18,9 @@ interface PreparedPreviewProps {
 }
 
 function tagOf(line: HeadPreview['lines'][number]): string {
+  if (line.kind === 'columns') {
+    return 'colonnes';
+  }
   if (line.kind === 'continuation') {
     return 'suite';
   }

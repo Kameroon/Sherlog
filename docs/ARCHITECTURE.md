@@ -32,7 +32,7 @@ sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
-│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), occurrence la plus récente (identicalErrors), regroupement des identiques (identicalErrors), Redactor — TS pur
+│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, entryLines, csvExport, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), occurrence la plus récente (identicalErrors), regroupement des identiques (identicalErrors), Redactor — TS pur
 │  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; folder (File System Access, étape 10a) ; plus tard url, azure-monitor
 │  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, createProvider, streamLines, serverSentEvents, errors, failureMessage ; étape 8 : analysisPrompt + prompts/*.md (ressources embarquées), analysis (schéma et validation), analyseError ; étape 9 : chatPrompt (prompts/chat-system.md)
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
@@ -50,7 +50,7 @@ interface AiProvider { stream(messages: Message[]): AsyncIterable<string> }  // 
 function redact(text: string, rules: RedactionRules): string  // pur
 ```
 Pas d'abstraction sans deuxième implémentation réelle. L'étape 4, première à lire une source, n'a eu besoin que d'un `Blob` : l'interface `LogSource` n'existe pas (ADR-011) et reviendra, si besoin, aux étapes 10a à 10c.
-Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées) → `isErrorLevel` (filtre) → `fingerprint` (clé de regroupement d'une entrée en erreur : niveau, message normalisé par `normalizeMessage`, première frame applicative par `firstApplicationFrame`).
+Côté `core`, le parseur de l'étape 2 enchaîne `createLineSplitter` (octets → lignes avec positions) → `detectProfile` (premières lignes → profil, sans deviner) → `createEntryAssembler` (lignes → entrées : par ligne d'en-tête pour un journal texte, par enregistrement pour un export CSV, `csvExport`, ADR-025) → `isErrorLevel` (filtre) → `fingerprint` (clé de regroupement d'une entrée en erreur : niveau, message normalisé par `normalizeMessage`, première frame applicative par `firstApplicationFrame`).
 
 ## Flux
 1. **Collecte** : choisir un fichier ou coller du texte reconnaît le format sur le début (`readHead`, dont les octets sont gardés) et ouvre l'espace de préparation (format, règles, période ; compteurs et aperçu calculés sur ce début par `parseHead` puis `previewHead`), sans rien analyser ; « Analyser ce journal » lance `Blob` → worker (`scanLog` : découpage en entrées, filtre des niveaux d'erreur, empreinte) → liste à plat des entrées en erreur et table des empreintes en état de session.
