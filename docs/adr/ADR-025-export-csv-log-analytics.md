@@ -1,7 +1,7 @@
 # ADR-025 : Lire l'export CSV du portail Log Analytics (étape 3b, première partie)
 
 ## Statut
-Proposé — 2026-11-18, en attente de la validation de l'auteur.
+Accepté — 2026-11-19, validé par l'auteur après un essai en local (PR #33).
 
 ## Contexte
 L'auteur veut une version **simple, qui fonctionne et qui peut évoluer**, plutôt qu'une étape 3b complète. Sherlog ne lit jusqu'ici que des journaux texte (Serilog fichier et console). Les journaux d'Azure Monitor (Application Insights, Log Analytics) ne sont pas du texte : ce sont des tables.
