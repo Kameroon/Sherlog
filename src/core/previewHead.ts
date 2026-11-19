@@ -6,7 +6,7 @@ import type { SourceLine } from './lineSplitter';
 import { createEntryFilter } from './preparation';
 import type { Preparation } from './preparation';
 import { BUILT_IN_PROFILES, matchHeader } from './profiles';
-import type { LogProfile } from './profiles';
+import type { LogProfile, TextProfile } from './profiles';
 import { countOccurrences, redact } from './redact';
 import type { RedactionRuleId } from './redact';
 import { truncateText } from './text';
@@ -29,8 +29,11 @@ export interface PreviewLine {
   readonly originalText: string;
   /** `true` when `originalText` is shorter than the real line. */
   readonly originalCut: boolean;
-  /** `header` starts an entry; `continuation` belongs to the entry before it (stack, long message). */
-  readonly kind: 'header' | 'continuation';
+  /**
+   * `header` starts an entry; `continuation` belongs to the entry before it (stack, long message); `columns` is the line
+   * of column names of a CSV export, which belongs to no entry.
+   */
+  readonly kind: 'header' | 'continuation' | 'columns';
   /** Level written in a header; `null` for a continuation. */
   readonly level: string | null;
   /** `true` for the header of an error entry that is kept: a line of an entry left out is never highlighted as an error. */
@@ -118,7 +121,11 @@ export interface TimeRange {
 }
 
 function findOtherFormatLines(lines: readonly SourceLine[], profile: LogProfile): OtherFormatLines {
-  const others = BUILT_IN_PROFILES.filter((candidate) => candidate.id !== profile.id);
+  // The records of an export are not lines of a text format: only a text log can mix layouts.
+  if (profile.kind !== 'text') {
+    return { lines: 0, labels: [] };
+  }
+  const others = BUILT_IN_PROFILES.filter((candidate): candidate is TextProfile => candidate.kind === 'text' && candidate.id !== profile.id);
   const labels = new Set<string>();
   let count = 0;
   for (const line of lines) {
@@ -173,7 +180,7 @@ export function parseHead(bytes: Uint8Array, profile: LogProfile): ParsedHead {
  * @param masking - The masking rules that are on: they change what the lines show, not what is counted as read or ready.
  */
 export function previewHead(
-  { profile, firstLines, totalLines, entries, occurrencesByEntry, headerCount, timeRange, otherFormat }: ParsedHead,
+  { firstLines, totalLines, entries, occurrencesByEntry, headerCount, timeRange, otherFormat }: ParsedHead,
   preparation: Preparation,
   masking: ReadonlySet<RedactionRuleId> = new Set(),
 ): HeadPreview {
@@ -189,7 +196,11 @@ export function previewHead(
     while (current + 1 < entries.length && line.offset >= (entries[current + 1]?.offset ?? Number.POSITIVE_INFINITY)) {
       current += 1;
     }
-    const header = matchHeader(profile, line.text);
+    const entry = entries[current];
+    // The line of column names of an export comes before the first entry: it belongs to none.
+    const inEntry = entry !== undefined && line.offset >= entry.offset;
+    // A line starts an entry when it is its first line; lines before the first header give an entry without a level.
+    const level = entry !== undefined && line.offset === entry.offset ? entry.level : null;
     // Masked before it is cut: a secret that straddles the cut must not be shown in part.
     const masked = masking.size === 0 ? line.text : redact(line.text, masking).text;
     return {
@@ -198,10 +209,10 @@ export function previewHead(
       cut: masked.length > MAX_PREVIEW_LINE_CHARS,
       originalText: truncateText(line.text, MAX_PREVIEW_LINE_CHARS),
       originalCut: line.text.length > MAX_PREVIEW_LINE_CHARS,
-      kind: header === null ? 'continuation' : 'header',
-      level: header?.level ?? null,
-      isError: header !== null && isErrorLevel(header.level) && ignoredEntries[current] === false,
-      ignored: ignoredEntries[current] === true,
+      kind: !inEntry ? 'columns' : level === null ? 'continuation' : 'header',
+      level,
+      isError: isErrorLevel(level) && ignoredEntries[current] === false,
+      ignored: inEntry && ignoredEntries[current] === true,
     };
   });
 

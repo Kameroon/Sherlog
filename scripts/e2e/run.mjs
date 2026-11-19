@@ -296,6 +296,27 @@ async function run(cdp, appUrl, dataDir, profileDir) {
   await pickFormat('Serilog console (sans date)');
   check('le bon format rend l’analyse possible', (await isDisabled('Analyser ce journal')) === false && (await evaluate(hasText('Format reconnu : Serilog console (sans date)'))));
 
+  // 2e. A CSV export of the Log Analytics portal (step 3b): recognised by its column names, read record by record.
+  await click('Choisir un autre journal');
+  await waitFor(`!!document.querySelector('input[type=file]')`, 'le choix de l’export CSV');
+  await chooseFile(join(root, 'samples', 'log-analytics-apptraces.csv'));
+  await waitFor(hasText('Format reconnu'), 'la reconnaissance de l’export CSV');
+  check('l’export CSV est reconnu par ses colonnes', await evaluate(hasText('Format reconnu : Export CSV Log Analytics / Application Insights')));
+  // A text that wraps gives one rectangle per line it is drawn on.
+  const tagLineCount = await evaluate(
+    `(() => { const tag = [...document.querySelectorAll('.excerpt .line-tag')].find((candidate) => candidate.textContent === 'INFORMATION'); const range = document.createRange(); range.selectNodeContents(tag); return range.getClientRects().length; })()`,
+  );
+  check('dans l’aperçu, le niveau INFORMATION tient sur une ligne et la ligne des noms est dite « colonnes »', tagLineCount === 1 && (await text('.excerpt .line-tag')) === 'colonnes', `${tagLineCount} ligne(s)`);
+  const exported = await counters();
+  check('l’aperçu compte une entrée par ligne de l’export, messages sur plusieurs lignes compris', same(exported, ['8 entrées lues', '0 écartée par vos réglages', '8 prêtes à analyser']), exported.join(' | '));
+  check('un export daté propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`));
+  await click('Analyser ce journal');
+  await waitFor(hasText('Analyse terminée'), 'l’analyse de l’export CSV', 20000);
+  check('l’analyse de l’export trouve ses 3 erreurs, dont 2 identiques', (await text('.result-sentence')) === '8 entrées lues, 3 erreurs (2 distinctes).', await text('.result-sentence'));
+  await selectOption(0);
+  await waitFor(`!!document.querySelector('.entry-text')`, 'le texte relu de l’export');
+  check('le texte de l’erreur est relu depuis l’export, sur ses lignes', (await text('.entry-text')).includes('Import failed for file ""rapport-2026.csv""'), await text('.entry-text'));
+
   // 3. A big generated file: progress, cancelling, the exact result.
   const big = join(dataDir, 'big.log');
   const expected = await generateLog(big, BIG_LOG_MEGABYTES);

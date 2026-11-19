@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEntryFilter, EMPTY_PREPARATION } from '../src/core/preparation';
 import type { Preparation } from '../src/core/preparation';
-import { BUILT_IN_PROFILES, CONSOLE_PROFILE, DEFAULT_PROFILE } from '../src/core/profiles';
+import { BUILT_IN_PROFILES, CONSOLE_PROFILE, DEFAULT_PROFILE, LOG_ANALYTICS_CSV_PROFILE } from '../src/core/profiles';
 import type { LogProfile } from '../src/core/profiles';
 import { MAX_PREVIEW_LINES, MAX_PREVIEW_LINE_CHARS, parseHead, previewHead as previewOf } from '../src/core/previewHead';
 import { scanLog } from '../src/core/scanLog';
@@ -43,6 +43,7 @@ describe('previewHead counters', () => {
     { file: 'serilog-console.log', profile: CONSOLE_PROFILE },
     { file: 'serilog-pieges.log', profile: DEFAULT_PROFILE },
     { file: 'real-serilog.log', profile: CONSOLE_PROFILE },
+    { file: 'log-analytics-apptraces.csv', profile: LOG_ANALYTICS_CSV_PROFILE },
   ];
 
   // The preview and the scan are two ways of counting the same thing: they must never drift apart.
@@ -218,6 +219,14 @@ describe('previewHead excerpt', () => {
     expect(lines.filter((line) => line.isError).map((line) => line.level)).toEqual(['ERR', 'ERR', 'ERR', 'FTL', 'ERR']);
   });
 
+  it('should not flag the header of an error as an error when its entry is left out', () => {
+    // Act: the rule leaves out the errors of lines 4 and 9
+    const { lines } = previewHead(utf8(readSample('sample.log')), DEFAULT_PROFILE, preparationOf('timeout'));
+
+    // Assert
+    expect(lines.filter((line) => line.level === 'ERR' && line.ignored).map((line) => line.isError)).toEqual([false, false]);
+  });
+
   it('should mark every line of an entry that is left out, its stack included, and no other', () => {
     // Act
     const { lines } = previewHead(utf8(readSample('sample.log')), DEFAULT_PROFILE, preparationOf('timeout'));
@@ -276,6 +285,37 @@ describe('previewHead excerpt', () => {
 
     // Assert
     expect(orphanLines).toBe(0);
+  });
+
+  const csvExport = [
+    'TenantId,"TimeGenerated [UTC]",Message,SeverityLevel',
+    '"tenant","20/10/2026 00:41:49.839","Import failed',
+    'second line",3',
+    '"tenant","20/10/2026 00:41:50.000","Next",1',
+  ].join('\r\n');
+
+  it('should show the column names of an export as a line of no entry, and each record from its first line', () => {
+    // Act
+    const { lines, orphanLines } = previewHead(utf8(csvExport), LOG_ANALYTICS_CSV_PROFILE, EMPTY_PREPARATION);
+
+    // Assert
+    expect({ orphanLines, lines: lines.map(({ kind, level, isError }) => ({ kind, level, isError })) }).toEqual({
+      orphanLines: 0,
+      lines: [
+        { kind: 'columns', level: null, isError: false },
+        { kind: 'header', level: 'Error', isError: true },
+        { kind: 'continuation', level: null, isError: false },
+        { kind: 'header', level: 'Information', isError: false },
+      ],
+    });
+  });
+
+  it('should not mark the column names of an export as left out when its first record is', () => {
+    // Act
+    const { lines } = previewHead(utf8(csvExport), LOG_ANALYTICS_CSV_PROFILE, preparationOf('import failed'));
+
+    // Assert
+    expect(lines.map((line) => line.ignored)).toEqual([false, true, true, false]);
   });
 });
 

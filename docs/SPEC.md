@@ -95,6 +95,7 @@ Une entrée tronquée (`truncated`) peut avoir perdu sa stack : son empreinte es
 
 **Profil structuré** (JSON lines, exports Log Analytics / App Insights) : une table de correspondance déclare le champ d'horodatage, de niveau, de message et d'exception, plus la table des niveaux
 (texte ou numérique). Préréglages v1 : Serilog compact et Log Analytics / App Insights. Les noms exacts des colonnes d'un export sont relevés sur un échantillon réel, jamais supposés.
+**Réalisé (3b, première partie, ADR-025)** : l'export CSV du portail Log Analytics (horodatage, niveau et message lus par le nom de leur colonne, échelle `SeverityLevel` 0 à 4, erreurs = 3 et 4). Le champ d'exception, Serilog compact et le JSON de l'API ne sont pas faits.
 
 ## 6. Sécurité propre au produit
 (Règles générales — OWASP, dépendances — : skill `security-audit`.)
@@ -125,7 +126,7 @@ Décidé : authentification GitHub ou Microsoft, accès sur invitation (25 perso
 À trancher (ne pas supposer) :
 1. **Validation sur de vrais logs** : les échantillons de `samples/` sont synthétiques (construits d'après le modèle Serilog documenté), sauf `real-serilog.log` : leurs résultats attendus valident la cohérence de la spec, pas sa fidélité au réel.
    *Tranché* : l'auteur a fourni un extrait réel de **21 lignes** (sortie console Docker) au lieu des ~30 prévues ; il a été jugé suffisant pour clore l'étape 2. Il ne contient ni stack, ni message multi-ligne, ni `FTL` : ces cas ne sont vérifiés que sur du synthétique.
-   Reste à fournir : un export réel Application Insights / Log Analytics avant l'étape 3b.
+   *Fourni le 2026-11-18* : un export CSV réel de la table `AppTraces` (264 lignes, gardé hors du dépôt) ; ses colonnes et sa forme sont relevées dans l'ADR-025, et `samples/log-analytics-apptraces.csv` en reprend la forme exacte avec des valeurs inventées. Il ne contient aucune erreur : les niveaux 3 et 4 ne sont vérifiés que sur le synthétique.
 2. **Azure Monitor** : un workspace Log Analytics ou une ressource Application Insights avec des données est en préparation côté utilisateur ; l'enregistrement d'application Microsoft Entra (gratuit) se fait au moment du spike (étape 1).
 3. **Autres plateformes** : un connecteur n'est étudié que si une plateforme précise est utilisée ; aucune n'a été vérifiée à ce jour.
 4. **Fichiers à formats mélangés ou lignes illisibles** (par exemple des lignes `[10:32:39 BOOT INF]` au milieu d'un journal Serilog console) : la maquette refuse le fichier entier et montre la première ligne en cause. **Extrait réel fourni le 2026-11-08** : `samples/real-mixed-formats.log` (8 lignes, trois dispositions). Il reste à décider quoi en faire. **Décidé le 2026-11-08 (option A) : signaler seulement** — l'écran de préparation dit « N lignes ressemblent à un autre format (…) : elles sont lues comme la suite de l'entrée qui les précède », sans rien changer à la lecture ; un format à plusieurs motifs n'est pas fait. Constats vérifiés : l'application répond « format non reconnu » ; si l'utilisateur choisit à la main le format console (étape 4b, tranche 3), elle lit 5 entrées et **la ligne datée est absorbée par l'entrée qui la précède** (seule la ligne `BOOT` avant la première en-tête est signalée) ; avec le format fichier, elle lit 2 entrées et signale 2 lignes avant la première en-tête.

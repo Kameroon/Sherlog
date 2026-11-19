@@ -1,3 +1,5 @@
 * text=auto
 # Les tests comparent ces échantillons octet pour octet : pas de conversion de fin de ligne par git.
 samples/*.log text eol=lf
+# Un export CSV du portail a des CRLF entre les lignes et des LF dans les messages : gardé tel quel.
+samples/*.csv -text
