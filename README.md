@@ -5,9 +5,8 @@ Application web **100 % côté navigateur** qui lit des journaux (logs), isole *
 ![Liste des erreurs d'un journal analysé, erreurs identiques regroupées, détail de l'erreur choisie](docs/images/liste-des-erreurs.png)
 
 > **État au 2026-11-19 :**
-> - **En production** (https://mango-plant-0313ba703.4.azurestaticapps.net/, accès sur invitation) : étapes 0 à 10b de la feuille de route.
-> - **Sur `dev`, pas encore en production** : la lecture de l'export CSV du portail Log Analytics (étape 3b, première partie).
-> - **Reste à faire** : la connexion directe à Azure Monitor (10c), l'historique local (11).
+> - **En production** (https://mango-plant-0313ba703.4.azurestaticapps.net/, accès sur invitation) : étapes 0 à 10b de la feuille de route, et la lecture de l'export CSV du portail Log Analytics (étape 3b, première partie).
+> - **Reste à faire** : la connexion directe à Azure Monitor (10c), les autres formats structurés de 3b (Serilog compact, JSON de l'API), l'historique local (11).
 >
 > Détail dans `docs/ROADMAP.md`.
 
