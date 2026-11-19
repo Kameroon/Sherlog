@@ -302,7 +302,7 @@ describe('previewHead excerpt', () => {
     expect({ orphanLines, lines: lines.map(({ kind, level, isError }) => ({ kind, level, isError })) }).toEqual({
       orphanLines: 0,
       lines: [
-        { kind: 'continuation', level: null, isError: false },
+        { kind: 'columns', level: null, isError: false },
         { kind: 'header', level: 'Error', isError: true },
         { kind: 'continuation', level: null, isError: false },
         { kind: 'header', level: 'Information', isError: false },

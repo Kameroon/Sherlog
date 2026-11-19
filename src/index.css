@@ -652,10 +652,13 @@ button:disabled {
   list-style: none;
 }
 
-/* A line that is longer than the preview wraps rather than being cut, so that it can be read in full. */
+/*
+ * A line that is longer than the preview wraps rather than being cut, so that it can be read in full. The tag column
+ * holds INFORMATION, the longest level name of the built-in formats, on one line: 11 characters of the monospace font.
+ */
 .excerpt li {
   display: grid;
-  grid-template-columns: 1.75rem 4.5rem minmax(0, 1fr);
+  grid-template-columns: 1.75rem 11ch minmax(0, 1fr);
   gap: 0.75rem;
   align-items: baseline;
   padding: 0.25rem 1rem 0.25rem 0.5rem;

@@ -29,8 +29,11 @@ export interface PreviewLine {
   readonly originalText: string;
   /** `true` when `originalText` is shorter than the real line. */
   readonly originalCut: boolean;
-  /** `header` starts an entry; `continuation` belongs to the entry before it (stack, long message). */
-  readonly kind: 'header' | 'continuation';
+  /**
+   * `header` starts an entry; `continuation` belongs to the entry before it (stack, long message); `columns` is the line
+   * of column names of a CSV export, which belongs to no entry.
+   */
+  readonly kind: 'header' | 'continuation' | 'columns';
   /** Level written in a header; `null` for a continuation. */
   readonly level: string | null;
   /** `true` for the header of an error entry that is kept: a line of an entry left out is never highlighted as an error. */
@@ -206,7 +209,7 @@ export function previewHead(
       cut: masked.length > MAX_PREVIEW_LINE_CHARS,
       originalText: truncateText(line.text, MAX_PREVIEW_LINE_CHARS),
       originalCut: line.text.length > MAX_PREVIEW_LINE_CHARS,
-      kind: level === null ? 'continuation' : 'header',
+      kind: !inEntry ? 'columns' : level === null ? 'continuation' : 'header',
       level,
       isError: isErrorLevel(level) && ignoredEntries[current] === false,
       ignored: inEntry && ignoredEntries[current] === true,

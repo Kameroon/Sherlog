@@ -33,6 +33,17 @@ describe('LogWorkspace format of a recognised log', () => {
     expect(screen.getByText(`Format reconnu : ${CONSOLE_FORMAT}`)).toBeInTheDocument();
   });
 
+  it('should name the line of column names of a CSV export in the preview, since it belongs to no entry', async () => {
+    // Arrange
+    setup();
+
+    // Act
+    await chooseFile(readSample('log-analytics-apptraces.csv'), 'export.csv');
+
+    // Assert
+    expect([...document.querySelectorAll('.excerpt li .line-tag')].slice(0, 2).map((tag) => tag.textContent)).toEqual(['colonnes', 'INFORMATION']);
+  });
+
   it('should say the format is the user’s choice, not a recognised one, once another is picked', async () => {
     // Arrange
     setup();

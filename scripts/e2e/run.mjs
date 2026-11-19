@@ -302,6 +302,11 @@ async function run(cdp, appUrl, dataDir, profileDir) {
   await chooseFile(join(root, 'samples', 'log-analytics-apptraces.csv'));
   await waitFor(hasText('Format reconnu'), 'la reconnaissance de l’export CSV');
   check('l’export CSV est reconnu par ses colonnes', await evaluate(hasText('Format reconnu : Export CSV Log Analytics / Application Insights')));
+  // A text that wraps gives one rectangle per line it is drawn on.
+  const tagLineCount = await evaluate(
+    `(() => { const tag = [...document.querySelectorAll('.excerpt .line-tag')].find((candidate) => candidate.textContent === 'INFORMATION'); const range = document.createRange(); range.selectNodeContents(tag); return range.getClientRects().length; })()`,
+  );
+  check('dans l’aperçu, le niveau INFORMATION tient sur une ligne et la ligne des noms est dite « colonnes »', tagLineCount === 1 && (await text('.excerpt .line-tag')) === 'colonnes', `${tagLineCount} ligne(s)`);
   const exported = await counters();
   check('l’aperçu compte une entrée par ligne de l’export, messages sur plusieurs lignes compris', same(exported, ['8 entrées lues', '0 écartée par vos réglages', '8 prêtes à analyser']), exported.join(' | '));
   check('un export daté propose des champs date et heure', await evaluate(`!!document.querySelector('input[type=datetime-local]')`));
