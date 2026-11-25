@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AnalysisOutcome } from '../ai/analyseError';
 import type { ProviderChoice } from '../ai/createProvider';
@@ -92,6 +92,15 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
   const indices = useMemo(() => buildErrorView(records, groups, applied, statuses), [records, groups, applied, statuses]);
   const visible = useMemo(() => indices.flatMap((index) => records[index] ?? []), [indices, records]);
   const [selected, setSelected] = useState<number | null>(null);
+  const browserRef = useRef<HTMLDivElement>(null);
+  // Counts the « Voir l'analyse » clicks of the sending panel: the analysis is in the detail, away from the button that asked for it.
+  const [analysisRequests, setAnalysisRequests] = useState(0);
+  useEffect(() => {
+    if (analysisRequests > 0) {
+      // Focusing scrolls to it, and tells a screen reader where the user is.
+      browserRef.current?.querySelector<HTMLElement>('.analysis')?.focus();
+    }
+  }, [analysisRequests]);
   const record = selected === null ? null : (records[selected] ?? null);
   const latest = useMemo(() => (record === null ? null : latestOccurrence(records, record.fingerprintId, hasDate)), [records, record, hasDate]);
   const selectedRow = useMemo(() => {
@@ -138,7 +147,7 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
     );
 
   return (
-    <div className="error-browser">
+    <div className="error-browser" ref={browserRef}>
       <ErrorToolbar options={options} onChange={setOptions} levels={levels} shown={visible.length} total={records.length} />
       <div className="results-layout">
         {visible.length === 0 ? (
@@ -218,6 +227,13 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
           }
         }}
         onCancelSend={cancel}
+        onShowAnalysis={(fingerprintId) => {
+          const latestIndex = latestOccurrence(records, fingerprintId, hasDate)?.index ?? null;
+          if (latestIndex !== null) {
+            setSelected(latestIndex);
+            setAnalysisRequests((count) => count + 1);
+          }
+        }}
         onRemove={(fingerprintId) => {
           setChosenForSending((previous) => {
             const next = new Set(previous);

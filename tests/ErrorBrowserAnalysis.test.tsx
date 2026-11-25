@@ -90,6 +90,14 @@ describe('ErrorBrowser sending to the model', () => {
     expect(sendButton()).toBeDisabled();
   });
 
+  it('should say how to enable the button when no error is chosen yet', () => {
+    // Act
+    show([record(0, 0)]);
+
+    // Assert
+    expect(within(panel()).getByText(/cochez « Faire expliquer cette erreur par l’IA » dans le détail d’une erreur/)).toBeInTheDocument();
+  });
+
   it('should not send without a provider, and say what to do', () => {
     // Arrange
     show([record(0, 0)], { provider: null });
@@ -264,6 +272,81 @@ describe('ErrorBrowser sending to the model', () => {
     expect(screen.getByRole('region', { name: 'Analyse de l’IA' })).toHaveTextContent('Gravité : élevée');
     expect(rows()[0]).toHaveTextContent('Analysé');
     expect(screen.getByRole('combobox', { name: 'Statut de cette erreur' })).toHaveValue('analysed');
+  });
+
+  it('should say in the sending panel that the analysis is done, once every request has ended', async () => {
+    // Arrange
+    show([record(0, 0), record(1, 1)]);
+    chooseRows(0, 1);
+
+    // Act
+    send();
+
+    // Assert
+    expect(await within(panel()).findByText('Analyse terminée : 2 sur 2.')).toHaveAttribute('role', 'status');
+  });
+
+  it('should not say the analysis is done while one of the errors is still being analysed', async () => {
+    // Arrange
+    let calls = 0;
+    const { requests } = show([record(0, 0), record(1, 1)], { answer: () => (calls++ === 0 ? goodAnswer() : new Promise<Response>(() => undefined)) });
+    chooseRows(0, 1);
+
+    // Act
+    send();
+
+    // Assert
+    await within(panel()).findByRole('button', { name: 'Voir l’analyse de l’erreur 1' });
+    expect(requests).toHaveLength(2);
+    expect(within(panel()).queryByText(/Analyse terminée/)).not.toBeInTheDocument();
+    expect(within(panel()).getByRole('status')).toHaveTextContent('Analyse 2 sur 2…');
+  });
+
+  it('should offer to go to the analysis from the sending panel, and take the user to it', async () => {
+    // Arrange
+    show([record(0, 0), record(1, 1)]);
+    chooseRows(0, 1);
+    send();
+    await within(panel()).findByText('Analyse terminée : 2 sur 2.');
+    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 2' })).toBeInTheDocument();
+
+    // Act
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Voir l’analyse de l’erreur 1' }));
+
+    // Assert
+    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 1' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Analyse de l’IA' })).toHaveFocus();
+  });
+
+  it('should not offer to see an analysis that was not received', async () => {
+    // Arrange
+    show([record(0, 0)], { answer: () => jsonAnswer({ error: { message: 'x' } }, 529) });
+    chooseRows(0);
+
+    // Act
+    send();
+    await waitFor(() => {
+      expect(sendButton()).toBeEnabled();
+    });
+
+    // Assert
+    expect(within(panel()).queryByRole('button', { name: /Voir l’analyse/ })).not.toBeInTheDocument();
+    expect(within(panel()).queryByText(/Analyse terminée/)).not.toBeInTheDocument();
+  });
+
+  it('should not take the focus to the analysis when the user only selects an analysed error', async () => {
+    // Arrange
+    show([record(0, 0), record(1, 1)]);
+    chooseRows(0);
+    send();
+    await within(panel()).findByText('Analyse terminée : 1 sur 1.');
+
+    // Act
+    select(1);
+    select(0);
+
+    // Assert
+    expect(screen.getByRole('region', { name: 'Analyse de l’IA' })).not.toHaveFocus();
   });
 
   it('should find the analysed errors with the status filter', async () => {
