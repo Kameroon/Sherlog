@@ -30,6 +30,8 @@ interface SendPanelProps {
   readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
   onRemove: (fingerprintId: number) => void;
   onClear: () => void;
+  /** Takes the user to the analysis of an error, which is shown in its detail, away from this panel. */
+  onShowAnalysis: (fingerprintId: number) => void;
   /** What the user chose in the settings, once it is usable; `null` until then. */
   provider: ProviderChoice | null;
   /** What was asked of the model for each fingerprint. */
@@ -52,9 +54,10 @@ interface ItemProps extends Pick<SendPanelProps, 'fileName' | 'masking' | 'count
   byTime: boolean;
   hasDate: boolean;
   onRemove: () => void;
+  onShowAnalysis: () => void;
 }
 
-function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, ...reading }: ItemProps) {
+function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, onShowAnalysis, ...reading }: ItemProps) {
   const [shown, setShown] = useState(false);
   const textId = useId();
   const time = record.timestamp ?? 'sans heure';
@@ -76,7 +79,14 @@ function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, 
       </div>
       <div id={textId}>{shown && <ExactText record={record} number={number} group={group} {...reading} />}</div>
       {analysis?.status === 'running' && <p className="small-note">Analyse en cours…</p>}
-      {analysis?.status === 'done' && <p className="small-note">Analyse reçue : elle est dans le détail de l’erreur.</p>}
+      {analysis?.status === 'done' && (
+        <p className="small-note">
+          Analyse reçue.{' '}
+          <button type="button" className="button-link" aria-label={`Voir l’analyse de l’erreur ${formatCount(number)}`} onClick={onShowAnalysis}>
+            Voir l’analyse
+          </button>
+        </p>
+      )}
       {analysis?.status === 'failed' && (
         <p className="notice notice-error" role="alert">
           {analysis.message}
@@ -93,7 +103,7 @@ function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, 
  * log as data is its work, `docs/PROMPTS.md`), and the button says so. This text is what comes from the log;
  * the instructions to the model and a random delimiter are added at sending time.
  */
-export function SendPanel({ records, groups, chosen, fileName, masking, hasDate, countIsMinimum, readText, readNeighbours, onRemove, onClear, provider, analyses, progress, onSend, onCancelSend, children }: SendPanelProps) {
+export function SendPanel({ records, groups, chosen, fileName, masking, hasDate, countIsMinimum, readText, readNeighbours, onRemove, onClear, onShowAnalysis, provider, analyses, progress, onSend, onCancelSend, children }: SendPanelProps) {
   const id = useId();
   const items = useMemo(
     () =>
@@ -105,6 +115,7 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
       }),
     [chosen, records, groups, hasDate],
   );
+  const analysed = items.filter((item) => analyses.get(item.fingerprintId)?.status === 'done').length;
   const applied = REDACTION_RULES.filter((rule) => rulesForSending(masking).has(rule.id)).map((rule) => rule.label);
 
   return (
@@ -141,6 +152,9 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
                 onRemove={() => {
                   onRemove(item.fingerprintId);
                 }}
+                onShowAnalysis={() => {
+                  onShowAnalysis(item.fingerprintId);
+                }}
               />
             ))}
           </ul>
@@ -155,7 +169,9 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
       <p className="small-note">
         {provider === null
           ? 'Choisissez un fournisseur et donnez sa clé dans les réglages ci-dessus pour pouvoir envoyer.'
-          : `Au clic, le texte exact de chaque erreur choisie part vers ${provider.provider === 'anthropic' ? 'Anthropic (api.anthropic.com)' : `${PROVIDER_NAMES.ollama} sur cet ordinateur (localhost:11434)`}, modèle ${provider.model}. Rien n’est envoyé avant.`}
+          : items.length === 0
+            ? 'Le bouton s’active quand une erreur est choisie : cochez « Faire expliquer cette erreur par l’IA » dans le détail d’une erreur.'
+            : `Au clic, le texte exact de chaque erreur choisie part vers ${provider.provider === 'anthropic' ? 'Anthropic (api.anthropic.com)' : `${PROVIDER_NAMES.ollama} sur cet ordinateur (localhost:11434)`}, modèle ${provider.model}. Rien n’est envoyé avant.`}
       </p>
       <div className="actions">
         <button type="button" className="button-primary" disabled={items.length === 0 || provider === null || progress !== null} onClick={onSend}>
@@ -170,6 +186,11 @@ export function SendPanel({ records, groups, chosen, fileName, masking, hasDate,
       {progress !== null && (
         <p className="hint" role="status">
           {`Analyse ${formatCount(progress.done + 1)} sur ${formatCount(progress.total)}…`}
+        </p>
+      )}
+      {progress === null && analysed > 0 && (
+        <p className="hint" role="status">
+          {`Analyse terminée : ${formatCount(analysed)} sur ${formatCount(items.length)}.`}
         </p>
       )}
     </section>
