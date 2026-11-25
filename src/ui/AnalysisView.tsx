@@ -77,7 +77,8 @@ export function AnalysisView({ entry, twins }: { entry: AnalysisEntry; twins: nu
   }
   const { outcome } = entry;
   return (
-    <section className="analysis" aria-labelledby={titleId}>
+    // Focusable by script only: « Voir l'analyse » in the sending panel moves the focus here.
+    <section className="analysis" aria-labelledby={titleId} tabIndex={-1}>
       <h3 id={titleId}>Analyse de l’IA</h3>
       <p className="small-note">
         Faite par {entry.by}, à partir de l’occurrence la plus récente.

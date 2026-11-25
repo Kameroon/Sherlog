@@ -4,9 +4,10 @@ Application web **100 % côté navigateur** qui lit des journaux (logs), isole *
 
 ![Liste des erreurs d'un journal analysé, erreurs identiques regroupées, détail de l'erreur choisie](docs/images/liste-des-erreurs.png)
 
-> **État au 2026-11-19 :**
-> - **En production** (https://mango-plant-0313ba703.4.azurestaticapps.net/, accès sur invitation) : étapes 0 à 10b de la feuille de route, et la lecture de l'export CSV du portail Log Analytics (étape 3b, première partie).
-> - **Reste à faire** : la connexion directe à Azure Monitor (10c), les autres formats structurés de 3b (Serilog compact, JSON de l'API), l'historique local (11).
+> **État au 2026-11-25 : la version 1, simple et fonctionnelle, est livrée** (ADR-026).
+> - **En production** (https://mango-plant-0313ba703.4.azurestaticapps.net/, accès sur invitation) : étapes 0 à 10b de la feuille de route, et la lecture de l'export CSV du portail Log Analytics (étape 3b, première partie). Essai réel de l'analyse avec une clé Anthropic : réussi.
+> - **Reporté, pour des versions suivantes** : la connexion directe à Azure Monitor (10c), les autres formats structurés de 3b (Serilog compact, JSON de l'API), l'historique local (11).
+> - **Pas encore vérifié** : la réponse 403 pour une personne connectée mais non invitée, et le comportement du modèle face à un journal qui tente une injection de prompt.
 >
 > Détail dans `docs/ROADMAP.md`.
 
@@ -29,7 +30,8 @@ Retrouver la cause d'une erreur dans des fichiers de logs de plusieurs centaines
    - les erreurs identiques sont regroupées.
 4. **Envoyer à l'IA**, sur une demande séparée :
    - Anthropic, avec la clé de l'utilisateur, ou Ollama en local ;
-   - masquage des données sensibles, aperçu de ce qui part, analyse structurée, puis chat sur l'erreur.
+   - cocher « Faire expliquer cette erreur par l'IA » dans le détail de chaque erreur à envoyer ;
+   - masquage des données sensibles, aperçu de ce qui part, analyse structurée affichée dans le détail de l'erreur (la page y mène dès la première réponse ; le bouton « Voir l'analyse » du panneau d'envoi mène aux autres), puis chat sur l'erreur.
 
 ## Choix techniques
 - **Aucun backend.** Application monopage statique sur Azure Static Web Apps (plan gratuit). Le contrôle d'accès (connexion GitHub ou Microsoft, rôle `invited`) est appliqué par la configuration de la plateforme, jamais par le code client.

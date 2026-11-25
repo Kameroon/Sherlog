@@ -23,9 +23,12 @@ revue de fin d'étape (`code-review`), commit(s) atomiques (`git-commit`), puis 
 | 8 | [x] | **Faite, validée** (ADR-018) : analyse : prompt durci (délimiteur aléatoire par requête), JSON validé par type guard, rendu sûr sans HTML | test-writer, frontend-architect, code-review, **security-audit** |
 | 9 | [x] | **Faite, validée** (ADR-019) : chat par erreur, dont la fenêtre n'apparaît qu'après l'analyse du modèle (il en traite le retour), rôle d'expert qui n'invente rien ; chat en streaming (annulation, états d'erreur) — **Partie 2 terminée** | frontend-architect, test-writer, code-review |
 | 10 | [ ] | **État : 10a faite, validée et en production (ADR-021) ; 10b faite, validée et en production (ADR-023, compte `sherlogjournaux`, essai réel de l'auteur en local puis sur le site en ligne) ; 10c bloquée (ADR-020 : étape 3b, export réel, Entra).** Sources avancées, dans cet ordre de livraison : **10a** sélecteur de dossier (Chromium) ; **10b** source URL restreinte à la liste de domaines figée dans la CSP ; **10c** Azure Monitor direct (selon le spike ; sinon repli par export du portail déposé comme fichier, couvert par le profil de l'étape 3b) | clean-code, test-writer, code-review, **security-audit** |
-| 11 | [ ] | Historique local optionnel (contenu masqué ou empreintes + statuts + analyses seulement), export/import, finitions, README, audit global | doc-writer, security-audit, code-review, git-commit |
+| 11 | [ ] | **Reporté après la v1 simple, livrée le 2026-11-25 (ADR-026).** Historique local optionnel (contenu masqué ou empreintes + statuts + analyses seulement), export/import, finitions, README, audit global | doc-writer, security-audit, code-review, git-commit |
 
 Colonne « État » : `[x]` = étape terminée **et validée par l'auteur** (règle d'arrêt du kickoff) ; `[ ]` = pas encore. On la coche dans le commit de la documentation de fin d'étape.
+
+## Version 1 simple livrée (2026-11-25, ADR-026)
+La v1 est l'application en production : étapes 0 à 10b et 3b (export CSV). L'étape 11, la suite de 3b et 10c sont reportées, sans être abandonnées. Restent à vérifier : la réponse 403 pour une personne non invitée et le contrôle d'injection de prompt avec le vrai modèle.
 
 ## Ordre de coupe si le périmètre dérape
 1. Azure Monitor direct (10c) · 2. Sélecteur de dossier (10a) · 3. Source URL (10b). JSON lines (3b) n'est jamais coupé.
