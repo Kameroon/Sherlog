@@ -302,19 +302,46 @@ describe('ErrorBrowser sending to the model', () => {
     expect(within(panel()).getByRole('status')).toHaveTextContent('Analyse 2 sur 2…');
   });
 
-  it('should offer to go to the analysis from the sending panel, and take the user to it', async () => {
+  it('should take the user to the analysis when the first answer comes, without another click', async () => {
+    // Arrange
+    show([record(0, 0), record(1, 1)]);
+    chooseRows(0, 1);
+    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 2' })).toBeInTheDocument();
+
+    // Act
+    send();
+
+    // Assert
+    const region = await screen.findByRole('region', { name: 'Analyse de l’IA' });
+    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 1' })).toBeInTheDocument();
+    expect(region).toHaveFocus();
+  });
+
+  it('should not take the user from one answer to the next while the others come', async () => {
+    // Arrange
+    show([record(0, 0), record(1, 1)]);
+    chooseRows(0, 1);
+
+    // Act
+    send();
+    await within(panel()).findByText('Analyse terminée : 2 sur 2.');
+
+    // Assert
+    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 1' })).toBeInTheDocument();
+  });
+
+  it('should offer to go to the analysis of another error from the sending panel', async () => {
     // Arrange
     show([record(0, 0), record(1, 1)]);
     chooseRows(0, 1);
     send();
     await within(panel()).findByText('Analyse terminée : 2 sur 2.');
-    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 2' })).toBeInTheDocument();
 
     // Act
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Voir l’analyse de l’erreur 1' }));
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Voir l’analyse de l’erreur 2' }));
 
     // Assert
-    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 1' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Détail de l’erreur 2' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Analyse de l’IA' })).toHaveFocus();
   });
 

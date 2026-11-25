@@ -58,6 +58,25 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
   const applied = useDeferredValue(options);
   const [statuses, setStatuses] = useState<StatusByFingerprint>(NO_STATUSES);
   const [chosenForSending, setChosenForSending] = useState<ReadonlySet<number>>(new Set());
+  const [selected, setSelected] = useState<number | null>(null);
+  const browserRef = useRef<HTMLDivElement>(null);
+  // Counts the « Voir l'analyse » clicks of the sending panel: the analysis is in the detail, away from the button that asked for it.
+  const [analysisRequests, setAnalysisRequests] = useState(0);
+  useEffect(() => {
+    if (analysisRequests > 0) {
+      // Focusing scrolls to it, and tells a screen reader where the user is.
+      browserRef.current?.querySelector<HTMLElement>('.analysis')?.focus();
+    }
+  }, [analysisRequests]);
+  // Whether the next answer of the model is to be shown at once: set by the click on « Envoyer à l'IA », used by the first answer.
+  const showFirstAnswer = useRef(false);
+  const showAnalysisOf = (fingerprintId: number): void => {
+    const latestIndex = latestOccurrence(records, fingerprintId, hasDate)?.index ?? null;
+    if (latestIndex !== null) {
+      setSelected(latestIndex);
+      setAnalysisRequests((count) => count + 1);
+    }
+  };
   const { analyses, progress, send, cancel } = useAnalyses({
     records,
     groups,
@@ -70,6 +89,11 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
     siteOrigin,
     onAnalysed: (fingerprintId) => {
       setStatuses((previous) => withAnalysis(previous, fingerprintId));
+      // The analysis is in the detail, far from the button the user clicked: the first answer of a run takes the user to it.
+      if (showFirstAnswer.current) {
+        showFirstAnswer.current = false;
+        showAnalysisOf(fingerprintId);
+      }
     },
   });
   /** What the model said of a fingerprint, once it has answered (an analysis, or its text when it did not follow the schema). */
@@ -91,16 +115,6 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
   });
   const indices = useMemo(() => buildErrorView(records, groups, applied, statuses), [records, groups, applied, statuses]);
   const visible = useMemo(() => indices.flatMap((index) => records[index] ?? []), [indices, records]);
-  const [selected, setSelected] = useState<number | null>(null);
-  const browserRef = useRef<HTMLDivElement>(null);
-  // Counts the « Voir l'analyse » clicks of the sending panel: the analysis is in the detail, away from the button that asked for it.
-  const [analysisRequests, setAnalysisRequests] = useState(0);
-  useEffect(() => {
-    if (analysisRequests > 0) {
-      // Focusing scrolls to it, and tells a screen reader where the user is.
-      browserRef.current?.querySelector<HTMLElement>('.analysis')?.focus();
-    }
-  }, [analysisRequests]);
   const record = selected === null ? null : (records[selected] ?? null);
   const latest = useMemo(() => (record === null ? null : latestOccurrence(records, record.fingerprintId, hasDate)), [records, record, hasDate]);
   const selectedRow = useMemo(() => {
@@ -223,17 +237,12 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
         progress={progress}
         onSend={() => {
           if (provider !== null) {
+            showFirstAnswer.current = true;
             send([...chosenForSending], provider, masking);
           }
         }}
         onCancelSend={cancel}
-        onShowAnalysis={(fingerprintId) => {
-          const latestIndex = latestOccurrence(records, fingerprintId, hasDate)?.index ?? null;
-          if (latestIndex !== null) {
-            setSelected(latestIndex);
-            setAnalysisRequests((count) => count + 1);
-          }
-        }}
+        onShowAnalysis={showAnalysisOf}
         onRemove={(fingerprintId) => {
           setChosenForSending((previous) => {
             const next = new Set(previous);

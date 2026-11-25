@@ -31,7 +31,7 @@ Retrouver la cause d'une erreur dans des fichiers de logs de plusieurs centaines
 4. **Envoyer à l'IA**, sur une demande séparée :
    - Anthropic, avec la clé de l'utilisateur, ou Ollama en local ;
    - cocher « Faire expliquer cette erreur par l'IA » dans le détail de chaque erreur à envoyer ;
-   - masquage des données sensibles, aperçu de ce qui part, analyse structurée affichée dans le détail de l'erreur (le bouton « Voir l'analyse » du panneau d'envoi y mène), puis chat sur l'erreur.
+   - masquage des données sensibles, aperçu de ce qui part, analyse structurée affichée dans le détail de l'erreur (la page y mène dès la première réponse ; le bouton « Voir l'analyse » du panneau d'envoi mène aux autres), puis chat sur l'erreur.
 
 ## Choix techniques
 - **Aucun backend.** Application monopage statique sur Azure Static Web Apps (plan gratuit). Le contrôle d'accès (connexion GitHub ou Microsoft, rôle `invited`) est appliqué par la configuration de la plateforme, jamais par le code client.

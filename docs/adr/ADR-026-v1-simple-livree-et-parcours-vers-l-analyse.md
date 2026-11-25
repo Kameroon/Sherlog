@@ -15,10 +15,11 @@ Un premier essai réel avec une clé Anthropic a montré un défaut de parcours,
   - étape 10c : Azure Monitor direct (bloqué, ADR-020).
 - **L'analyse reste dans le détail de l'erreur**, à côté de son statut, de ses lignes voisines et du chat qui s'ouvre après elle. La déplacer sous le panneau d'envoi l'éloignerait de son contexte et la repousserait sous les réglages de la clé.
 - **On amène l'utilisateur à l'analyse** depuis le panneau d'envoi :
-  - un bouton « Voir l'analyse » par erreur analysée, qui sélectionne l'erreur et place le focus sur le bloc d'analyse (le navigateur défile jusqu'à lui, un lecteur d'écran l'annonce) ;
+  - **dès la première réponse du modèle** après le clic sur « Envoyer à l'IA », l'erreur concernée est sélectionnée et le focus est placé sur le bloc d'analyse (le navigateur défile jusqu'à lui, un lecteur d'écran l'annonce). Les réponses suivantes du même envoi ne déplacent plus rien : l'utilisateur lit la première pendant que les autres arrivent ;
+  - un bouton « Voir l'analyse » par erreur analysée, pour aller à une autre ;
   - un message d'état « Analyse terminée : N sur M » quand plus aucun envoi n'est en cours ;
   - près du bouton, quand aucune erreur n'est choisie, une consigne qui dit où cocher.
-- **Pas de défilement automatique** : il désoriente quand plusieurs erreurs sont envoyées, et l'utilisateur reste maître de ce qu'il regarde.
+- **Défilement automatique : décision révisée le 2026-11-25.** Une première version n'offrait que le bouton, par crainte de désorienter l'utilisateur quand plusieurs erreurs sont envoyées. À l'essai, l'auteur ne voyait toujours pas le résultat : le défilement vers la première réponse est donc ajouté, limité à une fois par clic pour ne pas désorienter.
 
 ## Vérifications faites le 2026-11-25
 - `tsc --noEmit`, `eslint --max-warnings 0`, tests, `npm audit --omit=dev` (0 vulnérabilité) et build : sans erreur.
