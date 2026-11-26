@@ -117,6 +117,9 @@ function SendChoicePicker({ choice, twins }: { choice: SendChoice; twins: number
         />
         <span>Faire expliquer cette erreur par l’IA</span>
       </label>
+      {choice.chosen && (
+        <p className="send-choice-next">Cette erreur sera envoyée : descendez au panneau « Envoi à l’IA » (sous la liste) et cliquez sur « Envoyer à l’IA ».</p>
+      )}
       <p className="small-note">
         {twins > 1 ? `Ce choix vaut pour les ${formatCount(twins)} erreurs identiques. ` : ''}Rien n’est envoyé sans votre décision, après l’aperçu du texte exact.
       </p>

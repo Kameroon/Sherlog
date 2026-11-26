@@ -53,6 +53,24 @@ const chooseProvider = (name: RegExp): void => {
   fireEvent.click(screen.getByRole('radio', { name }));
 };
 
+describe('ProviderSettings folding', () => {
+  it('should fold with an arrow and keep what was typed when it is opened again', () => {
+    // Arrange
+    show();
+    typeKey();
+
+    // Act
+    click('Fournisseur d’IA');
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Fournisseur d’IA' })).toHaveAttribute('aria-expanded', 'false');
+    expect(keyField()).not.toBeVisible();
+    click('Fournisseur d’IA');
+    expect(keyField()).toBeVisible();
+    expect(keyField().value).toBe(KEY);
+  });
+});
+
 describe('ProviderSettings display', () => {
   it('should wait for the identity before offering anything, since what is kept belongs to it', () => {
     // Act

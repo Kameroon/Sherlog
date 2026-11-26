@@ -98,6 +98,36 @@ describe('ErrorBrowser sending to the model', () => {
     expect(within(panel()).getByText(/cochez « Faire expliquer cette erreur par l’IA » dans le détail d’une erreur/)).toBeInTheDocument();
   });
 
+  it('should say what happens next once the error is chosen, and not before', () => {
+    // Arrange
+    show([record(0, 0)]);
+    select(0);
+    expect(screen.queryByText(/Cette erreur sera envoyée/)).not.toBeInTheDocument();
+
+    // Act
+    choose();
+
+    // Assert
+    expect(screen.getByText(/Cette erreur sera envoyée.*Envoi à l’IA/)).toBeInTheDocument();
+  });
+
+  it('should fold an error chosen in the sending panel with an arrow, and keep its buttons for when it is opened again', () => {
+    // Arrange
+    show([record(0, 0)]);
+    chooseRows(0);
+    const toggle = () => within(panel()).getByRole('button', { name: /^Erreur 1 ·/ });
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+
+    // Act
+    fireEvent.click(toggle());
+
+    // Assert
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(within(panel()).getByRole('button', { name: 'Voir le texte exact', hidden: true })).not.toBeVisible();
+    fireEvent.click(toggle());
+    expect(within(panel()).getByRole('button', { name: 'Voir le texte exact' })).toBeVisible();
+  });
+
   it('should not send without a provider, and say what to do', () => {
     // Arrange
     show([record(0, 0)], { provider: null });

@@ -763,9 +763,27 @@ button:disabled {
 
 /* ---- Errors chosen for the model ---- */
 
+/* The tick that starts everything after the choice of an error: it stands out, or the user looks for the next step elsewhere. */
 .send-choice {
   display: grid;
   gap: 0.3rem;
+  padding: var(--space-2);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  background: var(--color-selected);
+}
+
+.send-choice .mask-rule-label {
+  font-size: 1.0625rem;
+}
+
+.send-choice input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.send-choice-next {
+  font-weight: 600;
 }
 
 .send-choice p,
@@ -783,6 +801,11 @@ button:disabled {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.send-item h3 {
+  margin: 0;
+  font-size: inherit;
 }
 
 .send-item {

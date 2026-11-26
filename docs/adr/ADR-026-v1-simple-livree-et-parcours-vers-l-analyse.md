@@ -21,6 +21,12 @@ Un premier essai réel avec une clé Anthropic a montré un défaut de parcours,
   - près du bouton, quand aucune erreur n'est choisie, une consigne qui dit où cocher.
 - **Défilement automatique : décision révisée le 2026-11-25.** Une première version n'offrait que le bouton, par crainte de désorienter l'utilisateur quand plusieurs erreurs sont envoyées. À l'essai, l'auteur ne voyait toujours pas le résultat : le défilement vers la première réponse est donc ajouté, limité à une fois par clic pour ne pas désorienter.
 
+- **Mise en avant du choix et blocs repliables (2026-11-26).** À l'essai en production, la case « Faire expliquer cette erreur par l'IA » passait inaperçue et la page est longue :
+  - la case est dans un encadré à bordure d'accent, plus grande, et une fois cochée une phrase dit où est l'étape suivante (le panneau « Envoi à l'IA », bouton « Envoyer à l'IA ») ;
+  - les blocs « Fournisseur d'IA », « Discuter de cette erreur » et chaque erreur choisie dans le panneau d'envoi ont la flèche de repliage des panneaux de préparation (`FoldablePanel`, option `nested` : titre de niveau 3, sans l'aspect d'un panneau de page). Le contenu est masqué, pas retiré : ce qui a été saisi (clé, question) revient à l'ouverture ;
+  - le bloc « Analyse de l'IA » n'est pas repliable pour l'instant : c'est la cible du focus de « Voir l'analyse ». À ajouter sur demande.
+  - Conséquence d'accessibilité : la région du chat et le groupe du fournisseur sont nommés par leur titre (« Discuter de cette erreur », « Fournisseur d'IA »).
+
 ## Vérifications faites le 2026-11-25
 - `tsc --noEmit`, `eslint --max-warnings 0`, tests, `npm audit --omit=dev` (0 vulnérabilité) et build : sans erreur.
 - Visiteur non connecté sur la production : redirigé vers `/login/`, CSP et en-têtes de sécurité présents.

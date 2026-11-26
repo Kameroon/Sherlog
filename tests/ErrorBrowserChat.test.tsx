@@ -90,8 +90,8 @@ const analyse = async (row = 0, summary = FIRST_SUMMARY): Promise<void> => {
   fireEvent.click(within(sendPanel()).getByRole('button', { name: 'Envoyer à l’IA' }));
   await screen.findByText(summary);
 };
-const chat = () => screen.getByRole('region', { name: 'Discussion sur cette erreur' });
-const queryChat = () => screen.queryByRole('region', { name: 'Discussion sur cette erreur' });
+const chat = () => screen.getByRole('region', { name: 'Discuter de cette erreur' });
+const queryChat = () => screen.queryByRole('region', { name: 'Discuter de cette erreur' });
 const type = (text: string): void => {
   fireEvent.change(within(chat()).getByLabelText('Votre question'), { target: { value: text } });
 };
@@ -102,6 +102,24 @@ const ask = (text: string): void => {
 const sendButton = () => within(chat()).getByRole('button', { name: 'Envoyer la question' });
 const thread = () => within(chat()).getByRole('list', { name: 'Conversation' });
 const bodyOf = (request: RecordedRequest | undefined) => request?.body as { system: string; messages: { role: string; content: string }[] };
+
+describe('ErrorBrowser chat folding', () => {
+  it('should fold the chat with an arrow, and keep the question typed when it is opened again', async () => {
+    // Arrange
+    show([record(0, 0)]);
+    await analyse();
+    type('Pourquoi ?');
+
+    // Act
+    fireEvent.click(within(chat()).getByRole('button', { name: 'Discuter de cette erreur' }));
+
+    // Assert
+    expect(within(chat()).getByRole('button', { name: 'Discuter de cette erreur' })).toHaveAttribute('aria-expanded', 'false');
+    expect(within(chat()).getByLabelText('Votre question')).not.toBeVisible();
+    fireEvent.click(within(chat()).getByRole('button', { name: 'Discuter de cette erreur' }));
+    expect(within(chat()).getByLabelText<HTMLTextAreaElement>('Votre question').value).toBe('Pourquoi ?');
+  });
+});
 
 describe('ErrorBrowser chat is opened by the analysis of the model', () => {
   it('should not offer the chat for an error the model has not analysed, even when it is selected', () => {
