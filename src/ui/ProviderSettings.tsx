@@ -8,6 +8,7 @@ import type { ProviderId } from '../ai/provider';
 import type { StorageScope } from '../auth/storageScope';
 import { browserStorages, forgetApiKey, loadApiKey, loadSettings, saveApiKey, saveSettings } from '../store/aiSettings';
 import type { AiSettings, BrowserStorages } from '../store/aiSettings';
+import { FoldablePanel } from './FoldablePanel';
 import { countOf } from './format';
 
 /** What the panel reaches for outside the page; replaced by the tests. */
@@ -187,8 +188,7 @@ function ProviderForm({ scope, storages, fetchImpl, siteOrigin, onChoiceChange }
   const chosenOllamaModel = ollamaModels?.includes(settings.ollamaModel) === true ? settings.ollamaModel : '';
 
   return (
-    <div className="provider-settings" role="group" aria-labelledby={`${id}-title`}>
-      <h3 id={`${id}-title`}>Fournisseur d’IA</h3>
+    <FoldablePanel id={id} title="Fournisseur d’IA" nested className="provider-settings">
       <fieldset className="provider-choice">
         <legend>Fournisseur</legend>
         {(['anthropic', 'ollama'] as const).map((provider) => (
@@ -346,7 +346,7 @@ function ProviderForm({ scope, storages, fetchImpl, siteOrigin, onChoiceChange }
           {problem}
         </p>
       )}
-    </div>
+    </FoldablePanel>
   );
 }
 

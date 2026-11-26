@@ -80,4 +80,26 @@ describe('FoldablePanel', () => {
     // Assert
     expect(toggle().getAttribute('aria-controls')).toBe(content().parentElement?.id);
   });
+
+  it('should be a level 3 heading, without the look of a page panel, when it sits inside another panel', () => {
+    // Arrange / Act
+    render(
+      <FoldablePanel id="panel" title="Réglages" nested>
+        <p>Contenu du bloc</p>
+      </FoldablePanel>,
+    );
+
+    // Assert
+    expect(screen.getByRole('heading', { level: 3, name: 'Réglages' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Réglages' })).not.toHaveClass('panel');
+  });
+
+  it('should be a level 2 heading with the look of a panel when it stands alone', () => {
+    // Arrange / Act
+    renderPanel();
+
+    // Assert
+    expect(screen.getByRole('heading', { level: 2, name: 'Réglages' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Réglages' })).toHaveClass('panel');
+  });
 });

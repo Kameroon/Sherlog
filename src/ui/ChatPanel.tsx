@@ -9,6 +9,7 @@ import type { RedactionRuleId } from '../core/redact';
 import { ExactText } from './ExactText';
 import type { ExactTextProps } from './ExactText';
 import { formatCount } from './format';
+import { FoldablePanel } from './FoldablePanel';
 import type { ChatState } from './useChats';
 
 /** What goes with the first question, before it is sent: the exact masked text of the log, and the analysis the model made of it. */
@@ -66,8 +67,7 @@ export function ChatPanel({ chat, provider, masking, busy, answering, twins, con
   };
 
   return (
-    <section className="chat" aria-label="Discussion sur cette erreur">
-      <h3>Discuter de cette erreur</h3>
+    <FoldablePanel id={id} title="Discuter de cette erreur" nested className="chat">
       <p className="small-note">
         Le chat approfondit l’analyse du modèle ci-dessus pour cette erreur{twins > 1 ? ` et pour les ${formatCount(twins)} erreurs identiques` : ''}. Il s’appuie sur elle et sur le texte masqué de l’occurrence la plus récente ; il ne doit rien inventer et dit ce qui lui manque.
       </p>
@@ -152,6 +152,6 @@ export function ChatPanel({ chat, provider, masking, busy, answering, twins, con
           </button>
         )}
       </div>
-    </section>
+    </FoldablePanel>
   );
 }

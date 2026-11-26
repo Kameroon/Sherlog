@@ -7,6 +7,8 @@ interface FoldablePanelProps {
   title: string;
   /** Classes added to the panel, for the layout of the screen that uses it. */
   className?: string;
+  /** For a block inside another panel: a level 3 heading, and no look of a page panel (the class given draws the block). */
+  nested?: boolean;
   children: ReactNode;
 }
 
@@ -15,12 +17,13 @@ interface FoldablePanelProps {
  * (the disclosure pattern): a screen reader says "expanded" or "collapsed". The content is hidden, not removed, so
  * that what the user ticked or typed in it is still there when it is opened again.
  */
-export function FoldablePanel({ id, title, className = '', children }: FoldablePanelProps) {
+export function FoldablePanel({ id, title, className = '', nested = false, children }: FoldablePanelProps) {
   const [open, setOpen] = useState(true);
+  const Heading = nested ? 'h3' : 'h2';
 
   return (
-    <section className={`panel foldable ${className}`.trim()} aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`} className="foldable-title">
+    <section className={`${nested ? '' : 'panel'} foldable ${className}`.trim()} aria-labelledby={`${id}-title`}>
+      <Heading id={`${id}-title`} className="foldable-title">
         <button
           type="button"
           className="foldable-toggle"
@@ -33,7 +36,7 @@ export function FoldablePanel({ id, title, className = '', children }: FoldableP
           <span>{title}</span>
           <span className="foldable-arrow" aria-hidden="true" />
         </button>
-      </h2>
+      </Heading>
       <div id={`${id}-body`} className="foldable-body" hidden={!open}>
         {children}
       </div>
