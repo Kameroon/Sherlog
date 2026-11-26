@@ -10,6 +10,7 @@ import type { ErrorRecord } from '../core/scanLog';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { ExactText } from './ExactText';
+import { FoldablePanel } from './FoldablePanel';
 import { formatCount } from './format';
 import type { AnalysisByFingerprint, AnalysisEntry } from './analysisState';
 import type { SendProgress } from './useAnalyses';
@@ -60,38 +61,38 @@ interface ItemProps extends Pick<SendPanelProps, 'fileName' | 'masking' | 'count
 function SendItem({ record, analysis, number, group, byTime, hasDate, onRemove, onShowAnalysis, ...reading }: ItemProps) {
   const [shown, setShown] = useState(false);
   const textId = useId();
+  const itemId = useId();
   const time = record.timestamp ?? 'sans heure';
+  const title = `Erreur ${formatCount(number)} · ${time} · ${record.message}${group.count > 1 ? ` · ${formatCount(group.count)} erreurs identiques` : ''}`;
   const which = group.count > 1 ? `, ${byTime ? 'la plus récente' : `la dernière lue (${hasDate ? 'aucune heure exploitable' : 'ce format n’a pas de date'})`}` : '';
   return (
-    <li className="send-item">
-      <p>
-        <strong>Erreur {formatCount(number)}</strong> · {time} · {record.message}
-        {group.count > 1 && ` · ${formatCount(group.count)} erreurs identiques`}
-      </p>
-      <p className="small-note">{`Occurrence envoyée : erreur ${formatCount(number)} (${time})${which}.`}</p>
-      <div className="actions">
-        <button type="button" className="button-secondary" aria-expanded={shown} aria-controls={textId} onClick={() => setShown(!shown)}>
-          {shown ? 'Masquer le texte exact' : 'Voir le texte exact'}
-        </button>
-        <button type="button" className="button-link" aria-label={`Retirer l’erreur ${formatCount(number)} de l’envoi`} onClick={onRemove}>
-          Retirer
-        </button>
-      </div>
-      <div id={textId}>{shown && <ExactText record={record} number={number} group={group} {...reading} />}</div>
-      {analysis?.status === 'running' && <p className="small-note">Analyse en cours…</p>}
-      {analysis?.status === 'done' && (
-        <p className="small-note">
-          Analyse reçue.{' '}
-          <button type="button" className="button-link" aria-label={`Voir l’analyse de l’erreur ${formatCount(number)}`} onClick={onShowAnalysis}>
-            Voir l’analyse
+    <li>
+      <FoldablePanel id={itemId} nested className="send-item" title={title}>
+        <p className="small-note">{`Occurrence envoyée : erreur ${formatCount(number)} (${time})${which}.`}</p>
+        <div className="actions">
+          <button type="button" className="button-secondary" aria-expanded={shown} aria-controls={textId} onClick={() => setShown(!shown)}>
+            {shown ? 'Masquer le texte exact' : 'Voir le texte exact'}
           </button>
-        </p>
-      )}
-      {analysis?.status === 'failed' && (
-        <p className="notice notice-error" role="alert">
-          {analysis.message}
-        </p>
-      )}
+          <button type="button" className="button-link" aria-label={`Retirer l’erreur ${formatCount(number)} de l’envoi`} onClick={onRemove}>
+            Retirer
+          </button>
+        </div>
+        <div id={textId}>{shown && <ExactText record={record} number={number} group={group} {...reading} />}</div>
+        {analysis?.status === 'running' && <p className="small-note">Analyse en cours…</p>}
+        {analysis?.status === 'done' && (
+          <p className="small-note">
+            Analyse reçue.{' '}
+            <button type="button" className="button-link" aria-label={`Voir l’analyse de l’erreur ${formatCount(number)}`} onClick={onShowAnalysis}>
+              Voir l’analyse
+            </button>
+          </p>
+        )}
+        {analysis?.status === 'failed' && (
+          <p className="notice notice-error" role="alert">
+            {analysis.message}
+          </p>
+        )}
+      </FoldablePanel>
     </li>
   );
 }
