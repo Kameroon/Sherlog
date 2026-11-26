@@ -99,13 +99,21 @@ function withoutFence(answer: string): string {
  * what to do (a second try, then the raw text said to be unstructured).
  */
 export function parseAnalysis(answer: string): ParsedAnalysis {
+  let data: unknown;
   try {
-    let data: unknown;
-    try {
-      data = JSON.parse(withoutFence(answer));
-    } catch {
-      throw new NotAnAnalysis('la réponse n’est pas du JSON seul');
-    }
+    data = JSON.parse(withoutFence(answer));
+  } catch {
+    return { ok: false, reason: 'la réponse n’est pas du JSON seul' };
+  }
+  return checkAnalysis(data);
+}
+
+/**
+ * Checks an already decoded value against the schema, with the same rules and limits as {@link parseAnalysis}: the
+ * history reads back analyses it did not just receive from the model (a store, an imported file), so it does not trust them more.
+ */
+export function checkAnalysis(data: unknown): ParsedAnalysis {
+  try {
     if (!isRecord(data)) {
       throw new NotAnAnalysis('la réponse n’est pas un objet JSON');
     }
