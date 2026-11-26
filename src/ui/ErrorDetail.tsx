@@ -1,29 +1,17 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ErrorStatus } from '../core/errorStatus';
 import type { IdenticalErrors } from '../core/identicalErrors';
 import type { ErrorRecord } from '../core/scanLog';
 import { MAX_ENTRY_TEXT_BYTES } from '../sources/readEntryText';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import { readFailureMessage } from '../sources/readFailure';
 import { MAX_NEIGHBOUR_BYTES, NEIGHBOUR_LINES } from '../sources/readNeighbourLines';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
 import type { AnalysisEntry } from './analysisState';
 import { AnalysisView } from './AnalysisView';
 import { formatCount, formatSize } from './format';
 import { STATUS_CHOICES } from './statusLabels';
-
-/** What the panel shows of the selected entry: the read in progress, the text, or why it could not be read. */
-type Reading =
-  | { readonly status: 'loading' }
-  | ({ readonly status: 'done' } & EntryText)
-  | { readonly status: 'failed'; readonly message: string };
-
-/** What the panel shows of the lines around the error, like {@link Reading} for the entry. */
-type NeighbourReadingState =
-  | { readonly status: 'loading' }
-  | ({ readonly status: 'done' } & NeighbourLines)
-  | { readonly status: 'failed'; readonly message: string };
+import { useAsyncRead } from './useAsyncRead';
 
 interface ErrorDetailProps {
   /** The selected error, or `null` when none is. Give the panel a `key` that changes with it: each error is its own read. */
@@ -133,27 +121,8 @@ function SendChoicePicker({ choice, twins }: { choice: SendChoice; twins: number
 }
 
 function EntryReading({ record, position, readText }: { record: ErrorRecord; position: number; readText: ErrorDetailProps['readText'] }) {
-  const [reading, setReading] = useState<Reading>({ status: 'loading' });
-
-  useEffect(() => {
-    // The user may select another error before this read ends: an answer that comes late is dropped.
-    let current = true;
-    readText(record).then(
-      (read) => {
-        if (current) {
-          setReading({ status: 'done', ...read });
-        }
-      },
-      (error: unknown) => {
-        if (current) {
-          setReading({ status: 'failed', message: readFailureMessage(error) });
-        }
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [record, readText]);
+  const read = useCallback(() => readText(record), [record, readText]);
+  const reading = useAsyncRead(read);
 
   switch (reading.status) {
     case 'loading':
@@ -174,13 +143,13 @@ function EntryReading({ record, position, readText }: { record: ErrorRecord; pos
           <p className="visually-hidden" role="status">
             Détail de l’erreur {position} affiché.
           </p>
-          {reading.cut && (
+          {reading.value.cut && (
             <p className="notice notice-warning">
               Cette entrée fait {formatSize(record.length)} : seul son début ({formatSize(MAX_ENTRY_TEXT_BYTES)}) est affiché.
             </p>
           )}
           <pre className="entry-text" role="region" aria-label={`Texte de l’erreur ${position}`} tabIndex={0}>
-            {reading.text}
+            {reading.value.text}
           </pre>
         </>
       );
@@ -213,27 +182,8 @@ function NeighbourSide({ side, lines, limited, position }: { side: 'before' | 'a
 }
 
 function NeighbourReading({ record, position, readNeighbours }: { record: ErrorRecord; position: number; readNeighbours: ErrorDetailProps['readNeighbours'] }) {
-  const [reading, setReading] = useState<NeighbourReadingState>({ status: 'loading' });
-
-  useEffect(() => {
-    // The user may hide the lines before this read ends: an answer that comes late is dropped.
-    let current = true;
-    readNeighbours(record).then(
-      (read) => {
-        if (current) {
-          setReading({ status: 'done', ...read });
-        }
-      },
-      (error: unknown) => {
-        if (current) {
-          setReading({ status: 'failed', message: readFailureMessage(error) });
-        }
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [record, readNeighbours]);
+  const read = useCallback(() => readNeighbours(record), [record, readNeighbours]);
+  const reading = useAsyncRead(read);
 
   switch (reading.status) {
     case 'loading':
@@ -255,8 +205,8 @@ function NeighbourReading({ record, position, readNeighbours }: { record: ErrorR
             Lignes autour de l’erreur {position} affichées.
           </p>
           <p className="small-note">Lignes du fichier, quelle que soit l’entrée à laquelle elles appartiennent.</p>
-          <NeighbourSide side="before" lines={reading.before} limited={reading.beforeLimited} position={position} />
-          <NeighbourSide side="after" lines={reading.after} limited={reading.afterLimited} position={position} />
+          <NeighbourSide side="before" lines={reading.value.before} limited={reading.value.beforeLimited} position={position} />
+          <NeighbourSide side="after" lines={reading.value.after} limited={reading.value.afterLimited} position={position} />
         </>
       );
   }

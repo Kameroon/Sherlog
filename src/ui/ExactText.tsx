@@ -1,19 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { IdenticalErrors } from '../core/identicalErrors';
 import type { RedactionRuleId } from '../core/redact';
 import type { ErrorRecord } from '../core/scanLog';
 import { buildSendPayload } from '../core/sendPayload';
 import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import { readFailureMessage } from '../sources/readFailure';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { countOf } from './format';
 import { sendSourceOf } from './sendSource';
-
-/** What the panel shows of the log it reads for one error: the reads in progress, the text, or why it could not be read. */
-type Reading =
-  | { readonly status: 'loading' }
-  | { readonly status: 'done'; readonly entry: EntryText; readonly lines: NeighbourLines }
-  | { readonly status: 'failed'; readonly message: string };
+import { useAsyncRead } from './useAsyncRead';
 
 export interface ExactTextProps {
   /** The most recent occurrence of the error, which is the one that is sent. */
@@ -32,33 +26,18 @@ export interface ExactTextProps {
 
 /** The text that would be sent for one error, read from the log when the user asks to see it, masked and cut like a request would. */
 export function ExactText({ record, number, group, fileName, masking, countIsMinimum, readText, readNeighbours }: ExactTextProps) {
-  const [reading, setReading] = useState<Reading>({ status: 'loading' });
-
-  useEffect(() => {
-    // The user may hide the text or change the error before the reads end: an answer that comes late is dropped.
-    let current = true;
-    Promise.all([readText(record), readNeighbours(record)]).then(
-      ([entry, lines]) => {
-        if (current) {
-          setReading({ status: 'done', entry, lines });
-        }
-      },
-      (error: unknown) => {
-        if (current) {
-          setReading({ status: 'failed', message: readFailureMessage(error) });
-        }
-      },
-    );
-    return () => {
-      current = false;
-    };
+  // The entry and the lines around it are read together: the text is shown once both are there.
+  const read = useCallback(async () => {
+    const [entry, lines] = await Promise.all([readText(record), readNeighbours(record)]);
+    return { entry, lines };
   }, [record, readText, readNeighbours]);
+  const reading = useAsyncRead(read);
 
   // Masking is applied here, not when reading: a change of the rules in the preparation shows at once, with no new read.
   const payload = useMemo(
     () =>
       reading.status === 'done'
-        ? buildSendPayload(sendSourceOf({ fileName, group, countIsMinimum, entry: reading.entry, lines: reading.lines }), masking)
+        ? buildSendPayload(sendSourceOf({ fileName, group, countIsMinimum, entry: reading.value.entry, lines: reading.value.lines }), masking)
         : null,
     [reading, fileName, group, countIsMinimum, masking],
   );
