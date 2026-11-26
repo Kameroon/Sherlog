@@ -10,7 +10,7 @@ Un premier essai réel avec une clé Anthropic a montré un défaut de parcours,
 
 ## Décision
 - **La v1 est l'application telle qu'elle est en production.** Le reste est reporté, sans être abandonné :
-  - étape 11 : historique local, export et import ;
+  - étape 11 : historique local, export et import (commencée sur la branche locale `feat/etape-11` : ADR-022, T1 et début de T2, non fusionnés) ;
   - étape 3b, suite : Serilog compact et JSON de l'API Application Insights (en attente d'un échantillon réel) ;
   - étape 10c : Azure Monitor direct (bloqué, ADR-020).
 - **L'analyse reste dans le détail de l'erreur**, à côté de son statut, de ses lignes voisines et du chat qui s'ouvre après elle. La déplacer sous le panneau d'envoi l'éloignerait de son contexte et la repousserait sous les réglages de la clé.
