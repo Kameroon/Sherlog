@@ -7,20 +7,8 @@ import { MAX_INPUT_CHARS } from '../src/core/sendPayload';
 import type { EntryPosition, EntryText } from '../src/sources/readEntryText';
 import type { NeighbourLines } from '../src/sources/readNeighbourLines';
 import { ErrorBrowser } from '../src/ui/ErrorBrowser';
+import { entryOf, noLines, record, rows, select } from './helpers/errorBrowser';
 
-const record = (index: number, fingerprintId: number, timestamp: string | null = `2026-11-04 08:00:${String(index).padStart(2, '0')}`): ErrorRecord => ({
-  offset: index * 100,
-  length: 90,
-  timestamp,
-  level: 'ERR',
-  message: `failure ${index}`,
-  messageCut: false,
-  lineCount: 1,
-  fingerprintId,
-});
-
-const entryOf = (position: EntryPosition): EntryText => ({ text: `entry at ${position.offset}`, cut: false });
-const noLines: NeighbourLines = { before: [], after: [], beforeLimited: false, afterLimited: false };
 
 interface Options {
   readText?: (position: EntryPosition) => Promise<EntryText>;
@@ -48,10 +36,6 @@ function show(records: readonly ErrorRecord[], options: Options = {}) {
   return { rerenderWith: (masking: ReadonlySet<RedactionRuleId>) => view.rerender(ui(masking)) };
 }
 
-const rows = () => within(screen.getByRole('listbox', { name: 'Erreurs' })).getAllByRole('option');
-const select = (row: number): void => {
-  fireEvent.click(rows()[row] as HTMLElement);
-};
 const choose = (): void => {
   fireEvent.click(screen.getByRole('checkbox', { name: 'Faire expliquer cette erreur par l’IA' }));
 };

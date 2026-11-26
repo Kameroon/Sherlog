@@ -4,10 +4,10 @@ import type { ProviderChoice } from '../src/ai/createProvider';
 import { DEFAULT_ENABLED_RULES } from '../src/core/redact';
 import type { ErrorRecord } from '../src/core/scanLog';
 import type { EntryPosition, EntryText } from '../src/sources/readEntryText';
-import type { NeighbourLines } from '../src/sources/readNeighbourLines';
 import { ErrorBrowser } from '../src/ui/ErrorBrowser';
 import { anthropicEvent, eventStream, fakeFetch, jsonAnswer, textDelta } from './helpers/fakeFetch';
 import type { RecordedRequest } from './helpers/fakeFetch';
+import { entryOf, noLines, record, select } from './helpers/errorBrowser';
 
 const analysisOf = (summary: string) => ({
   summary,
@@ -27,19 +27,6 @@ const reply = (...pieces: string[]) => eventStream([...pieces.map((piece) => tex
 const isAnalysis = (request: RecordedRequest): boolean => ((request.body as { system?: string }).system ?? '').includes('probableCause');
 const isChat = (request: RecordedRequest): boolean => !isAnalysis(request);
 
-const record = (index: number, fingerprintId: number): ErrorRecord => ({
-  offset: index * 100,
-  length: 90,
-  timestamp: `2026-11-04 08:00:${String(index).padStart(2, '0')}`,
-  level: 'ERR',
-  message: `failure ${index}`,
-  messageCut: false,
-  lineCount: 1,
-  fingerprintId,
-});
-
-const entryOf = (position: EntryPosition): EntryText => ({ text: `entry at ${position.offset}`, cut: false });
-const noLines: NeighbourLines = { before: [], after: [], beforeLimited: false, afterLimited: false };
 
 interface Options {
   provider?: ProviderChoice | null;
@@ -78,10 +65,6 @@ function show(records: readonly ErrorRecord[], options: Options = {}) {
   return { requests, chatRequests: () => requests.filter(isChat), rerenderWith: (provider: ProviderChoice | null) => view.rerender(ui(provider)) };
 }
 
-const rows = () => within(screen.getByRole('listbox', { name: 'Erreurs' })).getAllByRole('option');
-const select = (row: number): void => {
-  fireEvent.click(rows()[row] as HTMLElement);
-};
 const sendPanel = () => screen.getByRole('region', { name: 'Envoi à l’IA' });
 /** Has the model analyse the error of a row, and waits for its answer: the chat opens after it. */
 const analyse = async (row = 0, summary = FIRST_SUMMARY): Promise<void> => {

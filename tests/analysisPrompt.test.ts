@@ -1,9 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { ANALYSIS_KEYS } from '../src/ai/analysis';
 import { RETRY_MESSAGE, buildAnalysisPrompt, createNonce } from '../src/ai/analysisPrompt';
 import type { SendPayload } from '../src/core/sendPayload';
 import { readSample } from './helpers/samples';
+
+/** The keys the system prompt must name (`prompts/analysis-system.md`): the schema the answer is validated against. */
+const ANALYSIS_KEYS = ['summary', 'probableCause', 'severity', 'confidence', 'evidence', 'suggestedFixes', 'missingInfo'] as const;
 
 const payload = (text: string, note: string | null = null): SendPayload => ({ text, note, maskedCount: 0, cut: { entry: false, before: false, after: false } });
 
