@@ -1,7 +1,7 @@
 # ARCHITECTURE — Sherlog
 
 ## Décisions structurantes
-Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape 0 (pas de texte dupliqué ici) :
+Justifications consignées en ADR dans `docs/adr/` (pas de texte dupliqué ici ; l'ADR-022 n'existe pas) :
 - **ADR-001** Application monopage statique (Vite + React + TypeScript strict) sur Azure Static Web Apps Free, sans API.
 - **ADR-002** Appels IA directs depuis le navigateur avec la clé de l'utilisateur ; Ollama local en option (spike de l'étape 1 : Anthropic mesuré, Ollama partiellement).
 - **ADR-003** `core` en TypeScript pur, sans DOM ni React : testable et réutilisable (d'où une empreinte sans `crypto.subtle`).
@@ -12,21 +12,21 @@ Justifications à consigner en ADR dans `docs/adr/` par `doc-writer` à l'étape
 - **ADR-008** Journalisation côté client : `console` en développement uniquement, aucune télémétrie (remplace les exigences de logs des skills).
 - **ADR-009** Thème clair et sombre selon le système ; jetons et styles de base partagés (`public/login/base.css`) entre les pages publiques et l'application.
 - **ADR-010** Le flux est découpé en lignes sur les octets avant d'être décodé : positions exactes, détection de profil sans deviner, limite de conservation provisoire.
-- **ADR-012** La préparation (règles « ignorer », bientôt période et format) est appliquée dans la passe par un filtre unique ; l'écran de préparation montre ses chiffres sur le début du fichier (1 Mio), exacts après l'analyse.
+- **ADR-011** Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
+- **ADR-012** La préparation (règles « ignorer », période, format) est appliquée dans la passe par un filtre unique ; l'écran de préparation montre ses chiffres sur le début du fichier (1 Mio), exacts après l'analyse.
 - **ADR-013** Liste virtualisée par blocs, sans style calculé.
-- **ADR-015** *(proposé)* Masquage par règles strictes qui ne devinent pas (`redact`) : contexte ou contrôle exigé, options pour les identifiants, dernier filet à l'envoi, durée bornée ; outil « Masquer » de la préparation (état à côté de la préparation, texte d'origine à la demande).
-- **ADR-016** *(proposé)* Choix explicite des erreurs à envoyer (par empreinte, occurrence la plus récente) et aperçu du texte exact : masqué avant d'être coupé, coupure explicite, rien n'est envoyé.
+- **ADR-014** Tri, filtres (niveau, statut), recherche et statuts par empreinte calculés sur les enregistrements en mémoire (fonctions pures de `core`), sans relire le fichier ; la recherche ne couvre pas la pile ; statuts en session.
+- **ADR-015** Masquage par règles strictes qui ne devinent pas (`redact`) : contexte ou contrôle exigé, options pour les identifiants, dernier filet à l'envoi, durée bornée ; outil « Masquer » de la préparation (état à côté de la préparation, texte d'origine à la demande).
+- **ADR-016** Choix explicite des erreurs à envoyer (par empreinte, occurrence la plus récente) et aperçu du texte exact : masqué avant d'être coupé, coupure explicite, rien n'est envoyé.
+- **ADR-017** Fournisseurs d'IA (Anthropic par `fetch` et SSE, Ollama), clé de l'utilisateur (mémoire, onglet ou ordinateur, une copie, cloisonnée par identité), test de connexion sans contenu de journal, CSP limitée à deux adresses ; audit de sécurité complet de l'étape 7.
+- **ADR-018** Analyse d'une erreur : envoi sur clic du texte de l'aperçu, prompt durci (journal en données entre des délimiteurs au délimiteur aléatoire tiré par requête), réponse validée champ par champ (une relance, sinon texte brut), rendu en texte seul, statut « Analysé » ; audit de sécurité complet de l'étape 8.
+- **ADR-019** Chat par erreur : ouvert seulement après l'analyse du modèle pour cette erreur, rien ne part avant le clic, question masquée, contexte fixé au premier message et réemballé avec un délimiteur neuf à chaque requête, conversation bornée sans coupe silencieuse, rendu en texte ; revue de sécurité de l'étape 9.
 - **ADR-020** *(proposé)* Sources avancées : audit de sécurité de conception (menaces et contrôles exigés pour le dossier, l'URL et Azure Monitor ; pas de joker `*.blob.core.windows.net`).
 - **ADR-021** Source « dossier » (10a) : lecture seule, un seul niveau, dossier retenu par identité ; audit du code.
 - **ADR-023** Source « URL » (10b) : un compte de stockage nommé en entier (CSP égale à la liste du code, sans joker), adresse vérifiée avant l'envoi et jamais répétée, jeton masqué et jamais gardé, redirection refusée, téléchargement borné par une limite mesurée (256 Mio) ; audit du code.
 - **ADR-024** L'audit bloquant de la CI porte sur les dépendances livrées (`--omit=dev`) ; l'audit complet reste disponible (`npm run audit:all`), informatif, tant qu'un avis d'outillage n'a pas de correctif publié.
 - **ADR-025** Lecture de l'export CSV du portail Log Analytics (3b, première partie).
 - **ADR-026** La v1 simple est livrée ; l'analyse reçue reste dans le détail de l'erreur et la page y mène dès la première réponse, avec « Voir l'analyse », un message d'état et une consigne dans le panneau d'envoi.
-- **ADR-019** Chat par erreur : ouvert dès l'analyse du journal, rien ne part avant le clic, question masquée, contexte fixé au premier message et réemballé avec un délimiteur neuf à chaque requête, conversation bornée sans coupe silencieuse, rendu en texte ; revue de sécurité de l'étape 9.
-- **ADR-018** Analyse d'une erreur : envoi sur clic du texte de l'aperçu, prompt durci (journal en données entre des délimiteurs au délimiteur aléatoire tiré par requête), réponse validée champ par champ (une relance, sinon texte brut), rendu en texte seul, statut « Analysé » ; audit de sécurité complet de l'étape 8.
-- **ADR-017** Fournisseurs d'IA (Anthropic par `fetch` et SSE, Ollama), clé de l'utilisateur (mémoire, onglet ou ordinateur, une copie, cloisonnée par identité), test de connexion sans contenu de journal, CSP limitée à deux adresses ; audit de sécurité complet de l'étape 7.
-- **ADR-014** Tri, filtres (niveau, statut), recherche et statuts par empreinte calculés sur les enregistrements en mémoire (fonctions pures de `core`), sans relire le fichier ; la recherche ne couvre pas la pile ; statuts en session.
-- **ADR-011** Lecture en une passe dans un worker, positions plutôt que texte, source = `Blob`, seuils mesurés.
 
 ## Structure (un seul projet)
 ```
@@ -34,12 +34,13 @@ sherlog/
 ├─ public/staticwebapp.config.json   routes de repli SPA + CSP
 ├─ scripts/      serve-dist (essai local sous la CSP de production), e2e (Chrome piloté par DevTools, sans dépendance) — hors application
 ├─ src/
-│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, entryLines, csvExport, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), occurrence la plus récente (identicalErrors), regroupement des identiques (identicalErrors), Redactor — TS pur
-│  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; folder (File System Access, étape 10a) ; plus tard url, azure-monitor
-│  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, createProvider, streamLines, serverSentEvents, errors, failureMessage ; étape 8 : analysisPrompt + prompts/*.md (ressources embarquées), analysis (schéma et validation), analyseError ; étape 9 : chatPrompt (prompts/chat-system.md)
+│  ├─ core/      parsing (levels, profiles, lineSplitter, entryAssembler, entryLines, csvExport, detectProfile), empreinte (fingerprint), préparation (preparation, previewHead), vue de la liste (errorView : tri, recherche, filtres), statuts par empreinte (errorStatus), masquage (redact), texte envoyé (sendPayload), regroupement des identiques et occurrence la plus récente (identicalErrors), texte et clés de tri partagés (text, timeKey) — TS pur
+│  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; folder (File System Access, étape 10a) ; urlSource (étape 10b) ; plus tard azure-monitor (10c)
+│  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, createProvider, streamLines, serverSentEvents, errors (dont `wasCancelled`), failureMessage ; étape 8 : analysisPrompt + prompts/*.md (ressources embarquées), analysis (schéma et validation), analyseError ; étape 9 : chatPrompt (prompts/chat-system.md)
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
-│  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité) ; plus tard historique local (IndexedDB)
-│  └─ ui/        composants React
+│  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité), folderStore (dossier retenu, IndexedDB) ; plus tard historique local
+│  ├─ auth/      clientPrincipal, useClientPrincipal, storageScope (identité lue sur `/.auth/me`, cloisonnement de ce qui est gardé)
+│  └─ ui/        composants React ; hooks `useLogScan` (lecture), `useAnalyses` et `useChats` (appels au modèle, entrées communes `LogAccess` de `readPayload`), `useAsyncRead` (lecture à la demande d'une entrée, des lignes autour ou du texte exact : une réponse tardive est écartée) ; `FoldablePanel` (blocs repliables, option `nested`)
 └─ tests/        Vitest + Testing Library
 ```
 Outillage : Vite, TypeScript strict, ESLint, Vitest. Pas de bibliothèque d'état tant que le besoin n'est pas prouvé.

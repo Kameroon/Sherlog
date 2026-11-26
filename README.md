@@ -54,14 +54,14 @@ Retrouver la cause d'une erreur dans des fichiers de logs de plusieurs centaines
   - aucune télémétrie.
 - **Qualité** :
   - TypeScript strict, ESLint sans aucun avertissement ;
-  - **1 524 tests** Vitest écrits avant le code ;
+  - **1 545 tests** Vitest écrits avant le code ;
   - **179 vérifications de bout en bout** dans un vrai Chrome, pilotées par le protocole DevTools, sans dépendance ajoutée : vrai worker sous la CSP de production, fichiers de 64 Mo, 100 000 erreurs, console sans erreur ;
   - les garde-fous sont aussi vérifiés par des tests de mutation : un outil local casse chaque règle, et un test doit échouer.
 - **Livraison** :
   - GitHub Actions vérifie types, lint, tests, build et audit des dépendances livrées avant chaque déploiement ;
   - chaque pull request vers `main` a son environnement de prévisualisation ;
   - `dev` va vers `main` par pull request, et `main` correspond à la production.
-- **Décisions écrites** : 24 ADR dans `docs/adr/`. Chacun donne le contexte, la décision et ses conséquences.
+- **Décisions écrites** : 25 ADR dans `docs/adr/`. Chacun donne le contexte, la décision et ses conséquences.
 
 **Pile :** React 19, TypeScript 6 (strict), Vite 8, Vitest 5. Les seules dépendances livrées sont `react` et `react-dom`, avec des versions épinglées.
 
