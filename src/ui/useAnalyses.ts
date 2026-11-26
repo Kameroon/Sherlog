@@ -2,26 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { analyseError } from '../ai/analyseError';
 import { createProvider } from '../ai/createProvider';
 import type { ProviderChoice } from '../ai/createProvider';
-import { AiRequestError } from '../ai/errors';
+import { AiRequestError, wasCancelled } from '../ai/errors';
 import { failureMessage } from '../ai/failureMessage';
 import { PROVIDER_NAMES } from '../ai/provider';
-import type { IdenticalErrors } from '../core/identicalErrors';
 import type { RedactionRuleId } from '../core/redact';
-import type { ErrorRecord } from '../core/scanLog';
-import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import type { NeighbourLines } from '../sources/readNeighbourLines';
 import type { AnalysisByFingerprint, AnalysisEntry } from './analysisState';
 import { readPayload } from './readPayload';
+import type { LogAccess } from './readPayload';
 
 /** What the analyses read of the analysis session; given afresh at each render, read when it is needed. */
-export interface AnalysesInputs {
-  readonly records: readonly ErrorRecord[];
-  readonly groups: ReadonlyMap<number, IdenticalErrors>;
-  readonly fileName: string;
-  readonly hasDate: boolean;
-  readonly countIsMinimum: boolean;
-  readonly readText: (position: EntryPosition) => Promise<EntryText>;
-  readonly readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
+export interface AnalysesInputs extends LogAccess {
   readonly fetchImpl?: typeof fetch;
   /** The address of this site, which a failure of Ollama tells the user to allow. */
   readonly siteOrigin: string;
@@ -107,7 +97,7 @@ export function useAnalyses(inputs: AnalysesInputs): Analyses {
           setEntry(fingerprintId, { status: 'done', outcome, by: `${job.choice.model} (${PROVIDER_NAMES[job.choice.provider]})` });
           latest.current.onAnalysed(fingerprintId);
         } catch (error) {
-          if (signal.aborted || (error instanceof AiRequestError && error.kind === 'cancelled')) {
+          if (wasCancelled(error, signal)) {
             setEntry(fingerprintId, null);
           } else {
             const message = error instanceof AiRequestError ? failureMessage(error, { provider: job.choice.provider, siteOrigin }) : 'Erreur inattendue pendant l’analyse.';

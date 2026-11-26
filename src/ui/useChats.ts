@@ -4,16 +4,13 @@ import { buildChatRequest } from '../ai/chatPrompt';
 import type { ChatContext, ChatTurn } from '../ai/chatPrompt';
 import { createProvider } from '../ai/createProvider';
 import type { ProviderChoice } from '../ai/createProvider';
-import { AiRequestError } from '../ai/errors';
+import { AiRequestError, wasCancelled } from '../ai/errors';
 import { failureMessage } from '../ai/failureMessage';
 import { MAX_ANSWER_CHARS } from '../ai/provider';
-import type { IdenticalErrors } from '../core/identicalErrors';
 import { redact, rulesForSending } from '../core/redact';
 import type { RedactionRuleId } from '../core/redact';
-import type { ErrorRecord } from '../core/scanLog';
-import type { EntryPosition, EntryText } from '../sources/readEntryText';
-import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { readPayload } from './readPayload';
+import type { LogAccess } from './readPayload';
 
 /** What a chat holds about one error: the exchanges, the one under way, and why the last question did not go through. */
 export interface ChatState {
@@ -30,14 +27,7 @@ export interface ChatState {
 export const NEW_CHAT: ChatState = { turns: [], context: null, pending: null, failure: null };
 
 /** What the chats read of the analysis session; given afresh at each render, read when it is needed. */
-export interface ChatsInputs {
-  readonly records: readonly ErrorRecord[];
-  readonly groups: ReadonlyMap<number, IdenticalErrors>;
-  readonly fileName: string;
-  readonly hasDate: boolean;
-  readonly countIsMinimum: boolean;
-  readonly readText: (position: EntryPosition) => Promise<EntryText>;
-  readonly readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
+export interface ChatsInputs extends LogAccess {
   readonly fetchImpl?: typeof fetch;
   readonly siteOrigin: string;
   /** What the model said of an error, if it has answered: the chat deepens it, and it goes into the context. */
@@ -149,7 +139,7 @@ export function useChats(inputs: ChatsInputs): Chats {
         const complete = answer;
         update(fingerprintId, (chat) => ({ ...chat, turns: [...chat.turns, { question: job.question, answer: complete }], pending: null, failure: null }));
       } catch (error) {
-        if (signal.aborted || (error instanceof AiRequestError && error.kind === 'cancelled')) {
+        if (wasCancelled(error, signal)) {
           return;
         }
         fail(error instanceof AiRequestError ? failureMessage(error, { provider: job.choice.provider, siteOrigin }) : 'Erreur inattendue pendant la discussion.');

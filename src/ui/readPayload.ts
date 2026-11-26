@@ -9,15 +9,19 @@ import { readFailureMessage } from '../sources/readFailure';
 import type { NeighbourLines } from '../sources/readNeighbourLines';
 import { sendSourceOf } from './sendSource';
 
-export interface PayloadInputs {
+/** How a screen reaches the log of an analysis: the errors found, and the reads of their text in the file. */
+export interface LogAccess {
   readonly records: readonly ErrorRecord[];
   readonly groups: ReadonlyMap<number, IdenticalErrors>;
-  readonly fingerprintId: number;
-  readonly hasDate: boolean;
   readonly fileName: string;
+  readonly hasDate: boolean;
   readonly countIsMinimum: boolean;
   readonly readText: (position: EntryPosition) => Promise<EntryText>;
   readonly readNeighbours: (position: EntryPosition) => Promise<NeighbourLines>;
+}
+
+export interface PayloadInputs extends LogAccess {
+  readonly fingerprintId: number;
 }
 
 export type ReadPayload =

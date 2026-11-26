@@ -41,3 +41,8 @@ export class AiRequestError extends Error {
     this.detail = options.detail;
   }
 }
+
+/** `true` when a failure comes from the caller giving up (the signal, or a request that said so): nothing to tell the user. */
+export function wasCancelled(error: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || (error instanceof AiRequestError && error.kind === 'cancelled');
+}

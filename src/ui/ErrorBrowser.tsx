@@ -18,6 +18,7 @@ import { ErrorList } from './ErrorList';
 import { ErrorToolbar } from './ErrorToolbar';
 import { SendPanel } from './SendPanel';
 import { ChatContextPreview, ChatPanel } from './ChatPanel';
+import type { LogAccess } from './readPayload';
 import { useAnalyses } from './useAnalyses';
 import { NEW_CHAT, useChats } from './useChats';
 
@@ -77,14 +78,9 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
       setAnalysisRequests((count) => count + 1);
     }
   };
+  const logAccess: LogAccess = { records, groups, fileName, hasDate, countIsMinimum: limitReached, readText, readNeighbours };
   const { analyses, progress, send, cancel } = useAnalyses({
-    records,
-    groups,
-    fileName,
-    hasDate,
-    countIsMinimum: limitReached,
-    readText,
-    readNeighbours,
+    ...logAccess,
     fetchImpl: aiFetch,
     siteOrigin,
     onAnalysed: (fingerprintId) => {
@@ -102,13 +98,7 @@ export function ErrorBrowser({ records, readText, readNeighbours, limitReached, 
     return entry?.status === 'done' ? entry.outcome : null;
   };
   const chats = useChats({
-    records,
-    groups,
-    fileName,
-    hasDate,
-    countIsMinimum: limitReached,
-    readText,
-    readNeighbours,
+    ...logAccess,
     fetchImpl: aiFetch,
     siteOrigin,
     analysisOf,
