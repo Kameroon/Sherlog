@@ -1,7 +1,7 @@
 # ADR-022 : Historique local — empreintes hachées, statuts et analyses (étape 11)
 
 ## Statut
-Proposé — 2026-11-15. L'option A a été choisie par l'auteur le 2026-11-15 ; l'ADR sera accepté quand les tranches T1 à T4 seront validées, avec les seuils mesurés reportés dans « Seuils ».
+Accepté sur le principe — 2026-11-15, validé tel quel par l'auteur (option A, clé non salée). Les seuils mesurés en T1 et T4 seront reportés dans « Seuils » ; l'ADR est complet quand T1 à T4 sont validées.
 
 ## Contexte
 `SPEC.md` §2 posait : « historique optionnel, local au navigateur (IndexedDB), export/import JSON ; jamais de log brut non masqué : contenu masqué, ou seulement empreintes + statuts + analyses (à trancher à l'étape 11) ».
@@ -42,7 +42,7 @@ Trois constats pèsent sur la décision :
 
 ## Risques résiduels acceptés
 - **Les analyses conservées peuvent citer des fragments du journal.** Le modèle a reçu du texte masqué, mais ses champs (`summary`, `evidence`…) peuvent en reprendre des morceaux ; le masquage étant un meilleur effort (ADR-015), un fragment sensible non masqué peut y survivre. C'est le coût de l'option A, que l'auteur a choisie : « rien de lisible hors analyses ». L'écran d'activation et l'avertissement d'export le disent.
-- Attaque par dictionnaire sur les clés hachées (voir « Pas de sel »).
+- Attaque par dictionnaire sur les clés hachées (voir « Pas de sel ») : **accepté par l'auteur** le 2026-11-15, l'outil étant local et individuel, sans exposition au public ; la portabilité de l'export/import entre navigateurs prime.
 
 ## Options écartées
 - **B — texte masqué lisible** : permettrait de tout lister, mais conserve du texte que le masquage « au mieux » peut laisser sensible. Écartée par l'auteur.
@@ -51,10 +51,12 @@ Trois constats pèsent sur la décision :
 - **Conserver les chats** : risque de fuite sans besoin prouvé.
 
 ## Seuils
-Le nombre maximal d'entrées et la taille maximale d'un fichier d'import ne sont pas posés à l'avance : ils seront **mesurés** (taille d'une analyse maximale d'après `MAX_TEXT_CHARS` et `MAX_LIST_ITEMS`, durée d'écriture et d'import sur un jeu généré) en T1 et T4, puis reportés ici.
+Le nombre maximal d'entrées et la taille maximale d'un fichier d'import ne sont pas posés à l'avance : ils sont **mesurés**, puis reportés ici.
+
+**T1 (mesuré le 2026-11-15)** : taille JSON d'un enregistrement analysé : ≈ 5,5 Ko pour une analyse réaliste (3 éléments par liste, 300 caractères par texte), ≈ 22 Ko pour une analyse généreuse (5 éléments, 800 caractères), ≈ 400 Ko au maximum permis par le schéma (20 éléments, 4 000 caractères : `MAX_LIST_ITEMS`, `MAX_TEXT_CHARS`). `MAX_HISTORY_ENTRIES` = **2 000**, soit ≈ 11 Mo en usage réaliste et ≈ 43 Mo en usage généreux ; le maximum du schéma (≈ 800 Mo) n'est pas atteignable par l'usage normal, et pour un **fichier d'import** il sera borné par une taille en octets propre, mesurée en T4. Valeur provisoire tant que T4 et l'écriture réelle dans IndexedDB (T2) ne sont pas mesurées.
 
 ## Conséquences
-- `core/history` (T1) : types, validation, fusion, plafonds, sans API Web.
+- `store/history` (T1, fait) : types, validation, fusion, plafonds, sans API Web ni IndexedDB. Placé dans `store/` et non dans `core/` parce qu'il réutilise la validation des analyses de `ai/analysis` (`checkAnalysis`) : `core` ne dépend pas de `ai`, et déplacer le schéma d'analyse n'aurait rien apporté.
 - `store/historyStore` et module d'ouverture partagé avec `folderStore` (T2).
 - Une garde sur `src/` : `indexedDB` reste confiné aux modules du `store` ; la clé IA n'est jamais importée par l'historique.
 - La ligne 11 de la feuille de route reste ouverte tant que 3b, 10b et 10c ne sont pas livrées : l'audit global de T7 ne peut porter que sur l'existant.

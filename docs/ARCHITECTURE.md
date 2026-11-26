@@ -35,7 +35,7 @@ sherlog/
 │  ├─ sources/   readHead, readEntryText, readNeighbourLines, blobChunks, readFailure (étape 4) ; folder (File System Access, étape 10a) ; plus tard url, azure-monitor
 │  ├─ ai/        provider (AiProvider, Message), request (envoi unique : ni cookie ni référent, délai, annulation), anthropic, ollama, createProvider, streamLines, serverSentEvents, errors, failureMessage ; étape 8 : analysisPrompt + prompts/*.md (ressources embarquées), analysis (schéma et validation), analyseError ; étape 9 : chatPrompt (prompts/chat-system.md)
 │  ├─ workers/   scan.worker.ts (coque), runScan, scanProtocol, startScanWorker
-│  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité) ; plus tard historique local (IndexedDB)
+│  ├─ store/     aiSettings (clé et réglages du fournisseur, cloisonnés par identité) ; folderStore (dossier retenu, IndexedDB) ; history (étape 11 : enregistrements de l'historique, validation, fusion, plafond — pur) ; plus tard historyStore (IndexedDB)
 │  └─ ui/        composants React
 └─ tests/        Vitest + Testing Library
 ```
