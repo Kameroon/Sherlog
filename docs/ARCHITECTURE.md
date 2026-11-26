@@ -1,7 +1,7 @@
 # ARCHITECTURE — Sherlog
 
 ## Décisions structurantes
-Justifications consignées en ADR dans `docs/adr/` (pas de texte dupliqué ici ; l'ADR-022 n'existe pas) :
+Justifications consignées en ADR dans `docs/adr/` (pas de texte dupliqué ici ; l'ADR-022, historique local, n'est que sur la branche locale `feat/etape-11`, non fusionnée) :
 - **ADR-001** Application monopage statique (Vite + React + TypeScript strict) sur Azure Static Web Apps Free, sans API.
 - **ADR-002** Appels IA directs depuis le navigateur avec la clé de l'utilisateur ; Ollama local en option (spike de l'étape 1 : Anthropic mesuré, Ollama partiellement).
 - **ADR-003** `core` en TypeScript pur, sans DOM ni React : testable et réutilisable (d'où une empreinte sans `crypto.subtle`).
